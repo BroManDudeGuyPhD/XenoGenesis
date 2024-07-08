@@ -1,28 +1,38 @@
-<div id="signDiv">
-    Username: <input id="signDiv-username" type="text"></input><br>
-    Password: <input id="signDiv-password" type="password"></input>
-    <button id="signDiv-signIn">Sign In</button>
-    <button id="signDiv-signUp">Sign Up</button>
-</div>
+<!DOCTYPE html>
+<html>
+
+<head>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    
+
+    <div id="signDiv" class="signIn">
+        Username: <input id="signDiv-username" type="text"></input><br>
+        Password: <input id="signDiv-password" type="password"></input><br>
+        <button id="signDiv-signIn">Sign In</button>
+        <button id="signDiv-signUp">Sign Up</button>
+    </div> 
 
 
-<div id="gameDiv" style="display:none;">
-    <canvas id="ctx" width="1600" height="800" style="border:1px solid #ffffff;"></canvas>
+    <div id="gameDiv" style="display:none;">
+        <canvas id="ctx" width="1600" height="800" style="border:1px solid #ffffff;"></canvas>
 
-    <div id="chat-text" style="width:500px;height:100px;overflow-y:scroll">
-        <div>Hello!</div>
+        <div id="chat-text" style="width:500px;height:100px;overflow-y:scroll">
+            <div>Hello!</div>
+        </div>
+
+        <form id="chat-form">
+            <input id="chat-input" type="text" style="width:500px"></input>
+        </form>
     </div>
 
-    <form id="chat-form">
-        <input id="chat-input" type="text" style="width:500px"></input>
-    </form>
-</div>
+    <script src="/socket.io/socket.io.js"></script>
 
-<script src="/socket.io/socket.io.js"></script>
+    <script>
 
-<script>
-
-    var socket = io();
+        var socket = io();
 
         //Login
         var signDiv = document.getElementById('signDiv');
@@ -30,6 +40,7 @@
         var signDivSignIn = document.getElementById('signDiv-signIn');
         var signDivSignUp = document.getElementById('signDiv-signUp');
         var signDivPassword = document.getElementById('signDiv-password');
+
 
         signDivSignIn.onclick = function () {
             socket.emit('signIn', { username: signDivUsername.value, password: signDivPassword.value });
@@ -56,59 +67,64 @@
 
 
 
-    //Game
-    var chatText = document.getElementById('chat-text');
-    var chatInput = document.getElementById('chat-input');
-    var chatForm = document.getElementById('chat-form');
-    var ctx = document.getElementById("ctx").getContext("2d");
-    ctx.font = '30px Arial';
 
-    
-    socket.on('newPositions', function (data) {
-        ctx.clearRect(0, 0, 500, 500);
-        for (var i = 0; i < data.length; i++)
-            ctx.fillText('P', data[i].x, data[i].y);
-    });
+        //Game
+        var chatText = document.getElementById('chat-text');
+        var chatInput = document.getElementById('chat-input');
+        var chatForm = document.getElementById('chat-form');
+        var ctx = document.getElementById("ctx").getContext("2d");
+        ctx.font = '30px Arial';
 
-    socket.on('addToChat',function(data){
-        chatText.innerHTML += '<div>' + data + '</div>';
-    });
 
-    socket.on('evalAnswer',function(data){
-        console.log(data);
-    });
+        socket.on('newPositions', function (data) {
+            ctx.clearRect(0, 0, 500, 500);
+            for (var i = 0; i < data.length; i++)
+                ctx.fillText('P', data[i].x, data[i].y);
+        });
 
-    //Chat Window
-    chatForm.onsubmit = function(e){
-        e.preventDefault();
-        if(chatInput.value[0] === '/')
-            socket.emit('evalServer', chatInput.value.slice(1));
-        else
-            socket.emit('sendMsgToServer',chatInput.value);
+        socket.on('addToChat', function (data) {
+            chatText.innerHTML += '<div>' + data + '</div>';
+        });
 
-        chatInput.value = '';
-    }
+        socket.on('evalAnswer', function (data) {
+            console.log(data);
+        });
 
-    document.onkeydown = function (event) {
-        if (event.keyCode === 68) //d
-            socket.emit('keyPress', { inputId: 'right', state: true });
-        else if (event.keyCode === 83) //s
-            socket.emit('keyPress', { inputId: 'down', state: true });
-        else if (event.keyCode === 65) //a
-            socket.emit('keyPress', { inputId: 'left', state: true });
-        else if (event.keyCode === 87) // w
-            socket.emit('keyPress', { inputId: 'up', state: true });
-    }
+        //Chat Window
+        chatForm.onsubmit = function (e) {
+            e.preventDefault();
+            if (chatInput.value[0] === '/')
+                socket.emit('evalServer', chatInput.value.slice(1));
+            else
+                socket.emit('sendMsgToServer', chatInput.value);
 
-    document.onkeyup = function (event) {
-        if (event.keyCode === 68) //d
-            socket.emit('keyPress', { inputId: 'right', state: false });
-        else if (event.keyCode === 83) //s
-            socket.emit('keyPress', { inputId: 'down', state: false });
-        else if (event.keyCode === 65) //a
-            socket.emit('keyPress', { inputId: 'left', state: false });
-        else if (event.keyCode === 87) // w
-            socket.emit('keyPress', { inputId: 'up', state: false });
+            chatInput.value = '';
+        }
 
-    }
-</script>
+        document.onkeydown = function (event) {
+            if (event.keyCode === 68) //d
+                socket.emit('keyPress', { inputId: 'right', state: true });
+            else if (event.keyCode === 83) //s
+                socket.emit('keyPress', { inputId: 'down', state: true });
+            else if (event.keyCode === 65) //a
+                socket.emit('keyPress', { inputId: 'left', state: true });
+            else if (event.keyCode === 87) // w
+                socket.emit('keyPress', { inputId: 'up', state: true });
+        }
+
+        document.onkeyup = function (event) {
+            if (event.keyCode === 68) //d
+                socket.emit('keyPress', { inputId: 'right', state: false });
+            else if (event.keyCode === 83) //s
+                socket.emit('keyPress', { inputId: 'down', state: false });
+            else if (event.keyCode === 65) //a
+                socket.emit('keyPress', { inputId: 'left', state: false });
+            else if (event.keyCode === 87) // w
+                socket.emit('keyPress', { inputId: 'up', state: false });
+
+        }
+    </script>
+
+</body>
+
+</html>
