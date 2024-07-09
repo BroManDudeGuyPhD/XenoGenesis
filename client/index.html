@@ -6,15 +6,12 @@
 </head>
 
 <body>
-    
-
     <div id="signDiv" class="signIn">
         Username: <input id="signDiv-username" type="text"></input><br>
         Password: <input id="signDiv-password" type="password"></input><br>
         <button id="signDiv-signIn">Sign In</button>
         <button id="signDiv-signUp">Sign Up</button>
-    </div> 
-
+    </div>
 
     <div id="gameDiv" style="display:none;">
         <canvas id="ctx" width="1600" height="800" style="border:1px solid #ffffff;"></canvas>
@@ -29,7 +26,6 @@
     </div>
 
     <script src="/socket.io/socket.io.js"></script>
-
     <script>
 
         var socket = io();
@@ -40,7 +36,6 @@
         var signDivSignIn = document.getElementById('signDiv-signIn');
         var signDivSignUp = document.getElementById('signDiv-signUp');
         var signDivPassword = document.getElementById('signDiv-password');
-
 
         signDivSignIn.onclick = function () {
             socket.emit('signIn', { username: signDivUsername.value, password: signDivPassword.value });
@@ -65,22 +60,10 @@
                 alert("Sign up unsuccessul.");
         });
 
-
-
-
-        //Game
+        //Chat
         var chatText = document.getElementById('chat-text');
         var chatInput = document.getElementById('chat-input');
         var chatForm = document.getElementById('chat-form');
-        var ctx = document.getElementById("ctx").getContext("2d");
-        ctx.font = '30px Arial';
-
-
-        socket.on('newPositions', function (data) {
-            ctx.clearRect(0, 0, 500, 500);
-            for (var i = 0; i < data.length; i++)
-                ctx.fillText('P', data[i].x, data[i].y);
-        });
 
         socket.on('addToChat', function (data) {
             chatText.innerHTML += '<div>' + data + '</div>';
@@ -100,6 +83,101 @@
 
             chatInput.value = '';
         }
+
+        //Game
+        var Img = {};
+        Img.player = new Image();
+        Img.player.src = '/client/img/player.png';
+        Img.map = new Image();
+        Img.map.src = '/client/img/map.png';
+
+        var ctx = document.getElementById("ctx").getContext("2d");
+        ctx.font = '30px Arial';
+
+        var Player = function (initPack) {
+            var self = {};
+            self.id = initPack.id;
+            self.number = initPack.number;
+            self.x = initPack.x;
+            self.y = initPack.y;
+            self.hp = initPack.hp;
+            self.hpMax = initPack.hpMax;
+            self.score = initPack.score;
+
+            self.draw = function(){
+                var hpWidth = 30 * self.hp / self.hpMax;
+
+                //HP Bar
+                ctx.fillStyle = 'red';
+                ctx.fillRect(self.x - hpWidth/2, self.y - 40,hpWidth,4);
+
+                //Player Image
+                var width = Img.player.width/2;
+                var height = Img.player.height/2;
+
+                ctx.drawImage(Img.player,
+                    0, 0, Img.player.width, Img.player.height,
+                    self.x - width / 2, self.y - height / 2, width, height);
+
+                //Score
+                //ctx.fillText(self.score,self.x,self.y-60)
+            }
+
+            Player.list[self.id] = self;
+            return self;
+        }
+
+        Player.list = {};
+
+        //Initialize
+        socket.on('init', function(data) {
+            for (var i = 0; i < data.player.length; i++) {
+                new Player(data.player[i]);
+            }
+        });
+
+
+        //Update
+        socket.on('update', function(data) {
+            //{ player: [{id:123,x:0,y:0}, {id:1, x:0, y: 0} ], bullet: []}
+            for (var i = 0; i < data.player.length; i++) {
+                var pack = data.player[i];
+                var p = Player.list[pack.id];
+                if (p) {
+                    if (pack.x !== undefined)
+                        p.x = pack.x;
+                    if (pack.y !== undefined)
+                        p.y = pack.y;
+                    if (pack.hp !== undefined)
+                        p.hp = pack.hp;
+                    if (pack.score !== undefined)
+                        p.score = pack.score;
+                }
+            }
+        });
+
+        //Remove
+        socket.on('remove', function (data) {
+            //{player: [12323], bullet : [12323, 123123] }
+            for (var i = 0; i < data.player.length; i++) {
+                delete Player.list[data.player[i]];
+            }
+        });
+
+        //Draw Map
+        var drawMap = function(){
+            ctx.drawImage(Img.map,0,0);
+        }
+
+        //Draw GAME
+        setInterval(function () {
+            ctx.clearRect(0, 0, 500, 500);
+            drawMap();
+
+            for (var i in Player.list)
+                Player.list[i].draw();
+        }, 40);
+
 
         document.onkeydown = function (event) {
             if (event.keyCode === 68) //d

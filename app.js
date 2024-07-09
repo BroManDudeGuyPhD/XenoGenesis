@@ -1,17 +1,17 @@
 var mongojs = require("mongojs");
 var db = mongojs('localhost:27017/xenogenesis',['account','progress']);
 
-var express = require('express');
-var app = express();
-var serv = require('http').Server(app);
+const express = require('express');
+const app = express();
+const serv = require('http').Server(app);
 
 app.get('/',function(req, res){
     res.sendFile(__dirname + '/client/index.html');
 });
-
-app.use('client', express.static(__dirname + '/client'));
+app.use('/client',express.static(__dirname + '/client'));
 
 serv.listen(2000);
+
 
 var SOCKET_LIST = {};
 
@@ -44,6 +44,9 @@ var Player = function (id) {
     self.pressingUp = false;
     self.pressingDown = false;
     self.maxSpd = 10;
+    self.hp = 100;
+    self.hpMax = 100;
+    self.score = 0;
 
     var super_update = self.update;
     self.update = function(){
@@ -65,7 +68,33 @@ var Player = function (id) {
         else
             self.spdY = 0;
     }
+
+    self.getInitPack = function () {
+        return {
+            id: self.id,
+            x: self.x,
+            y: self.y,
+            number: self.number,
+            hp:self.hp,
+            hpMax:self.hpMax,
+            score:self.score,
+        };
+    }
+
+    self.getUpdatePack = function () {
+        return {
+            id: self.id,
+            x: self.x,
+            y: self.y,
+            hp:self.hp,
+            score:self.score,
+        };
+    }
+
     Player.list[id] = self;
+
+    initPack.player.push(self.getInitPack());
+
     return self;
 }
 
@@ -83,12 +112,23 @@ Player.onConnect = function(socket){
             player.pressingUp = data.state;
         else if (data.inputId === 'down')
             player.pressingDown = data.state;
-
     });
+
+    socket.emit('init',{
+        player:Player.getAllInitPack(),
+    })
+}
+
+Player.getAllInitPack = function(){
+    var players = [];
+    for (var i in Player.list)
+        players.push(Player.list[i].getInitPack());
+    return players;
 }
 
 Player.onDisconnect = function(socket){
     delete Player.list[socket.id];
+    removePack.player.push(socket.id);
 }
 
 Player.update = function(){
@@ -96,22 +136,12 @@ Player.update = function(){
     for(var i in Player.list){
         var player = Player.list[i];
         player.update();
-        pack.push({
-            x:player.x,
-            y:player.y,
-            number:player.number
-        });
+        pack.push(player.getUpdatePack());
     }
     return pack;
 }
 
-
-var USERS = {
-    "bob":"asd"
-}
-
 var isValidPassword = function(data,cb){
-    //cb(USERS[data.username] === data.password);
     db.account.find({username:data.username,password:data.password}, function(err,res){
         if(res.length > 0)
             cb(true);
@@ -144,7 +174,6 @@ io.sockets.on('connection', function(socket){
     socket.id = Math.random();
     SOCKET_LIST[socket.id] = socket;
     
-
     // socket.on('signIn', function (data) {
     //     if (isValidPassword(data)) {
     //         Player.onConnect(socket);
@@ -196,12 +225,22 @@ io.sockets.on('connection', function(socket){
 
 });
 
+var initPack = {player:[]};
+var removePack = {player:[]};
+
 setInterval(function(){
-    var pack = Player.update();
+    var pack = {
+        player:Player.update(),
+    }
 
     for(var i in SOCKET_LIST){
         var socket = SOCKET_LIST[i];
-        socket.emit('newPositions',pack);
+        socket.emit('init',initPack);
+        socket.emit('update',pack);
+        socket.emit('remove',removePack);
     }
-},1000/30);
+
+    initPack.player = [];
+    removePack.player = [];
+},1000/60);
 
