@@ -12,9 +12,37 @@ app.use('/client',express.static(__dirname + '/client'));
 
 serv.listen(2000);
 
-
 var SOCKET_LIST = {};
 
+
+////
+// Variables
+
+var continentCoords = {
+    NorthEast:{
+        x:1400,
+        y:200,
+    },
+    NorthWest:{
+        x:300,
+        y:200,
+    },
+    SouthEast:{
+        x:1400,
+        y:650,
+    },
+    SouthWest:{
+        x:300,
+        y:700,
+    },
+    Middle:{
+        x:800,
+        y:400,
+    },
+}
+
+////
+// Classes
 var Entity = function(param) {
     var self = {
         x: 250,
@@ -59,6 +87,8 @@ var Player = function (param) {
     self.hp = 100;
     self.hpMax = 100;
     self.score = 0;
+    self.startingContinent = "";
+    self.conquredContinents = "";
 
     var super_update = self.update;
     self.update = function(){
@@ -91,6 +121,7 @@ var Player = function (param) {
             hpMax:self.hpMax,
             score:self.score,
             map:self.map,
+            startingContinent:self.startingContinent,
         };
     }
 
@@ -102,6 +133,7 @@ var Player = function (param) {
             hp:self.hp,
             score:self.score,
             map:self.map,
+            conquredContinents:self.conquredContinents,
         };
     }
 
@@ -112,17 +144,37 @@ var Player = function (param) {
     return self;
 }
 
-
-
 Player.list = {};
 
-//Player Connects
+
+////
+// Player Connects
 Player.onConnect = function(socket,username){
     var map = 'forest';
+
+    const continents = ["NorthWest", "NorthEast", "SouthEast", "SouthWest","Middle"];
+    const startingLocation = continents[Math.floor(Math.random() * continents.length)];
+    var x,y
+    
+
+    for(place in continentCoords){
+        if(place === startingLocation){
+            x = continentCoords[place].x;
+            y = continentCoords[place].y;
+        }
+    }
+
+    console.log(startingLocation)
+    console.log(x)
+    console.log(y)
+
     var player = Player({
         username:username,
         id:socket.id,
         map:map,
+        x:x,
+        y:y,
+        startingContinent:startingLocation,
     });
 
     //Key Presses
@@ -291,6 +343,8 @@ io.sockets.on('connection', function(socket){
 var initPack = {player:[]};
 var removePack = {player:[]};
 
+////
+// Main Loop
 setInterval(function(){
     var pack = {
         player:Player.update(),
