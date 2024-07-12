@@ -26,11 +26,11 @@
         </div>
     
 
-        <div id="belowGame" style="margin-top:820px">
-            <div id="chat-text" style="width:800px; height:150px; overflow-y:scroll">
+        <div id="belowGame" style="margin-top:800px">
+            <div id="chat-text" style="width:800px; height:150px; overflow-y:scroll; ">
                 <div>Hello!</div>
             </div>
-    
+            <div id="inventory"></div>
             <form id="chat-form">
                 <input id="chat-input" type="text" style="width:500px"></input>
             </form>
@@ -38,6 +38,7 @@
     </div>
 
     <script src="/socket.io/socket.io.js"></script>
+    <script src="/client/Inventory.js"></script>
     <script>
 
         var socket = io();
@@ -120,6 +121,13 @@
             console.log("Change Map")
             socket.emit('changeMap');
         }
+
+        var inventory = new Inventory(null);
+        socket.on('updateInventory',function(items){
+            inventory.items = items;
+            inventory.refreshRender();
+        })
+
 
         //Game
         var Img = {};

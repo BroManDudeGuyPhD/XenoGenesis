@@ -1,49 +1,137 @@
-var mongojs = require("mongojs");
-var db = mongojs('localhost:27017/xenogenesis',['account','progress']);
+var initPack = {player:[]};
+var removePack = {player:[]};
 
-require('./Entity');
 require('./client/Inventory')
 
-const express = require('express');
-const app = express();
-const serv = require('http').Server(app);
+Entity = function(param) {
+    var self = {
+        x: 250,
+        y: 250,
+        spdX: 0,
+        spdY: 0,
+        id: "",
+        map:'forest',
+    }
 
-app.get('/',function(req, res){
-    res.sendFile(__dirname + '/client/index.html');
-});
-app.use('/client',express.static(__dirname + '/client'));
+    if(param){
+        if(param.x)
+            self.x = param.x;
+        if(param.y)
+            self.y = param.y;
+        if(param.map)
+            self.map = param.map;
+        if(param.id)
+            self.id = param.id;
+    }
 
-serv.listen(2000);
+    self.update = function () {
+        self.updatePosition();
+    }
+    self.updatePosition = function () {
+        self.x += self.spdX;
+        self.y += self.spdY;
+    }
+    return self;
 
-var SOCKET_LIST = {};
+}
 
-////
-// Variables
+Entity.getFrameUpdateData = function () {
+    var pack = {
+        initPack: {
+            player: initPack.player,
+            //bullet: initPack.bullet,
+        },
+        removePack: {
+            player: removePack.player,
+            //bullet: removePack.bullet,
+        },
+        updatePack: {
+            player: Player.update(),
+            //bullet: Bullet.update(),
 
-var continentCoords = {
-    NorthEast:{
-        x:1400,
-        y:200,
-    },
-    NorthWest:{
-        x:300,
-        y:200,
-    },
-    SouthEast:{
-        x:1400,
-        y:650,
-    },
-    SouthWest:{
-        x:300,
-        y:700,
-    },
-    Middle:{
-        x:800,
-        y:400,
-    },
+        }
+    };
+
+    initPack.player = [];
+    //initPack.bullet = [];
+    removePack.player = [];
+    //removePack.bullet = [];
+    return pack;
+}
+
+Player = function (param) {
+    var self = Entity(param);
+    self.number = "" + Math.floor(10 * Math.random());
+    self.username = param.username;
+    self.pressingRight = false;
+    self.pressingLeft = false;
+    self.pressingUp = false;
+    self.pressingDown = false;
+    self.maxSpd = 10;
+    self.hp = 100;
+    self.hpMax = 100;
+    self.score = 0;
+    self.startingContinent = "";
+    self.conquredContinents = "";
+    self.inventory = new Inventory(param.socket);
+
+    var super_update = self.update;
+    self.update = function(){
+        self.updateSpd();
+
+        super_update();
+    }
+
+    self.updateSpd = function () {
+        if (self.pressingRight)
+            self.spdX = self.maxSpd;
+        else if (self.pressingLeft)
+            self.spdX = -self.maxSpd;
+        else
+            self.spdX = 0;
+        if (self.pressingUp)
+            self.spdY = -self.maxSpd;
+        else if (self.pressingDown)
+            self.spdY = self.maxSpd;
+        else
+            self.spdY = 0;
+    }
+
+    self.getInitPack = function () {
+        return {
+            id:self.id,
+            x:self.x,
+            y:self.y,
+            number:self.number,
+            hp:self.hp,
+            hpMax:self.hpMax,
+            score:self.score,
+            map:self.map,
+            startingContinent:self.startingContinent,
+        };
+    }
+
+    self.getUpdatePack = function () {
+        return {
+            id:self.id,
+            x:self.x,
+            y:self.y,
+            hp:self.hp,
+            score:self.score,
+            map:self.map,
+            conquredContinents:self.conquredContinents,
+        };
+    }
+
+    Player.list[self.id] = self;
+
+    initPack.player.push(self.getInitPack());
+
+    return self;
 }
 
 Player.list = {};
+
 
 ////
 // Player Connects
@@ -69,6 +157,7 @@ Player.onConnect = function(socket,username){
     var player = Player({
         username:username,
         id:socket.id,
+        socket:socket,
         map:map,
         x:x,
         y:y,
@@ -151,7 +240,6 @@ Player.getAllInitPack = function(){
 }
 
 Player.onDisconnect = function(socket){
-    removePack = Entity.getFrameUpdateData().removePack;
     delete Player.list[socket.id];
     removePack.player.push(socket.id);
 }
@@ -165,92 +253,3 @@ Player.update = function(){
     }
     return pack;
 }
-
-var isValidPassword = function(data,cb){
-    db.account.find({username:data.username,password:data.password}, function(err,res){
-        if(res.length > 0)
-            cb(true);
-        else
-            cb(false);
-    });
-    
-}
-
-var isUsernameTaken = function(data,cb){
-    db.account.find({username:data.username}, function(err,res){
-        if(res.length > 0)
-            cb(true);
-        else
-            cb(false);
-    });
-    
-}
-
-var addUser = function(data,cb){
-    db.account.insert({username:data.username,password:data.password}, function(err){
-        cb();
-    });
-    
-}
-
-var io = require('socket.io')(serv,{});
-
-io.sockets.on('connection', function(socket){
-    socket.id = Math.random();
-    SOCKET_LIST[socket.id] = socket;
-    
-    // socket.on('signIn', function (data) {
-    //     if (isValidPassword(data)) {
-    //         Player.onConnect(socket);
-    //         socket.emit('signInResponse', { success: true });
-    //     } else {
-    //         socket.emit('signInResponse', { success: false });
-    //     }
-    // });
-
-    socket.on('signIn', function(data) {
-        isValidPassword(data, function(res){
-            if (res) {
-                Player.onConnect(socket,data.username);
-                socket.emit('signInResponse', { success: true });
-            } else {
-                socket.emit('signInResponse', { success: false });
-            }
-        });
-    });
-
-    socket.on('signUp', function(data) {
-        isUsernameTaken(data, function(res){
-            if (res) {
-                socket.emit('signUpResponse', { success: false });
-            } else {
-                addUser(data,function(){
-                    socket.emit('signUpResponse', { success: true });
-                });
-            }
-        });
-    });
-
-    socket.on('disconnect', function(){
-        delete SOCKET_LIST[socket.id];
-        Player.onDisconnect(socket);
-    });
-
-
-});
-
-
-////
-// Main Loop
-setInterval(function(){
-
-    var packs = Entity.getFrameUpdateData();
-    for(var i in SOCKET_LIST){
-        var socket = SOCKET_LIST[i];
-        socket.emit('init',packs.initPack);
-        socket.emit('update',packs.updatePack);
-        socket.emit('remove',packs.removePack);
-    }
-
-},1000/60);
-
