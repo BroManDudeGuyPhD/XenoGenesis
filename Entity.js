@@ -73,7 +73,7 @@ Player = function (param) {
     self.score = 0;
     self.startingContinent = "";
     self.conquredContinents = "";
-    self.inventory = new Inventory(param.socket);
+    self.inventory = new Inventory(param.socket,true);
 
     var super_update = self.update;
     self.update = function(){

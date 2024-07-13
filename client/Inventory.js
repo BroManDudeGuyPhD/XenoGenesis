@@ -1,7 +1,8 @@
-Inventory = function (socket) {
+Inventory = function (socket,serverCheck) {
     var self = {
         items: [], //{id:"itemId", amount:1}
         socket:socket,
+        serverCheck:serverCheck,
     }
     self.addItem = function (id, amount) {
         for (var i = 0; i < self.items.length; i++) {
@@ -38,19 +39,42 @@ Inventory = function (socket) {
 
     self.refreshRender = function () {
         // Server
-        if(self.socket){
+        if(self.serverCheck){
             self.socket.emit('updateInventory',self.items);
             return;
         }
 
         //Client only
-        var str = "";
-        for (var i = 0; i < self.items.length; i++) {
-            let item = Item.List[self.items[i].id];
-            let onclick = "Item.List['" + item.id + "'].event()";
-            str += "<button onclick=\"" + onclick + "\">" + item.name + " x" + self.items[i].amount + "</button><br>";
-        }
+
         document.getElementById("inventory").innerHTML = str;
+        var addButton = function(data){
+            let item = Item.list[data.id];
+            let button = document.createElement('button');
+            button.onclick - function(){
+                self.socket.emit('useItem'.item.id);
+            }
+            button.innerText = item.name + ' x' + data.amount;
+            inventory.appendChild(button);
+        }
+
+        for (var i = 0; i < self.items.length; i++) {
+            addButton(self.items[i]);
+        }
+
+        if(self.server){
+            self.socket.on('useItem',function(itemID){
+                if(!self.hasItem(itemID,1)){
+                    // If the player does not have the item they claim to have...
+                    // Need to implement a better anticheat to determine desync vs malicious attemps
+                    console.log("Cheater: "+Player.list[self.socket.id].userName);
+                    return;
+                }
+                console.log("Cheater: "+Player.list[self.socket.id].userName);
+                let item = Item.list[itemID];
+                item.event(Player.list[self.socket.id]);
+            });
+        }
+        
     }
 
     return self;
@@ -62,15 +86,15 @@ Item = function (id, name, event) {
         name: name,
         event: event,
     }
-    Item.List[self.id] = self;
+    Item.list[self.id] = self;
     return self;
 }
 
-Item.List = {};
+Item.list = {};
 
-Item("potion", "Potion", function () {
+Item("potion", "Potion", function (player) {
     player.hp = 10;
-    playerInventory.removeItem("potion", 1);
+    player.inventory.removeItem("potion", 1);
 });
 
 Item("enemy", "Spawn Enemy", function () {
