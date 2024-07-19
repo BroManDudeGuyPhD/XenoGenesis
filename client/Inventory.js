@@ -1,9 +1,10 @@
-Inventory = function (socket,serverCheck) {
+Inventory = function (items,socket,serverCheck) {
     var self = {
-        items: [], //{id:"itemId", amount:1}
+        items:items, //{id:"itemId", amount:1}
         socket:socket,
         serverCheck:serverCheck,
     }
+
     self.addItem = function (id, amount) {
         for (var i = 0; i < self.items.length; i++) {
             if (self.items[i].id === id) {
@@ -45,8 +46,8 @@ Inventory = function (socket,serverCheck) {
         }
 
         //Client only
-
-        document.getElementById("inventory").innerHTML = str;
+        var inventory = document.getElementById("inventory");
+        inventory.innerHTML = "";
         var addButton = function(data){
             let item = Item.list[data.id];
             let button = document.createElement('button');
@@ -61,15 +62,18 @@ Inventory = function (socket,serverCheck) {
             addButton(self.items[i]);
         }
 
-        if(self.server){
+        if(self.serverCheck){
             self.socket.on('useItem',function(itemID){
                 if(!self.hasItem(itemID,1)){
                     // If the player does not have the item they claim to have...
                     // Need to implement a better anticheat to determine desync vs malicious attemps
+
+                    // /Player.list[id].inventory.addItem('potion',1)
+                    // socket.emit("useItem","potion")
                     console.log("Cheater: "+Player.list[self.socket.id].userName);
                     return;
                 }
-                console.log("Cheater: "+Player.list[self.socket.id].userName);
+                
                 let item = Item.list[itemID];
                 item.event(Player.list[self.socket.id]);
             });
@@ -92,7 +96,7 @@ Item = function (id, name, event) {
 
 Item.list = {};
 
-Item("potion", "Potion", function (player) {
+Item("potion", "Potion", function(player) {
     player.hp = 10;
     player.inventory.removeItem("potion", 1);
 });

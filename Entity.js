@@ -73,8 +73,7 @@ Player = function (param) {
     self.score = 0;
     self.startingContinent = "";
     self.conquredContinents = "";
-    self.inventory = new Inventory(param.socket,true);
-
+    self.inventory = new Inventory(param.progress.items,param.socket,true);
     var super_update = self.update;
     self.update = function(){
         self.updateSpd();
@@ -132,17 +131,41 @@ Player = function (param) {
 
 Player.list = {};
 
+var continentCoords = {
+    NorthEast:{
+        x:1400,
+        y:200,
+    },
+    NorthWest:{
+        x:300,
+        y:200,
+    },
+    SouthEast:{
+        x:1400,
+        y:650,
+    },
+    SouthWest:{
+        x:300,
+        y:700,
+    },
+    Middle:{
+        x:800,
+        y:400,
+    },
+}
+
+
 
 ////
 // Player Connects
-Player.onConnect = function(socket,username){
+Player.onConnect = function(socket,username,progress){
     var map = 'forest';
 
     const continents = ["NorthWest", "NorthEast", "SouthEast", "SouthWest","Middle"];
     const startingLocation = continents[Math.floor(Math.random() * continents.length)];
     var x,y
     
-
+    //Get Random stary x,y based on continent coordinates
     for(place in continentCoords){
         if(place === startingLocation){
             x = continentCoords[place].x;
@@ -162,7 +185,10 @@ Player.onConnect = function(socket,username){
         x:x,
         y:y,
         startingContinent:startingLocation,
+        progress:progress,
     });
+
+    player.inventory.refreshRender();
 
     //Key Presses
     socket.on('keyPress', function (data) {
@@ -177,10 +203,16 @@ Player.onConnect = function(socket,username){
     });
 
     socket.on('changeMap',function(data){
-        if(player.map === 'snow')
+        if(player.map === 'snow'){
             player.map = 'forest';
-        else
+            player.inventory.addItem("potion",1);
+        }
+            
+        else{
             player.map = 'snow';
+            player.inventory.addItem("potion",1);
+        }
+            
     });
 
     //Player Sockets
@@ -240,6 +272,13 @@ Player.getAllInitPack = function(){
 }
 
 Player.onDisconnect = function(socket){
+    let player = Player.list[socket.id];
+    if(!player)
+        return;
+    Database.savePlayerProgress({
+        username:player.username,
+        items:player.inventory.items,
+    })
     delete Player.list[socket.id];
     removePack.player.push(socket.id);
 }
