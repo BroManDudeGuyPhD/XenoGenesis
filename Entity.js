@@ -74,6 +74,8 @@ Player = function (param) {
     self.startingContinent = "";
     self.conquredContinents = "";
     self.inventory = new Inventory(param.progress.items,param.socket,true);
+    self.socket = param.socket;
+    
     var super_update = self.update;
     self.update = function(){
         self.updateSpd();
@@ -217,8 +219,8 @@ Player.onConnect = function(socket,username,progress){
 
     //Player Sockets
     socket.on('sendMsgToServer', function(data){
-        for(var i in SOCKET_LIST){
-            SOCKET_LIST[i].emit('addToChat',{ 
+        for(var i in Player.list){
+            Player.list[i].socket.emit('addToChat',{ 
                 message: player.username + ': ' + data,
                 type:'normal'
             });
@@ -230,7 +232,7 @@ Player.onConnect = function(socket,username,progress){
 
         for(var i in Player.list)  
             if(Player.list[i].username === data.username)
-                recipientSocket = SOCKET_LIST[i];
+                recipientSocket = Player.list[i].socket;
         if(recipientSocket === null){
             socket.emit('addToChat',{ 
                 message: 'The player '+data.username+' is not online',
