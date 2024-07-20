@@ -2,7 +2,9 @@
 <html>
 
 <head>
+    <title>X</title>
     <link rel="stylesheet" href="style.css">
+    <link rel="icon" type="image/x-icon" href="/client/img/favicon.png">
 </head>
 
 <body>
@@ -62,14 +64,17 @@
             if (data.success) {
                 signDiv.style.display = 'none';
                 gameDiv.style.display = 'inline-block';
-            } else
+            } 
+            
+            else
                 alert("Sign in unsuccessul.");
         });
 
         socket.on('signUpResponse', function (data) {
             if (data.success) {
                 alert("Sign up successul.");
-            } else
+            } 
+            else
                 alert("Sign up unsuccessul.");
         });
 

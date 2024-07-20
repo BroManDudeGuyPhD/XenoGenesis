@@ -13,11 +13,10 @@ app.use('/client',express.static(__dirname + '/client'));
 
 serv.listen(2000);
 
-var SOCKET_LIST = {};
 
 ////
 // Variables
-
+var SOCKET_LIST = {};
 
 
 var io = require('socket.io')(serv,{});
@@ -81,4 +80,6 @@ setInterval(function(){
     }
 
 },1000/60);
+
+console.log("------------ Server started ------------");
 
