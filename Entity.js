@@ -135,12 +135,12 @@ Player.list = {};
 
 var continentCoords = {
     NorthEast:{
-        x:1400,
-        y:200,
+        x:1500,
+        y:100,
     },
     NorthWest:{
         x:300,
-        y:200,
+        y:100,
     },
     SouthEast:{
         x:1400,
@@ -151,7 +151,7 @@ var continentCoords = {
         y:700,
     },
     Middle:{
-        x:800,
+        x:900,
         y:400,
     },
 }
