@@ -122,20 +122,19 @@
 
             else if(chatInput.value[0]==='@'){
                 socket.emit('sendPmToServer',{
-                    username:chatInput.value.slice(1,chatInput.value.indexOf(':')),
+                    recipient:chatInput.value.slice(1,chatInput.value.indexOf(':')),
                     message:chatInput.value.slice(chatInput.value.indexOf(':') + 1)
                 });
             }
 
             else if(chatInput.value[0]==='.'){
-                socket.emit('sendAnnouncementToServer',{
+                socket.emit('sendCommandToServer',{
                     message:chatInput.value.replaceAll(".","")
                 });
             }
 
             else
                 socket.emit('sendMsgToServer', chatInput.value);
-
             chatInput.value = '';
         }
 

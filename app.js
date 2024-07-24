@@ -11,7 +11,9 @@ app.get('/',function(req, res){
 });
 app.use('/client',express.static(__dirname + '/client'));
 
-serv.listen(2000);
+serv.listen(2000,()=>{
+    console.log("------------ Server started ------------");
+});
 
 
 ////
@@ -80,6 +82,4 @@ setInterval(function(){
     }
 
 },1000/60);
-
-console.log("------------ Server started ------------");
 

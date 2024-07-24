@@ -75,6 +75,7 @@ Player = function (param) {
     self.conquredContinents = "";
     self.inventory = new Inventory(param.progress.items,param.socket,true);
     self.socket = param.socket;
+    self.jointime = param.jointime;
     
     var super_update = self.update;
     self.update = function(){
@@ -156,6 +157,20 @@ var continentCoords = {
     },
 }
 
+String.prototype.toHHMMSS = function () {
+    var sec_num = parseInt(this, 10); // don't forget the second param
+    var days   = Math.floor(sec_num / 86400);
+    var hours   = Math.floor(sec_num / 3600);
+    var minutes = Math.floor((sec_num - (hours * 3600)) / 60);
+    var seconds = sec_num - (hours * 3600) - (minutes * 60);
+
+    if (hours   < 10) {hours   = "0"+hours;}
+    if (minutes < 10) {minutes = "0"+minutes;}
+    if (seconds < 10) {seconds = "0"+seconds;}
+    var time = days +"d:"+ hours+'h:'+minutes+'m:'+seconds+"s";
+    return time;
+}
+
 ////
 // Player Connects
 Player.onConnect = function(socket,username,progress){
@@ -173,10 +188,6 @@ Player.onConnect = function(socket,username,progress){
         }
     }
 
-    console.log(startingLocation)
-    console.log(x)
-    console.log(y)
-
     var player = Player({
         username:username,
         id:socket.id,
@@ -186,6 +197,12 @@ Player.onConnect = function(socket,username,progress){
         y:y,
         startingContinent:startingLocation,
         progress:progress,
+        jointime: new Intl.DateTimeFormat('default',{
+            hour: 'numeric',
+            minute: 'numeric',
+            second: 'numeric'
+        }).format(new Date()),
+
     });
 
     player.inventory.refreshRender();
@@ -225,31 +242,54 @@ Player.onConnect = function(socket,username,progress){
         }
     });
 
-    socket.on('sendAnnouncementToServer', function(data){
-        Database.isAdmin({username:player.username}, function(res){
-            console.log(res);
-            if (!res){
-                console.log("NOPE");
+    socket.on('sendCommandToServer', function(data){
+
+        //Immediately check if command call is an ADMIN, and silently fail if user is not
+        Database.isAdmin({ username: player.username }, function (res) {
+            if (!res) {
+                console.log("NOT Admin " + player.username);
                 return;
             }
-            for(var i in Player.list){
-                Player.list[i].socket.emit('addToChat',{ 
-                    message:'Server: ' + data.message,
-                    type:'status'
-                });
-            }
         });
+
+        const command = data.message.split(" ")[0];
+        const message = data.message.replace(command,"")
+
+        console.log("### Username: "+player.username," - Command: "+command)
+        if(message.length > 1){
+            console.log("Message: "+message)
+        }
+
+        if (command == "broadcast") {
+                for (var i in Player.list) {
+                    Player.list[i].socket.emit('addToChat', {
+                        message: 'Server: ' + message,
+                        type: 'status'
+                    });
+                }
+        }
+
+        if(command == "uptime"){
+            var time = process.uptime();
+            var uptime = (time + "").toHHMMSS();
+
+            socket.emit('addToChat',{ 
+                message: 'Uptime: '+uptime,
+                type:'status'
+            });
+
+        }
     });
 
     socket.on('sendPmToServer', function(data){
         var recipientSocket = null;
 
         for(var i in Player.list)  
-            if(Player.list[i].username === data.username)
+            if(Player.list[i].username === data.recipient)
                 recipientSocket = Player.list[i].socket;
         if(recipientSocket === null){
             socket.emit('addToChat',{ 
-                message: 'The player '+data.username+' is not online',
+                message: 'The player '+data.recipient+' is not online',
                 type:'status'
             });
         } else{
@@ -263,7 +303,7 @@ Player.onConnect = function(socket,username,progress){
             });
 
             socket.emit('addToChat',{ 
-                message: 'PM sent to: '+data.username,
+                message: 'PM sent to: '+data.recipient,
                 type:'status'
             });
         }
@@ -280,10 +320,11 @@ Player.onConnect = function(socket,username,progress){
     })
 
     //Send welcome message
-    console.log(player.username+" joined the server")
+    console.log(player.username+" joined the server -- "+startingLocation +" "+x+","+y);
+
     for(var i in Player.list){
         Player.list[i].socket.emit('addToChat',{ 
-            message: '' + player.username + ' joined the server',
+            message: '' + player.username + ' joined the server at ' + player.jointime,
             type:'welcome'
         });
     }
