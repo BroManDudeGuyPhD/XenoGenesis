@@ -156,8 +156,6 @@ var continentCoords = {
     },
 }
 
-
-
 ////
 // Player Connects
 Player.onConnect = function(socket,username,progress){
@@ -227,6 +225,15 @@ Player.onConnect = function(socket,username,progress){
         }
     });
 
+    socket.on('sendAnnouncementToServer', function(data){
+        for(var i in Player.list){
+            Player.list[i].socket.emit('addToChat',{ 
+                message:'Server: ' + data.message,
+                type:'status'
+            });
+        }
+    });
+
     socket.on('sendPmToServer', function(data){
         var recipientSocket = null;
 
@@ -264,6 +271,16 @@ Player.onConnect = function(socket,username,progress){
         selfId:socket.id,
         player:Player.getAllInitPack(),
     })
+
+    //Send welcome message
+    console.log(player.username+" joined the server")
+    for(var i in Player.list){
+        Player.list[i].socket.emit('addToChat',{ 
+            message: '' + player.username + ' joined the server',
+            type:'welcome'
+        });
+    }
+    
 }
 
 Player.getAllInitPack = function(){
