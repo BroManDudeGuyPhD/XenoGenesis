@@ -16,6 +16,18 @@ Database.isValidPassword = function(data,cb){
     
 }
 
+Database.isAdmin = function(data,cb){
+    if(!USE_DB)
+        return cb(false);
+    db.account.findOne({username:data.username,admin:'true'}, function(err,res){
+        if(res)
+            cb(true);
+        else
+            cb(false);
+    });
+    
+}
+
 Database.isUsernameTaken = function(data,cb){
     if(!USE_DB)
         return cb(true);

@@ -226,12 +226,19 @@ Player.onConnect = function(socket,username,progress){
     });
 
     socket.on('sendAnnouncementToServer', function(data){
-        for(var i in Player.list){
-            Player.list[i].socket.emit('addToChat',{ 
-                message:'Server: ' + data.message,
-                type:'status'
-            });
-        }
+        Database.isAdmin({username:player.username}, function(res){
+            console.log(res);
+            if (!res){
+                console.log("NOPE");
+                return;
+            }
+            for(var i in Player.list){
+                Player.list[i].socket.emit('addToChat',{ 
+                    message:'Server: ' + data.message,
+                    type:'status'
+                });
+            }
+        });
     });
 
     socket.on('sendPmToServer', function(data){
