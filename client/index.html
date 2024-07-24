@@ -175,7 +175,7 @@
 
                 //HP Bar
                 ctx.fillStyle = 'red';
-                ctx.fillRect(self.x - hpWidth/2, self.y - 120,hpWidth,4);
+                ctx.fillRect(self.x - 40, self.y - 70,hpWidth,4);
 
                 //Player Image
                 var width = Img.player.width;
@@ -264,7 +264,7 @@
             drawScore();
             for (var i in Player.list)
                 Player.list[i].draw();
-        }, 40);
+        }, 20);
 
 
         document.onkeydown = function (event) {
