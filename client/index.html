@@ -7,7 +7,7 @@
     <link rel="icon" type="image/x-icon" href="/client/img/favicon.png">
 </head>
 
-<body>
+<body style="background-color: #23272a;">
     <div id="signDiv" class="signIn">
         Username: <input id="signDiv-username" type="text"></input><br>
         Password: <input id="signDiv-password" type="password"></input><br>
@@ -29,7 +29,7 @@
     
 
         <div id="belowGame" style="margin-top:800px">
-            <div id="chat-text" style="width:800px; height:150px; overflow-y:scroll; ">
+            <div id="chat-text" style="width:800px; height:150px; overflow-y:scroll; background-color: #2c2f33;">
                 <div>Hello!</div>
             </div>
             <div id="inventory"></div>
@@ -41,9 +41,7 @@
 
     <script src="/socket.io/socket.io.js"></script>
     <script src="/client/Inventory.js"></script>
-    <script type="module">
-
-    import zim from "https://zimjs.org/cdn/016/zim";
+    <script>
 
         var socket = io();
 

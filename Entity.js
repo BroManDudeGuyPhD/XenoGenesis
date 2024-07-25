@@ -246,39 +246,40 @@ Player.onConnect = function(socket,username,progress){
 
         //Immediately check if command call is an ADMIN, and silently fail if user is not
         Database.isAdmin({ username: player.username }, function (res) {
-            if (!res) {
+            if (!res.admin == true) {
                 console.log("NOT Admin " + player.username);
                 return;
             }
-        });
 
-        const command = data.message.split(" ")[0];
-        const message = data.message.replace(command,"")
+            const command = data.message.split(" ")[0];
+            const message = data.message.replace(command, "")
 
-        console.log("### Username: "+player.username," - Command: "+command)
-        if(message.length > 1){
-            console.log("Message: "+message)
-        }
+            console.log("### Username: " + player.username, " - Command: " + command)
+            if (message.length > 1) {
+                console.log("Message: " + message)
+            }
 
-        if (command == "broadcast") {
+            if (command == "broadcast") {
                 for (var i in Player.list) {
                     Player.list[i].socket.emit('addToChat', {
                         message: 'Server: ' + message,
                         type: 'status'
                     });
                 }
-        }
+            }
 
-        if(command == "uptime"){
-            var time = process.uptime();
-            var uptime = (time + "").toHHMMSS();
+            if (command == "uptime") {
+                var time = process.uptime();
+                var uptime = (time + "").toHHMMSS();
 
-            socket.emit('addToChat',{ 
-                message: 'Uptime: '+uptime,
-                type:'status'
-            });
+                socket.emit('addToChat', {
+                    message: 'Uptime: ' + uptime,
+                    type: 'status'
+                });
 
-        }
+            }
+
+        });
     });
 
     socket.on('sendPmToServer', function(data){
