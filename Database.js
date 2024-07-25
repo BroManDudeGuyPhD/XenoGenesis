@@ -19,13 +19,37 @@ Database.isValidPassword = function(data,cb){
 Database.isAdmin = function(data,cb){
     if(!USE_DB)
         return cb(false);
-    db.account.findOne({username:data.username,admin:'true'}, function(err,res){
+    db.account.findOne({username:data.username,admin:"true"}, function(err,res){
         if(res)
             cb(true);
         else
             cb(false);
     });
     
+}
+
+Database.makeAdmin = function(data,cb){
+    cb = cb || function(){}
+    if(!USE_DB)
+        cb(false);
+
+    db.account.updateOne({username:data.username},{"$set": {username:data.username, admin:"true"}},{upsert:true},function(err){
+        Database.isAdmin({username:data.username}, function(){
+            cb(true);
+        })
+    }); 
+}
+
+Database.removeAdmin = function(data,cb){
+    cb = cb || function(){}
+    if(!USE_DB)
+        cb(true);
+
+    db.account.updateOne({username:data.username},{"$set": {username:data.username, admin:"false"}},{upsert:true},function(err){
+        Database.isAdmin({username:data.username}, function(){
+            cb(false);
+        })
+    }); 
 }
 
 Database.isUsernameTaken = function(data,cb){
@@ -43,7 +67,7 @@ Database.isUsernameTaken = function(data,cb){
 Database.addUser = function(data,cb){
     if(!USE_DB)
         return cb();
-    db.account.insert({username:data.username,password:data.password}, function(err){
+    db.account.insert({username:data.username,password:data.password,admin:"false"}, function(err){
         // Database.savePlayerProgress({username:data.username,items:[]},function(){
         //     cb();
         // });
@@ -71,17 +95,5 @@ Database.savePlayerProgress = function(data,cb){
     
     if(!USE_DB)
         return cb();
-    db.progress.update({username:data.username},{"$set":data},{upsert:true},cb); 
+    db.progress.updateOne({username:data.username},{"$set":data},{upsert:true},cb); 
 }
-
-// Database.addUser = function (data, cb) {
-//     if (!USE_DB)
-//         return cb();
-//     db.compte.insert({ pseudo: data.pseudo, mdp: data.mdp }, function (err) {
-//         cb();
-//     });
-//     db.progres.insert({ pseudo: data.pseudo, items: [], pos: { x: 100, y: 100 }, skin: 'default' }, function (err) {
-//         cb();
-//     });
-
-// }
