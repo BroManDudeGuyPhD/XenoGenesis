@@ -246,7 +246,7 @@ Player.onConnect = function(socket,username,progress){
 
         //Immediately check if command call is an ADMIN, and silently fail if user is not
         Database.isAdmin({ username: player.username }, function (res) {
-            if (!res.admin == true) {
+            if (res !== true) {
                 console.log("NOT Admin " + player.username);
                 return;
             }
