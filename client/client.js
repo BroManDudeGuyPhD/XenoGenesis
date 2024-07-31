@@ -8,7 +8,6 @@ const userList = document.getElementById('users');
 //     ignoreQueryPrefix: true,
 // });
 
-console.log("HELLO CLIENT");
 const socket = io();
 
 //Login logic
@@ -40,7 +39,6 @@ socket.on('signInResponse', function (data) {
         signDiv.style.display = 'none';
         chatDiv.style.display = '';
         socket.emit('joinRoom', 'Global');
-        console.log("Logged IN!")
     }
 
     else
@@ -64,7 +62,6 @@ socket.on('roomUsers', ({ room, users }) => {
 
 // Message from server
 socket.on('message', (message) => {
-    console.log("Got message on CLIENT",message)
     outputMessage(message);
 
     // Scroll down
@@ -109,8 +106,6 @@ chatForm.addEventListener('submit', (e) => {
 
 // Output message to DOM
 function outputMessage(message) {
-    console.log("OutputMessageFunction: ")
-    console.log(message)
 
     const div = document.createElement('div');
     div.classList.add('message');
@@ -159,7 +154,6 @@ function outputUsers(users) {
 
 //Prompt the user before leave chat room
 document.getElementById('leave-btn').addEventListener('click', () => {
-    console.log(roomName.innerText);
     if (roomName.innerText == "Global") {
 
         const leaveRoom = confirm('Are you sure you want to leave the chatroom?');

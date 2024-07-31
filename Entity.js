@@ -1,7 +1,8 @@
 var initPack = {player:[]};
 var removePack = {player:[]};
 
-require('./client/Inventory')
+require('./client/Inventory');
+let Commands = require('./Commands')
 const formatMessage = require("./utils/messages");
 const {
     userJoin,
@@ -203,7 +204,6 @@ Player.onConnect = function(socket,username,admin,io){
         const user = userJoin(socket.id, player.username, room);
         socket.join(room);
         player.room = room;
-        console.log("Joining:", player.room)
 
         // Welcome current user
         socket.emit("message", formatMessage({
@@ -230,7 +230,6 @@ Player.onConnect = function(socket,username,admin,io){
             room:room,
             users: getRoomUsers(user.room),
         });
-        console.log( getRoomUsers(room));
     });
 
     socket.on("chatMessage", (msg) => {
@@ -279,146 +278,14 @@ Player.onConnect = function(socket,username,admin,io){
         if (param.length > 1) 
             console.log("Param: " + param)
 
-        //Object containing NORMAL commands
-        var commands = {
-            uptime: {
-                desc: "Returns the uptime of the server",
-                execute(){
-                    var time = process.uptime();
-                    var uptime = (time + "").toHHMMSS();
-
-                socket.emit("message", formatMessage({
-                    username: botName,
-                    text: "Uptime: "+uptime,
-                    type: "status",
-                }));
-
-                }
-            },
-            commands: {
-                desc: "Display NORMAL commands"
-            }
-        }
-
-
-        //Object containing ADMIN commands
-        var adminCommands = {
-            broadcast: {
-                desc: "Sends a server message to all players",
-                execute() {
-                    io.emit("message", formatMessage({
-                        username: botName,
-                        text: param,
-                        type: "status",
-                    }));
-                }
-            },
-
-            commands: {
-                desc: "Display ADMIN commands"
-            },
-
-            op: {
-                desc: "Make user an admin aka op",
-                ex: "op <username>",
-                execute() {
-                    Database.isUsernameTaken({ username: param }, function (res) {
-                        if (res) {
-                            Database.makeAdmin({ username: param }, function (result) {
-                                if (result == true) {
-                                    socket.emit("message", formatMessage({
-                                        username: botName,
-                                        text: '' + param + ' is now OP',
-                                        type: "status",
-                                    }));
-                                    
-                                    var opSocket = null;
-                                    for (var i in Player.list)
-                                        if (Player.list[i].username === param)
-                                            opSocket = Player.list[i].socket;
-                                    if (opSocket !== null) {
-                                        // If player is online, notify them that they are now an Admin
-                                        opSocket.emit("message", formatMessage({
-                                            username: botName,
-                                            text: '' +player.username + '' + ' made you an Admin! Use it wisely... ',
-                                            type: "status",
-                                        }));
-                                    }
-                                }
-                                else {
-                                    socket.emit("message", formatMessage({
-                                        username: botName,
-                                        text: 'Error! Was not able to make ' + param + ' OP',
-                                        type: "status",
-                                    }));
-                                }
-                            });
-                        }
-                        else {
-                            socket.emit("message", formatMessage({
-                                username: botName,
-                                text: '' + param + ' is not a valid player name',
-                                type: "status",
-                            }));
-                        }
-                    });
-                }
-            },
-
-            deop: {
-                desc: "Removes admin rights from user",
-                ex: "deop <username>",
-                execute() {
-                    Database.isUsernameTaken({ username: param }, function (res) {
-                        if (res) {
-                            Database.removeAdmin({ username: param }, function (result) {
-                                if (result == false) {
-                                    socket.emit("message", formatMessage({
-                                        username: botName,
-                                        text: '' + param + ' is no longer OP',
-                                        type: "status",
-                                    }));
-
-                                    var opSocket = null;
-                                    for (var i in Player.list)
-                                        if (Player.list[i].username === param)
-                                            opSocket = Player.list[i].socket;
-                                    if (opSocket !== null) {
-                                        // If player is online, notify them that they are now an Admin
-                                        opSocket.emit('message', formatMessage({
-                                            username: botName,
-                                            text: 'You are no longer an Admin',
-                                            type: 'status'
-                                        }));
-                                    }
-                                }
-                                else {
-                                    socket.emit("message", formatMessage({
-                                        username: botName,
-                                        text: 'Error! Was not able to remove ' + param + ' OP status',
-                                        type: "status",
-                                    }));
-                                }
-                            });
-                        }
-                        else {
-                            socket.emit("message", formatMessage({
-                                username: botName,
-                                text: '' + param + ' is not a valid player name',
-                                type: "status",
-                            }));
-                        }
-                    });
-                }
-            }
-        } //End of AdminCommands
+        let commands = new Commands(command,param,io,player,socket);
 
         //Logic to execute commands
-        if (command in commands) {
-            commands[command].execute();
+        if (command in commands.normal) {
+            commands.runNormalCommand();
         }
 
-        else if (command in adminCommands) {
+        else if (command in commands.admin) {
             //Check if user is admin
             Database.isAdmin({ username: player.username }, function (res) {
                 if (res !== true) {
@@ -426,7 +293,7 @@ Player.onConnect = function(socket,username,admin,io){
                     return;
                 }
                 //Execute command if they are
-                adminCommands[command].execute();
+                commands.runAdminCommand();
             });
         }
 
