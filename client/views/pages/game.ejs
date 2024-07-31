@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.12.1/css/all.min.css"
+        integrity="sha256-mmgLkCYLUQbXn0B1SRqzHar6dCnv9oZFPEC1g1cwlkk=" crossorigin="anonymous" />
+    <title>X</title>
+    <link rel="stylesheet" href="/client/css/style.css">
+    <link rel="icon" type="image/x-icon" href="/client/img/favicon.png">
+</head>
+
+<body style="background-color: #23272a;">
+
+    <div id="gameDiv">
+        <div id="game" style="position: absolute; width: 1600; height: 800;">
+            <canvas id="ctx" width="1600" height="800" style="position:absolute; border:1px solid #ffffff;"></canvas>
+            <canvas id="ctx-ui" width="1600" height="800" style="position:absolute; border:1px solid #ffffff;"></canvas>
+
+            <div id="ui" style="position:absolute;width: 500px; height: 800px; ">
+                <button onclick="changeMap()" style="position:absolute; bottom: 0px; left: 0px">
+                    Change Map
+                </button>
+            </div>
+        </div>
+    
+
+        <div id="belowGame" style="margin-top:800px">
+            <div id="chat-container" class="chat-container">
+                <header class="chat-header">
+                    <i class="fa-thin fa-globe-stand"></i>
+                    <a id="leave-btn" class="btn">Leave Room</a>
+                </header>
+                <main class="chat-main">
+                    <div class="chat-sidebar">
+                        <h3><i class="fas fa-comments"></i> Room Name:</h3>
+                        <h2 id="room-name"></h2>
+                        <h3><i class="fas fa-users"></i> Users</h3>
+                        <ul id="users"></ul>
+                    </div>
+                    <div class="chat-messages"></div>
+                </main>
+                <div class="chat-form-container">
+                    <form id="chat-form">
+                        <input id="msg" type="text" placeholder="Enter Message" required autocomplete="off" />
+                        <button class="btn"><i class="fas fa-paper-plane"></i> Send</button>
+                    </form>
+                </div>
+            </div>
+            <div id="inventory"></div>
+            <form id="chat-form">
+                <input id="chat-input" type="text" style="width:500px"></input>
+            </form>
+        </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="/client/Inventory.js"></script>
+    <script>
+
+        var socket = io();
+
+        //Login
+        var signDiv = document.getElementById('signDiv');
+        var signDivUsername = document.getElementById('signDiv-username');
+        var signDivSignIn = document.getElementById('signDiv-signIn');
+        var signDivSignUp = document.getElementById('signDiv-signUp');
+        var signDivPassword = document.getElementById('signDiv-password');
+
+        var landingPage = document.getElementById('landingPage');
+
+        signDivSignIn.onclick = function () {
+            socket.emit('signIn', { username: signDivUsername.value, password: signDivPassword.value });
+        }
+
+        signDivSignUp.onclick = function () {
+            socket.emit('signUp', { username: signDivUsername.value, password: signDivPassword.value });
+        }
+
+        // Listen for Enter kepress on signin input
+        signDivPassword.addEventListener("keypress", function(event) {
+            if (event.key === "Enter") {
+                signDivSignIn.click();
+            }
+        });
+
+        // socket.on('signInResponse', function (data) {
+        //     if (data.success) {
+        //         signDiv.style.display = 'none';
+        //         landingPage.style.display = 'inline-block';
+        //         socket.emit('joinRoom'),{room:global}
+        //         //gameDiv.style.display = 'inline-block';
+        //     } 
+            
+        //     else
+        //         alert("Sign in unsuccessul.");
+        // });
+
+        socket.on('signUpResponse', function (data) {
+            if (data.success) {
+                alert("Sign up successul.");
+            } 
+            else
+                alert("Sign up unsuccessul.");
+        }); 
+
+        //Chat
+        var chatText = document.getElementById('chat-text');
+        var chatInput = document.getElementById('chat-input');
+        var chatForm = document.getElementById('chat-form');
+
+        socket.on('addToChat', function (data) {
+            if(data.type === "pm"){
+                console.log(data.type)
+                chatText.innerHTML += '<div style="color:red">' + data.message + '</div>';
+            }
+            else if(data.type === "status"){
+                console.log(data.type)
+                chatText.innerHTML += '<div style="color:magenta; font-style: bold;" >' + data.message + '</div>';
+            }
+            else if(data.type === "welcome"){
+                console.log(data.type)
+                chatText.innerHTML += '<div style="color:green; font-style: italic;" >' + data.message + '</div>';
+            }
+            else{
+                chatText.innerHTML += '<div style="color:black">' + data.message + '</div>';
+            }
+        });
+
+        socket.on('evalAnswer', function (data) {
+            console.log(data);
+        });
+
+        //Chat Window
+        chatForm.onsubmit = function (e) {
+            e.preventDefault();
+            if (chatInput.value[0] === '/')
+                socket.emit('evalServer', chatInput.value.slice(1));
+
+            else if(chatInput.value[0]==='@'){
+                socket.emit('sendPmToServer',{
+                    recipient:chatInput.value.slice(1,chatInput.value.indexOf(':')),
+                    message:chatInput.value.slice(chatInput.value.indexOf(':') + 1)
+                });
+            }
+
+            else if(chatInput.value[0]==='.'){
+                socket.emit('sendCommandToServer',{
+                    message:chatInput.value.replaceAll(".","")
+                });
+            }
+
+            else
+                socket.emit('sendMsgToServer', chatInput.value);
+            chatInput.value = '';
+        }
+
+        //UI
+
+        var changeMap = function(){
+            console.log("Change Map")
+            socket.emit('changeMap');
+        }
+
+        var joinGame = function(){
+
+            var inventory = document.getElementById("landingUI");
+            inventory.innerHTML = "";
+            var addButton = function(data){
+            let form = document.createElement('form');
+            button.onclick - function(){
+            }
+            button.innerText = item.name + ' x' + data.amount;
+            inventory.appendChild(button);
+        }
+
+
+
+            landingPage.style.display = 'none';
+
+            gameDiv.style.display = 'inline-block';
+            var chatText = document.getElementById('chat-text');
+            var chatInput = document.getElementById('chat-input');
+            var chatForm = document.getElementById('chat-form');
+        }
+
+        var createGame = function(){
+            landingPage.style.display = 'none';
+            gameDiv.style.display = 'inline-block';
+            var chatText = document.getElementById('chat-text');
+            var chatInput = document.getElementById('chat-input');
+            var chatForm = document.getElementById('chat-form');
+        }
+
+        var inventory = new Inventory([],socket,false);
+        socket.on('updateInventory',function(items){
+            inventory.items = items;
+            inventory.refreshRender();
+        })
+
+
+        //Game
+        var Img = {};
+        Img.player = new Image();
+        Img.player.src = '/client/img/player.png';
+
+        Img.map = {};
+        Img.map['forest'] = new Image();
+        Img.map['forest'].src = '/client/img/map.png';
+        Img.map['snow'] = new Image();
+        Img.map['snow'].src = '/client/img/snowMap.png';
+
+
+        var ctx = document.getElementById("ctx").getContext("2d");
+        var ctxUi = document.getElementById("ctx-ui").getContext("2d");
+        ctx.font = '30px Arial';
+
+        var Player = function (initPack) {
+            var self = {};
+            self.id = initPack.id;
+            self.number = initPack.number;
+            self.x = initPack.x;
+            self.y = initPack.y;
+            self.hp = initPack.hp;
+            self.hpMax = initPack.hpMax;
+            self.score = initPack.score;
+            self.map = initPack.map;
+
+            self.draw = function(){
+                var hpWidth = 50 * self.hp / self.hpMax;
+
+                //HP Bar
+                ctx.fillStyle = 'red';
+                ctx.fillRect(self.x - 40, self.y - 70,hpWidth,4);
+
+                //Player Image
+                var width = Img.player.width;
+                var height = Img.player.height;
+
+                ctx.drawImage(Img.player,
+                    0, 0, Img.player.width, Img.player.height,
+                    self.x - width / 2, self.y - height / 2, width, height);
+
+                //Score
+                //ctx.fillText(self.score,self.x,self.y-60)
+            }
+
+            Player.list[self.id] = self;
+            return self;
+        }
+
+        Player.list = {};
+        var selfId = null;
+
+        //Initialize
+        socket.on('init', function(data) {
+            if(data.selfId){
+                selfId = data.selfId;
+            }
+            for (var i = 0; i < data.player.length; i++) {
+                new Player(data.player[i]);
+            }
+        });
+
+
+        //Update
+        socket.on('update', function(data) {
+            for (var i = 0; i < data.player.length; i++) {
+                var pack = data.player[i];
+                var p = Player.list[pack.id];
+                if (p) {
+                    if (pack.x !== undefined)
+                        p.x = pack.x;
+                    if (pack.y !== undefined)
+                        p.y = pack.y;
+                    if (pack.hp !== undefined)
+                        p.hp = pack.hp;
+                    if (pack.score !== undefined)
+                        p.score = pack.score;
+                    if (pack.map !== undefined)
+                        p.map = pack.map;
+                }
+            }
+        });
+
+        //Remove
+        socket.on('remove', function (data) {
+            for (var i = 0; i < data.player.length; i++) {
+                delete Player.list[data.player[i]];
+            }
+        });
+
+        //Draw Map
+        var drawMap = function(){
+            var player = Player.list[selfId];
+            ctx.drawImage(Img.map[player.map],0,0);
+        }
+
+        //Draw GAME
+
+        var drawScore = function(){
+            if(lastScore === Player.list[selfId].score)
+                return;
+            
+            lastScore = Player.list[selfId].score;
+            ctxUi.clearRect(0, 0, 500, 500);
+            ctxUi.fillStyle = 'white';
+            ctxUi.font = "20px Arial";
+            ctxUi.fillText("Score: "+Player.list[selfId].score,0,30);
+        }
+
+        var lastScore = -1;
+
+        setInterval(function () {
+            //Do not draw map or player info until player is logged in
+            if(!selfId)
+                return;
+
+            ctx.clearRect(0, 0, 800, 1600);
+            drawMap();
+            drawScore();
+            for (var i in Player.list)
+                Player.list[i].draw();
+        }, 20);
+
+
+        document.onkeydown = function (event) {
+            if (event.keyCode === 68) //d
+                socket.emit('keyPress', { inputId: 'right', state: true });
+            else if (event.keyCode === 83) //s
+                socket.emit('keyPress', { inputId: 'down', state: true });
+            else if (event.keyCode === 65) //a
+                socket.emit('keyPress', { inputId: 'left', state: true });
+            else if (event.keyCode === 87) // w
+                socket.emit('keyPress', { inputId: 'up', state: true });
+        }
+
+        document.onkeyup = function (event) {
+            if (event.keyCode === 68) //d
+                socket.emit('keyPress', { inputId: 'right', state: false });
+            else if (event.keyCode === 83) //s
+                socket.emit('keyPress', { inputId: 'down', state: false });
+            else if (event.keyCode === 65) //a
+                socket.emit('keyPress', { inputId: 'left', state: false });
+            else if (event.keyCode === 87) // w
+                socket.emit('keyPress', { inputId: 'up', state: false });
+        
+        //Block right-click
+        document.oncontextmenu = function(event){
+            event.preventDefault();
+        }
+
+
+        }
+
+        // document.onmousedown = function(event){
+        //     socket.emit('keyPress',{inputId:'attack',state:true});
+        // }
+
+        // document.onmouseup = function(event){
+        //     socket.emit('keyPress',{inputId:'attack',state:false});
+        // }
+
+    </script>
+
+</body>
+
+</html>

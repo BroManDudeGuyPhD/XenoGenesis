@@ -3,17 +3,39 @@ require('./Entity');
 require('./client/Inventory')
 
 const express = require('express');
+const path = require('path');
+const http = require("http");
 const app = express();
-const serv = require('http').Server(app);
+const server = http.createServer(app);
+const socketio = require("socket.io");
+const io = socketio(server);
 
-app.get('/',function(req, res){
-    res.sendFile(__dirname + '/client/index.html');
-});
+app.set('view engine', 'ejs');
+app.set('views', path.join(__dirname, '/client/views/pages'));
+
+// app.get('/',function(req, res){
+//     res.render(__dirname + '/client/login');
+// });
+
 app.use('/client',express.static(__dirname + '/client'));
 
-serv.listen(2000,()=>{
-    console.log("------------ Server started ------------");
+app.get('/', function(req, res) {
+    res.render('login');
 });
+
+app.get('/about', function(req, res) {
+    res.render('about');
+});
+
+app.get('/game', function(req, res) {
+    res.render('game');
+});
+
+app.get('/globalChat', function(req, res) {
+    res.render('globalChat');
+});
+
+server.listen(2000, () => console.log("------------ Server started ------------"));
 
 
 ////
@@ -21,30 +43,25 @@ serv.listen(2000,()=>{
 var SOCKET_LIST = {};
 
 
-var io = require('socket.io')(serv,{});
-
-io.sockets.on('connection', function(socket){
-    socket.id = Math.random();
+io.on('connection', (socket) => {
     SOCKET_LIST[socket.id] = socket;
-    
-    // socket.on('signIn', function (data) {
-    //     if (isValidPassword(data)) {
-    //         Player.onConnect(socket);
-    //         socket.emit('signInResponse', { success: true });
-    //     } else {
-    //         socket.emit('signInResponse', { success: false });
-    //     }
-    // });
 
     socket.on('signIn', function(data) {
+        console.log(data)
         Database.isValidPassword(data, function(res){
             if (!res) 
                 return socket.emit('signInResponse', { success: false });
-
-            Database.getPlayerProgress(data.username,function(progress){
-                Player.onConnect(socket,data.username,progress);
+            // Database.getPlayerProgress(data.username,function(progress){
+            //     socket.emit('signInResponse', { success: true });
+            //     Player.onConnect(socket,data.username,io,progress);
+            // })
+            Database.isAdmin(data,function(admin){ 
+                console.log(admin);
+                Player.onConnect(socket,data.username,admin,io);
                 socket.emit('signInResponse', { success: true });
-            })          
+            })
+            // Player.onConnect(socket,data.username,io);      
+            // socket.emit('signInResponse', { success: true });   
         });
     });
 
@@ -62,10 +79,8 @@ io.sockets.on('connection', function(socket){
 
     socket.on('disconnect', function(){
         delete SOCKET_LIST[socket.id];
-        Player.onDisconnect(socket);
+        Player.onDisconnect(socket, io);
     });
-
-
 });
 
 
@@ -83,3 +98,4 @@ setInterval(function(){
 
 },1000/60);
 
+module.exports = {io};

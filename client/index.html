@@ -15,6 +15,26 @@
         <button id="signDiv-signUp">Sign Up</button>
     </div>
     
+    <div id="landingPage" style="display:none;">
+        <div id="global-chat-text" style="width:800px; height:150px; overflow-y:scroll; background-color: #2c2f33;">
+            <div>Hello!</div>
+        </div>
+    
+        <form id="global-chat-form">
+            <input id="global-chat-input" type="text" style="width:500px"></input>
+        </form>
+        <div id="landingUI" style="position:absolute;width: 500px; height: 800px; ">
+            <button onclick="createGane()" style=" right: 0px; left: 0px">
+                Create Game
+            </button>
+
+            <button onclick="joinGame()" style=" right: 0px; left: 0px">
+                Join Game
+            </button>
+            
+        </div>
+    </div>
+
     <div id="gameDiv" style="display:none;">
         <div id="game" style="position: absolute; width: 1600; height: 800;">
             <canvas id="ctx" width="1600" height="800" style="position:absolute; border:1px solid #ffffff;"></canvas>
@@ -52,6 +72,8 @@
         var signDivSignUp = document.getElementById('signDiv-signUp');
         var signDivPassword = document.getElementById('signDiv-password');
 
+        var landingPage = document.getElementById('landingPage');
+
         signDivSignIn.onclick = function () {
             socket.emit('signIn', { username: signDivUsername.value, password: signDivPassword.value });
         }
@@ -67,15 +89,17 @@
             }
         });
 
-        socket.on('signInResponse', function (data) {
-            if (data.success) {
-                signDiv.style.display = 'none';
-                gameDiv.style.display = 'inline-block';
-            } 
+        // socket.on('signInResponse', function (data) {
+        //     if (data.success) {
+        //         signDiv.style.display = 'none';
+        //         landingPage.style.display = 'inline-block';
+        //         socket.emit('joinRoom'),{room:global}
+        //         //gameDiv.style.display = 'inline-block';
+        //     } 
             
-            else
-                alert("Sign in unsuccessul.");
-        });
+        //     else
+        //         alert("Sign in unsuccessul.");
+        // });
 
         socket.on('signUpResponse', function (data) {
             if (data.success) {
@@ -141,6 +165,36 @@
         var changeMap = function(){
             console.log("Change Map")
             socket.emit('changeMap');
+        }
+
+        var joinGame = function(){
+
+            var inventory = document.getElementById("landingUI");
+            inventory.innerHTML = "";
+            var addButton = function(data){
+            let form = document.createElement('form');
+            button.onclick - function(){
+            }
+            button.innerText = item.name + ' x' + data.amount;
+            inventory.appendChild(button);
+        }
+
+
+
+            landingPage.style.display = 'none';
+
+            gameDiv.style.display = 'inline-block';
+            var chatText = document.getElementById('chat-text');
+            var chatInput = document.getElementById('chat-input');
+            var chatForm = document.getElementById('chat-form');
+        }
+
+        var createGame = function(){
+            landingPage.style.display = 'none';
+            gameDiv.style.display = 'inline-block';
+            var chatText = document.getElementById('chat-text');
+            var chatInput = document.getElementById('chat-input');
+            var chatForm = document.getElementById('chat-form');
         }
 
         var inventory = new Inventory([],socket,false);

@@ -4,7 +4,8 @@
   "description": "Node.js web game",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node app",
+    "dev": "nodemon app"
   },
   "repository": {
     "type": "git",
@@ -18,8 +19,13 @@
   "homepage": "https://github.com/BroManDudeGuyPhD/XenoGenesis#readme",
   "keywords": [],
   "dependencies": {
+    "ejs": "^3.1.10",
     "express": "^4.19.2",
+    "moment": "^2.30.1",
     "mongojs": "^3.1.0",
     "socket.io": "^4.7.5"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.4"
   }
 }

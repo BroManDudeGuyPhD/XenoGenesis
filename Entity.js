@@ -2,6 +2,15 @@ var initPack = {player:[]};
 var removePack = {player:[]};
 
 require('./client/Inventory')
+const formatMessage = require("./utils/messages");
+const {
+    userJoin,
+    getCurrentUser,
+    userLeave,
+    getRoomUsers,
+} = require("./utils/users");
+
+const botName = "Server";
 
 Entity = function(param) {
     var self = {
@@ -73,10 +82,11 @@ Player = function (param) {
     self.score = 0;
     self.startingContinent = "";
     self.conquredContinents = "";
-    self.inventory = new Inventory(param.progress.items,param.socket,true);
     self.socket = param.socket;
     self.jointime = param.jointime;
-    
+    self.room = param.room;
+    self.admin = param.admin;
+
     var super_update = self.update;
     self.update = function(){
         self.updateSpd();
@@ -172,8 +182,291 @@ String.prototype.toHHMMSS = function () {
 }
 
 ////
-// Player Connects
-Player.onConnect = function(socket,username,progress){
+// Player logs in
+Player.onConnect = function(socket,username,admin,io){
+    //console.log(io.of("/").adapter);
+    var player = Player({
+        username:username,
+        id:socket.id,
+        socket:socket,
+        io:io,
+        admin:admin,
+        room:'Global',
+        jointime: new Intl.DateTimeFormat('default',{
+            hour: 'numeric',
+            minute: 'numeric',
+            second: 'numeric'
+        }).format(new Date()),
+    });
+
+    socket.on("joinRoom", (room) => {
+        const user = userJoin(socket.id, player.username, room);
+        socket.join(room);
+        player.room = room;
+        console.log("Joining:", player.room)
+
+        // Welcome current user
+        socket.emit("message", formatMessage({
+            username: botName,
+            text: `Welcome to ${room} chat!`,
+            type: "update",
+            admin: "admin"
+        }));
+        
+        // Broadcast when a user connects
+        // io.emit() sends to EVERYONE, this omits the user who joined
+        socket.broadcast
+            .to(user.room)
+            .emit(
+                "message",formatMessage({
+                    username: botName,
+                    text: `${player.username} has joined the chat`,
+                    type: "status",
+                    admin: "admin"
+            }));
+
+        // Send users and room info
+        io.in(user.room).emit("roomUsers", {
+            room:room,
+            users: getRoomUsers(user.room),
+        });
+        console.log( getRoomUsers(room));
+    });
+
+    socket.on("chatMessage", (msg) => {
+        io.in(player.room).emit("message", formatMessage({
+            username: player.username,
+            text: msg,
+            type: "normal",
+            admin: player.admin
+        }));
+        
+    });
+    
+    socket.on('privateMessage', function (data) {
+        var recipientSocket = null;
+
+        for (var i in Player.list)
+            if (Player.list[i].username === data.recipient)
+                recipientSocket = Player.list[i].socket;
+        if (recipientSocket === null) {
+            socket.emit("message", formatMessage({
+                username: botName,
+                text: 'The player ' + data.recipient + ' is not online',
+                type: "status",
+            }));
+
+        } else {
+            recipientSocket.emit("message", formatMessage({
+                username: player.username + " (whisper)",
+                text: data.message,
+                type: "pm",
+            }));
+
+            socket.emit("message", formatMessage({
+                username: botName,
+                text: 'PM sent to: ' + data.recipient,
+                type: "status",
+            }));
+        }
+    });
+
+    socket.on('commandMessage', function(data){
+        const command = data.message.split(" ")[0];
+        const param = data.message.replace(command, "").trim()
+        console.log("### Username: " + player.username, " - Command: " + command)
+        
+        if (param.length > 1) 
+            console.log("Param: " + param)
+
+        //Object containing NORMAL commands
+        var commands = {
+            uptime: {
+                desc: "Returns the uptime of the server",
+                execute(){
+                    var time = process.uptime();
+                    var uptime = (time + "").toHHMMSS();
+
+                socket.emit("message", formatMessage({
+                    username: botName,
+                    text: "Uptime: "+uptime,
+                    type: "status",
+                }));
+
+                }
+            },
+            commands: {
+                desc: "Display NORMAL commands"
+            }
+        }
+
+
+        //Object containing ADMIN commands
+        var adminCommands = {
+            broadcast: {
+                desc: "Sends a server message to all players",
+                execute() {
+                    io.emit("message", formatMessage({
+                        username: botName,
+                        text: param,
+                        type: "status",
+                    }));
+                }
+            },
+
+            commands: {
+                desc: "Display ADMIN commands"
+            },
+
+            op: {
+                desc: "Make user an admin aka op",
+                ex: "op <username>",
+                execute() {
+                    Database.isUsernameTaken({ username: param }, function (res) {
+                        if (res) {
+                            Database.makeAdmin({ username: param }, function (result) {
+                                if (result == true) {
+                                    socket.emit("message", formatMessage({
+                                        username: botName,
+                                        text: '' + param + ' is now OP',
+                                        type: "status",
+                                    }));
+                                    
+                                    var opSocket = null;
+                                    for (var i in Player.list)
+                                        if (Player.list[i].username === param)
+                                            opSocket = Player.list[i].socket;
+                                    if (opSocket !== null) {
+                                        // If player is online, notify them that they are now an Admin
+                                        opSocket.emit("message", formatMessage({
+                                            username: botName,
+                                            text: '' +player.username + '' + ' made you an Admin! Use it wisely... ',
+                                            type: "status",
+                                        }));
+                                    }
+                                }
+                                else {
+                                    socket.emit("message", formatMessage({
+                                        username: botName,
+                                        text: 'Error! Was not able to make ' + param + ' OP',
+                                        type: "status",
+                                    }));
+                                }
+                            });
+                        }
+                        else {
+                            socket.emit("message", formatMessage({
+                                username: botName,
+                                text: '' + param + ' is not a valid player name',
+                                type: "status",
+                            }));
+                        }
+                    });
+                }
+            },
+
+            deop: {
+                desc: "Removes admin rights from user",
+                ex: "deop <username>",
+                execute() {
+                    Database.isUsernameTaken({ username: param }, function (res) {
+                        if (res) {
+                            Database.removeAdmin({ username: param }, function (result) {
+                                if (result == false) {
+                                    socket.emit("message", formatMessage({
+                                        username: botName,
+                                        text: '' + param + ' is no longer OP',
+                                        type: "status",
+                                    }));
+
+                                    var opSocket = null;
+                                    for (var i in Player.list)
+                                        if (Player.list[i].username === param)
+                                            opSocket = Player.list[i].socket;
+                                    if (opSocket !== null) {
+                                        // If player is online, notify them that they are now an Admin
+                                        opSocket.emit('message', formatMessage({
+                                            username: botName,
+                                            text: 'You are no longer an Admin',
+                                            type: 'status'
+                                        }));
+                                    }
+                                }
+                                else {
+                                    socket.emit("message", formatMessage({
+                                        username: botName,
+                                        text: 'Error! Was not able to remove ' + param + ' OP status',
+                                        type: "status",
+                                    }));
+                                }
+                            });
+                        }
+                        else {
+                            socket.emit("message", formatMessage({
+                                username: botName,
+                                text: '' + param + ' is not a valid player name',
+                                type: "status",
+                            }));
+                        }
+                    });
+                }
+            }
+        } //End of AdminCommands
+
+        //Logic to execute commands
+        if (command in commands) {
+            commands[command].execute();
+        }
+
+        else if (command in adminCommands) {
+            //Check if user is admin
+            Database.isAdmin({ username: player.username }, function (res) {
+                if (res !== true) {
+                    console.log("NOT Admin " + player.username);
+                    return;
+                }
+                //Execute command if they are
+                adminCommands[command].execute();
+            });
+        }
+
+        else{
+            socket.emit("message", formatMessage({
+                username: botName,
+                text: "'"+ command + "'" + "is not a command, run .commands to see list",
+                type: "status",
+            }));
+        }
+    });
+
+    socket.on('evalServer', function(data){
+        var res = eval(data);
+        socket.emit('evalAnswer',res);
+    });
+
+    socket.on("disconnect", () => {
+        const user = userLeave(socket.id);
+    
+        if (user) {
+            io.to(user.room).emit(
+                "message",
+                formatMessage(botName, `${user.username} has left the chat`)
+            );
+    
+            // Send users and room info
+            io.to(user.room).emit("roomUsers", {
+                room: user.room,
+                users: getRoomUsers(user.room),
+            });
+        }
+    });
+
+}
+
+////
+// Player Starts a Game
+Player.onGameStart = function(socket,username,progress){
+    player.inventory = new Inventory(progress.items,socket,true);
     var map = 'forest';
 
     const continents = ["NorthWest", "NorthEast", "SouthEast", "SouthWest","Middle"];
@@ -196,18 +489,13 @@ Player.onConnect = function(socket,username,progress){
         x:x,
         y:y,
         startingContinent:startingLocation,
-        progress:progress,
-        jointime: new Intl.DateTimeFormat('default',{
-            hour: 'numeric',
-            minute: 'numeric',
-            second: 'numeric'
-        }).format(new Date()),
-
     });
 
     player.inventory.refreshRender();
 
-    //Key Presses
+    console.log(player.username+" joined the server -- "+startingLocation +" "+x+","+y);
+
+    // Key Presses
     socket.on('keyPress', function (data) {
         if (data.inputId === 'left')
             player.pressingLeft = data.state;
@@ -222,7 +510,7 @@ Player.onConnect = function(socket,username,progress){
     socket.on('changeMap',function(data){
         if(player.map === 'snow'){
             player.map = 'forest';
-            player.inventory.addItem("potion",1);
+            //player.inventory.addItem("potion",1);
         }
             
         else{
@@ -232,225 +520,20 @@ Player.onConnect = function(socket,username,progress){
             
     });
 
-    //Player Sockets
-    socket.on('sendMsgToServer', function(data){
-        for(var i in Player.list){
-            Player.list[i].socket.emit('addToChat',{ 
-                message: player.username + ': ' + data,
-                type:'normal'
-            });
-        }
-    });
-
-    socket.on('sendCommandToServer', function(data){
-        const command = data.message.split(" ")[0];
-        const param = data.message.replace(command, "").trim()
-        console.log("### Username: " + player.username, " - Command: " + command)
-        
-        if (param.length > 1) 
-            console.log("Param: " + param)
-
-        //Object containing NORMAL commands
-        var commands = {
-            uptime: {
-                desc: "Returns the uptime of the server",
-                execute(){
-                    var time = process.uptime();
-                var uptime = (time + "").toHHMMSS();
-
-                socket.emit('addToChat', {
-                    message: 'Uptime: ' + uptime,
-                    type: 'status'
-                });
-                }
-            },
-            commands: {
-                desc: "Display NORMAL commands"
-            }
-        }
-
-        //Object containing ADMIN commands
-        var adminCommands = {
-            broadcast: {
-                desc: "Sends a server message to all players",
-                execute() {
-                    for (var i in Player.list) {
-                        Player.list[i].socket.emit('addToChat', {
-                            message: 'Server: ' + param,
-                            type: 'status'
-                        });
-                    }
-                }
-            },
-
-            commands: {
-                desc: "Display ADMIN commands"
-            },
-
-            op: {
-                desc: "Make user an admin aka op",
-                ex: "op <username>",
-                execute() {
-                    Database.isUsernameTaken({ username: param }, function (res) {
-                        if (res) {
-                            Database.makeAdmin({ username: param }, function (result) {
-                                if (result == true) {
-                                    socket.emit('addToChat', {
-                                        message: '<b>' + param + '</b> is now OP',
-                                        type: 'status'
-                                    });
-
-                                    var opSocket = null;
-
-                                    for (var i in Player.list)
-                                        if (Player.list[i].username === param)
-                                            opSocket = Player.list[i].socket;
-                                    if (opSocket !== null) {
-                                        // If player is online, notify them that they are now an Admin
-                                        opSocket.emit('addToChat', {
-                                            message: player.username + ' made you an Admin! Use it wisely... ',
-                                            type: 'status'
-                                        });
-                                    }
-                                }
-                                else {
-                                    socket.emit('addToChat', {
-                                        message: 'Error! Was not able to make <b>' + param + '</b> OP',
-                                        type: 'status'
-                                    });
-                                }
-                            });
-                        }
-                        else {
-                            socket.emit('addToChat', {
-                                message: '<b>' + param + '</b> is not a valid player name',
-                                type: 'status'
-                            });
-                        }
-                    });
-
-                }
-            },
-
-            deop: {
-                desc: "Removes admin rights from user",
-                ex: "deop <username>",
-                execute() {
-                    Database.isUsernameTaken({ username: param }, function (res) {
-                        if (res) {
-                            Database.removeAdmin({ username: param }, function (result) {
-                                if (result == false) {
-                                    socket.emit('addToChat', {
-                                        message: '<b>' + param + '</b> is no longer OP',
-                                        type: 'status'
-                                    });
-
-                                    var opSocket = null;
-
-                                    for (var i in Player.list)
-                                        if (Player.list[i].username === param)
-                                            opSocket = Player.list[i].socket;
-                                    if (opSocket !== null) {
-                                        // If player is online, notify them that they are now an Admin
-                                        opSocket.emit('addToChat', {
-                                            message: 'You are no longer an Admin',
-                                            type: 'status'
-                                        });
-                                    }
-                                }
-                                else {
-                                    socket.emit('addToChat', {
-                                        message: 'Error! Was not able to make <b>' + param + '</b> OP',
-                                        type: 'status'
-                                    });
-                                }
-                            });
-                        }
-                        else {
-                            socket.emit('addToChat', {
-                                message: '<b>' + param + '</b> is not a valid player name',
-                                type: 'status'
-                            });
-                        }
-                    });
-                }
-            }
-        } //End of AdminCommands
-
-        //Logic to execute commands
-        if (command in commands) {
-            commands[command].execute();
-        }
-
-        if (command in adminCommands) {
-            //Check if user is admin
-            Database.isAdmin({ username: player.username }, function (res) {
-                if (res !== true) {
-                    console.log("NOT Admin " + player.username);
-                    return;
-                }
-                //Execute command if they are
-                adminCommands[command].execute();
-            });
-
-        }
-
-        else{
-            socket.emit('addToChat', {
-                message: '<b>'+ command + '</b> is not a command, run .commands to see list',
-                type: 'status'
-            });
-        }
-
-    });
-
-    socket.on('sendPmToServer', function(data){
-        var recipientSocket = null;
-
-        for(var i in Player.list)  
-            if(Player.list[i].username === data.recipient)
-                recipientSocket = Player.list[i].socket;
-        if(recipientSocket === null){
-            socket.emit('addToChat',{ 
-                message: 'The player '+data.recipient+' is not online',
-                type:'status'
-            });
-        } else{
-            //recipientSocket.emit('addToChat','From '+player.username+': '+data.message);
-            //socket.emit('addToChat','PM sent to: '+data.username);
-
-
-            recipientSocket.emit('addToChat',{ 
-                message: 'From '+player.username+': '+data.message,
-                type:'pm'
-            });
-
-            socket.emit('addToChat',{ 
-                message: 'PM sent to: '+data.recipient,
-                type:'status'
-            });
-        }
-    });
-
-    socket.on('evalServer', function(data){
-        var res = eval(data);
-        socket.emit('evalAnswer',res);
-    });
-
+    // Player Sockets
+    
     socket.emit('init',{
         selfId:socket.id,
         player:Player.getAllInitPack(),
     })
 
-    //Send welcome message
-    console.log(player.username+" joined the server -- "+startingLocation +" "+x+","+y);
-
-    for(var i in Player.list){
-        Player.list[i].socket.emit('addToChat',{ 
-            message: '' + player.username + ' joined the server at ' + player.jointime,
-            type:'welcome'
+    // Save Intentory, if player was in a game
+    socket.on('disconnect', function(){
+        Database.savePlayerProgress({
+            username:player.username,
+            items:player.inventory.items,
         });
-    }
+    });
     
 }
 
@@ -461,16 +544,29 @@ Player.getAllInitPack = function(){
     return players;
 }
 
-Player.onDisconnect = function(socket){
+// Runs when client disconnects
+Player.onDisconnect = function(socket, io){
     let player = Player.list[socket.id];
     if(!player)
         return;
-    Database.savePlayerProgress({
-        username:player.username,
-        items:player.inventory.items,
-    });
     delete Player.list[socket.id];
     removePack.player.push(socket.id);
+
+    // const user = userLeave(socket.id);
+    //     if (user) {
+    //         io.to(user.room).emit(
+    //             "message", formatMessage({
+    //                 username: botName,
+    //                 text: `${user.username} has left the chat`,
+    //                 type: "status",
+    //         }));
+
+    //         // Send users and room info
+    //         io.in(user.room).emit("roomUsers", {
+    //             room: user.room,
+    //             users: getRoomUsers(user.room),
+    //         });
+    //     }
 }
 
 Player.update = function(){
