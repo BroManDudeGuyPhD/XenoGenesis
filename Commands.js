@@ -1,7 +1,7 @@
 // All chat commands are defined and maintained here
 
-const formatMessage = require("./utils/messages");
-require('./Database');
+const formatMessage = require("./utils/messages.js");
+require('./Database.js');
 const botName = "Server"
 
 class Commands {

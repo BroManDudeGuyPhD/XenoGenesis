@@ -18,12 +18,27 @@ var signDivSignIn = document.getElementById('signIn');
 var signDivSignUp = document.getElementById('signUp');
 var chatDiv = document.getElementById('chat-container');
 
+//Modal Login
+var modal = document.getElementById('id01');
+var loginButton = document.getElementById('loginNav');
+
+// When the user clicks anywhere outside of the modal, close it
+window.onclick = function(event) {
+    if (event.target == modal) {
+        modal.style.display = "none";
+    }
+}
+
+
+
 signDivSignIn.onclick = function () {
     socket.emit('signIn', { username: signDivUsername.value, password: signDivPassword.value });
+    modal.style.display = "none";
 }
 
 signDivSignUp.onclick = function () {
     socket.emit('signUp', { username: signDivUsername.value, password: signDivPassword.value });
+    modal.style.display = "none";
 }
 
 // Listen for Enter kepress on signin input
@@ -36,7 +51,8 @@ signDivPassword.addEventListener("keypress", function (event) {
 // Join chatroom
 socket.on('signInResponse', function (data) {
     if (data.success) {
-        signDiv.style.display = 'none';
+        //signDiv.style.display = 'none';
+        loginButton.style.display = "none";
         chatDiv.style.display = '';
         socket.emit('joinRoom', 'Global');
     }
@@ -173,6 +189,13 @@ document.getElementById('create-btn').addEventListener('click', () => {
     socket.emit('joinRoom', "Second Chat" );
 });
 
+document.getElementById('join-btn').addEventListener('click', () => {
+    
+    let test = prompt("Enter room name", '');
+    
+    socket.emit('joinRoom', test);
+});
+
 
 //Initialize
 // socket.on('init', function(data) {
@@ -211,3 +234,25 @@ socket.on('remove', function (data) {
         delete Player.list[data.player[i]];
     }
 });
+
+// HTML Design
+
+const hamburger = document.querySelector(".hamburger");
+const navMenu = document.querySelector(".nav-menu");
+
+hamburger.addEventListener("click", mobileMenu);
+
+function mobileMenu() {
+    hamburger.classList.toggle("active");
+    navMenu.classList.toggle("active");
+}
+
+
+const navLink = document.querySelectorAll(".nav-link");
+
+navLink.forEach(n => n.addEventListener("click", closeMenu));
+
+function closeMenu() {
+    hamburger.classList.remove("active");
+    navMenu.classList.remove("active");
+}

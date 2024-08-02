@@ -21,9 +21,63 @@
         <button id="signDiv-signUp">Sign Up</button>
     </div> -->
 
+    <header class="header">
+        <nav class="navbar">
+            <a href="#" class="nav-logo">XenoGenesis</a>
+            <ul class="nav-menu">
+                <li class="nav-item">
+                    <a href="#" class="nav-link">Game</a>
+                </li>
+                <li class="nav-item">
+                    <a href="#" class="nav-link">About</a>
+                </li>
+                <li class="nav-item">
+                    <button onclick="document.getElementById('id01').style.display='block'"
+                        style="width:auto;" id="loginNav">Login</button>
+                </li>
+            </ul>
+            <div class="hamburger">
+                <span class="bar"></span>
+                <span class="bar"></span>
+                <span class="bar"></span>
+            </div>
+        </nav>
+    </header>
+
+
+    <div id="id01" class="modal">
+        <div class="modal-content animate">
+            <div class="imgcontainer">
+                <span onclick="document.getElementById('id01').style.display='none'" class="close"
+                    title="Close Modal">&times;</span>
+                <img src="../../img/favicon.png" alt="Avatar" class="avatar">
+            </div>
+
+            <div class="container">
+                <label for="uname"><b>Username</b></label>
+                <input type="text" placeholder="Enter Username" id="username"name="uname" required>
+
+                <label for="psw"><b>Password</b></label>
+                <input type="password" placeholder="Enter Password" id="password" name="psw" required>
+
+                <button type="submit" id="signIn" class="btn">Login</button>
+                <button type="submit" id="signUp" class="btn">Sign Up</button>
+                <label>
+                    <input type="checkbox" checked="checked" name="remember"> Remember me
+                </label>
+            </div>
+
+            <div class="container" style="background-color:#f1f1f1">
+                <button type="button" onclick="document.getElementById('id01').style.display='none'"
+                    class="cancelbtn">Cancel</button>
+                <span class="psw">Forgot <a href="#">password?</a></span>
+            </div>
+        </div>
+    </div>
+
+<!--     
     <div class="join-container" id="signDiv">
         <header class="join-header">
-            <h1>XenoGenesis</h1>
         </header>
         <main class="join-main">
             <div class="signDiv">
@@ -33,28 +87,20 @@
                 <label for="password">Password</label>
                 <input type="password" name="password" id="password" required />
             </div>
-            <!-- <div class="form-control">
-                    <label for="room">Room</label>
-                    <select name="room" id="room">
-                        <option value="JavaScript">JavaScript</option>
-                        <option value="Python">Python</option>
-                        <option value="PHP">PHP</option>
-                        <option value="C#">C#</option>
-                        <option value="Ruby">Ruby</option>
-                        <option value="Java">Java</option>
-                    </select>
-                </div> -->
             <br></br>
             <button id="signIn" class="btn">Login</button>
             <button id="signUp" class="btn">Sign Up</button>
         </main>
     </div>
+    -->
+
     <div id="chat-container" class="chat-container" style="display:none;">
         <header class="chat-header">
             <i class="fa-thin fa-globe-stand"></i>
             <h1>XenoGenesis</h1>
-            <a id="leave-btn" class="btn">Leave Room</a>
             <a id="create-btn" class="btn">Create Room</a>
+            <a id="join-btn" class="btn">Join Room</a>
+            <a id="leave-btn" class="btn" style="color:red">Leave Room</a>
         </header>
         <main class="chat-main">
             <div class="chat-sidebar">
