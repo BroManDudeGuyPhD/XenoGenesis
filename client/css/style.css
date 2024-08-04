@@ -3,6 +3,7 @@
 :root {
 	--dark-color-a: #667aff;
 	--dark-color-b: #7386ff;
+	--darkest-color: #272A3B;
 	--light-color: #e6e9ff;
 	--success-color: #5cb85c;
 	--error-color: #d9534f;
@@ -32,7 +33,7 @@ a {
 .btn {
 	cursor: pointer;
 	padding: 5px 15px;
-	background: var(--light-color);
+	background: var(--darkest-color);
 	color: var(--dark-color-a);
 	border: 0;
 	font-size: 17px;
@@ -94,7 +95,8 @@ a {
 .chat-messages .message {
 	padding: 10px;
 	margin-bottom: 15px;
-	background-color: var(--light-color);
+	background-color: #272A3B;
+	color: var(--light-color);
 	border-radius: 5px;
 	overflow-wrap: break-word;
 }
@@ -125,6 +127,7 @@ a {
 	padding: 5px;
 	height: 40px;
 	flex: 1;
+	color: var(--darkest-color)
 }
 
 /* Join Page */
@@ -386,7 +389,7 @@ span.psw {
 
 /* Modal Content/Box */
 .modal-content {
-	background-color: #fefefe;
+	background-color: var(--darkest-color);
 	margin: 5% auto 15% auto;
 	/* 5% from the top, 15% from the bottom and centered */
 	border: 1px solid #888;

@@ -212,17 +212,17 @@ Player.onConnect = function(socket,username,admin,io){
             io.in(room).emit("roomUsers", {
                 room: room,
                 users: getRoomUsers(room),
+                userCount: Player.getLength() 
             });
         }
         if (room !== mainChat) {
             const user = userJoin(socket.id, player.username, mainChat);
-            socket.join(mainChat);
             io.in(mainChat).emit("roomUsers", {
                 room: mainChat,
                 users: getRoomUsers(mainChat),
+                userCount: Player.getLength() 
             });
 
-            socket.emit("leaveRoom");
         }
 
     });
@@ -263,9 +263,10 @@ Player.onConnect = function(socket,username,admin,io){
                     }));
 
             // Send users and room info
-            io.in(user.room).emit("roomUsers", {
+            io.to(user.room).emit("roomUsers", {
                 room: room,
                 users: getRoomUsers(user.room),
+                userCount: Player.getLength() 
             });
 
             if(room !== "Global")
@@ -390,6 +391,7 @@ Player.onConnect = function(socket,username,admin,io){
             io.in(user.room).emit("roomUsers", {
                 room: user.room,
                 users: getRoomUsers(user.room),
+                userCount: Player.getLength() 
             });
         }
     });
@@ -499,6 +501,7 @@ Player.onDisconnect = function(socket, io){
             io.in(user.room).emit("roomUsers", {
                 room: user.room,
                 users: getRoomUsers(user.room),
+                userCount: Player.getLength() 
             });
         }
 }
@@ -511,4 +514,8 @@ Player.update = function(){
         pack.push(player.getUpdatePack());
     }
     return pack;
+}
+
+Player.getLength = function(){
+    return Object.keys(Player.list).length;
 }

@@ -7,7 +7,8 @@ const globalChatMessages = document.getElementById('globalChatDiv');
 const globalNameText = document.getElementById('global-name');
 const roomChatMessages = document.getElementById('roomChatDiv');
 var roomNameText = document.getElementById('room-name');
-const userList = document.getElementById('users');
+var userList = document.getElementById('users');
+var userList = document.getElementById('userCount');
 
 globalNameText.style.backgroundColor = "green";
 
@@ -81,9 +82,10 @@ socket.on('signUpResponse', function (data) {
 });
 
 // Get room and users
-socket.on('roomUsers', ({ room, users }) => {
-    outputRoomName(room);
+socket.on('roomUsers', ({ room, users, userCount }) => {
+    //outputRoomName(room);
     outputUsers(users);
+    userList.innerText = ` Users:    ${userCount} online`
 });
 
 // Message from server
@@ -99,11 +101,9 @@ socket.on('roomCreated', (roomName) => {
     console.log("Room Created: "+roomName)
     roomNameText.style.display ="";
     socket.emit('joinRoom', roomName );
+    roomNameText.innerText = roomName;
 })
 
-socket.on('leaveRoom',(roomName) =>{
-    roomNameText.style.display ="none";
-})
 
 // Message submit
 chatForm.addEventListener('submit', (e) => {
@@ -300,10 +300,9 @@ document.getElementById('leave-btn').addEventListener('click', () => {
         console.log("NOT global chat")
         roomName = roomNameText.innerText;
         socket.emit('leaveRoom', roomNameText.innerText);
+        roomNameText.style.display ="none";
     }
     
-
-
     else{
         const leaveRoom = confirm('Are you sure you want to leave the chatroom?');
         if (leaveRoom) {
