@@ -8,7 +8,7 @@ const globalNameText = document.getElementById('global-name');
 const roomChatMessages = document.getElementById('roomChatDiv');
 var roomNameText = document.getElementById('room-name');
 var userList = document.getElementById('users');
-var userList = document.getElementById('userCount');
+var userCount = document.getElementById('userCount');
 
 globalNameText.style.backgroundColor = "green";
 
@@ -82,10 +82,10 @@ socket.on('signUpResponse', function (data) {
 });
 
 // Get room and users
-socket.on('roomUsers', ({ room, users, userCount }) => {
+socket.on('roomUsers', ({ room, users, usersCount }) => {
     //outputRoomName(room);
     outputUsers(users);
-    userList.innerText = ` Users:    ${userCount} online`
+    userCount.innerText = ` Users:    ${usersCount} online`
 });
 
 // Message from server
