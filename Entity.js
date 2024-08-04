@@ -1,6 +1,7 @@
 var initPack = {player:[]};
 var removePack = {player:[]};
-
+const { uniqueNamesGenerator, colors, animals } = require('unique-names-generator');
+var _ = require('lodash');
 require('./client/Inventory');
 let Commands = require('./Commands')
 const formatMessage = require("./utils/messages");
@@ -12,6 +13,7 @@ const {
 } = require("./utils/users");
 
 const botName = "Server";
+const mainChat = "Global";
 
 Entity = function(param) {
     var self = {
@@ -144,6 +146,7 @@ Player = function (param) {
 }
 
 Player.list = {};
+roomList = [mainChat];
 
 var continentCoords = {
     NorthEast:{
@@ -186,13 +189,14 @@ String.prototype.toHHMMSS = function () {
 // Player logs in
 Player.onConnect = function(socket,username,admin,io){
     //console.log(io.of("/").adapter);
+    console.log(username +" joined")
     var player = Player({
         username:username,
         id:socket.id,
         socket:socket,
         io:io,
         admin:admin,
-        room:'Global',
+        room:mainChat,
         jointime: new Intl.DateTimeFormat('default',{
             hour: 'numeric',
             minute: 'numeric',
@@ -200,44 +204,106 @@ Player.onConnect = function(socket,username,admin,io){
         }).format(new Date()),
     });
 
-    socket.on("joinRoom", (room) => {
-        const user = userJoin(socket.id, player.username, room);
-        socket.join(room);
-        player.room = room;
+    socket.on('leaveRoom', (room) => {
 
-        // Welcome current user
-        socket.emit("message", formatMessage({
-            username: botName,
-            text: `Welcome to ${room} chat!`,
-            type: "update",
-            admin: "admin"
-        }));
-        
-        // Broadcast when a user connects
-        // io.emit() sends to EVERYONE, this omits the user who joined
-        socket.broadcast
-            .to(user.room)
-            .emit(
-                "message",formatMessage({
-                    username: botName,
-                    text: `${player.username} has joined the chat`,
-                    type: "status",
-                    admin: "admin"
-            }));
+        const userLeaving = userLeave(socket.id);
+        if (userLeaving) {
+            // Send users and room info
+            io.in(room).emit("roomUsers", {
+                room: room,
+                users: getRoomUsers(room),
+            });
+        }
+        if (room !== mainChat) {
+            const user = userJoin(socket.id, player.username, mainChat);
+            socket.join(mainChat);
+            io.in(mainChat).emit("roomUsers", {
+                room: mainChat,
+                users: getRoomUsers(mainChat),
+            });
 
-        // Send users and room info
-        io.in(user.room).emit("roomUsers", {
-            room:room,
-            users: getRoomUsers(user.room),
-        });
+            socket.emit("leaveRoom");
+        }
+
     });
 
-    socket.on("chatMessage", (msg) => {
-        io.in(player.room).emit("message", formatMessage({
+    socket.on("joinRoom", (room) => {
+        //console.log(io.sockets.adapter.rooms);
+
+        //Search roomList array values represnted as lowercase to check if entered room name is valid regardless of case
+        const roomIndex = roomList.findIndex(element => {
+            return element.toLowerCase() === room.toLowerCase();
+        });
+
+        if ( roomIndex !== -1 ) {
+            room = _.startCase(room);
+            const user = userJoin(socket.id, player.username, room);
+            socket.join(room);
+            player.room = room;
+
+            // Welcome current user
+            socket.emit("message", formatMessage({
+                username: botName,
+                text: `Welcome to ${room} chat!`,
+                type: "update",
+                admin: "admin",
+                room: room
+            }));
+
+            // Broadcast when a user connects
+            // io.emit() sends to EVERYONE, this omits the user who joined
+            socket.broadcast
+                .to(user.room)
+                .emit(
+                    "message", formatMessage({
+                        username: botName,
+                        text: `${player.username} has joined the chat`,
+                        type: "status",
+                        admin: "admin"
+                    }));
+
+            // Send users and room info
+            io.in(user.room).emit("roomUsers", {
+                room: room,
+                users: getRoomUsers(user.room),
+            });
+
+            if(room !== "Global")
+                socket.emit("joinRoom");
+        }
+
+        else{
+            socket.emit("message", formatMessage({
+                username: botName,
+                text: "\""+ room +"\" is not a valid room",
+                type: "status",
+            }));
+        }
+
+    });
+
+    socket.on('createRoom', function(){
+        const shortName = uniqueNamesGenerator({
+            dictionaries: [colors,animals], 
+            separator: ' ',
+            length: 2
+        });
+
+        let roomName = _.startCase(shortName); 
+        console.log(roomName)
+        roomList.push(roomName);
+
+        socket.emit("roomCreated",roomName)
+    });
+
+
+    socket.on("chatMessage", (data) => {
+        io.in(data.room).emit("message", formatMessage({
             username: player.username,
-            text: msg,
+            text: data.msg,
             type: "normal",
-            admin: player.admin
+            admin: player.admin,
+            room:data.room
         }));
         
     });
@@ -321,7 +387,7 @@ Player.onConnect = function(socket,username,admin,io){
             );
     
             // Send users and room info
-            io.to(user.room).emit("roomUsers", {
+            io.in(user.room).emit("roomUsers", {
                 room: user.room,
                 users: getRoomUsers(user.room),
             });
@@ -360,6 +426,7 @@ Player.onGameStart = function(socket,username,progress){
 
     player.inventory.refreshRender();
 
+    
     console.log(player.username+" joined the server -- "+startingLocation +" "+x+","+y);
 
     // Key Presses
@@ -419,21 +486,21 @@ Player.onDisconnect = function(socket, io){
     delete Player.list[socket.id];
     removePack.player.push(socket.id);
 
-    // const user = userLeave(socket.id);
-    //     if (user) {
-    //         io.to(user.room).emit(
-    //             "message", formatMessage({
-    //                 username: botName,
-    //                 text: `${user.username} has left the chat`,
-    //                 type: "status",
-    //         }));
+    const user = userLeave(socket.id);
+        if (user) {
+            io.to(user.room).emit(
+                "message", formatMessage({
+                    username: botName,
+                    text: `${user.username} has left the chat`,
+                    type: "status",
+            }));
 
-    //         // Send users and room info
-    //         io.in(user.room).emit("roomUsers", {
-    //             room: user.room,
-    //             users: getRoomUsers(user.room),
-    //         });
-    //     }
+            // Send users and room info
+            io.in(user.room).emit("roomUsers", {
+                room: user.room,
+                users: getRoomUsers(user.room),
+            });
+        }
 }
 
 Player.update = function(){

@@ -13,7 +13,7 @@
     <link rel="icon" type="image/x-icon" href="../client/img/favicon.png">
 </head>
 
-<body style="background-color: #23272a;">
+<body style="background-color: #2c2f33;">
     <!-- <div id="signDiv" class="signIn">
         Username: <input id="signDiv-username" type="text"></input><br>
         Password: <input id="signDiv-password" type="password"></input><br>
@@ -32,8 +32,7 @@
                     <a href="#" class="nav-link">About</a>
                 </li>
                 <li class="nav-item">
-                    <button onclick="document.getElementById('id01').style.display='block'"
-                        style="width:auto;" id="loginNav">Login</button>
+                    <button style="width:auto;" id="loginNav">Login</button>
                 </li>
             </ul>
             <div class="hamburger">
@@ -50,7 +49,7 @@
             <div class="imgcontainer">
                 <span onclick="document.getElementById('id01').style.display='none'" class="close"
                     title="Close Modal">&times;</span>
-                <img src="../../img/favicon.png" alt="Avatar" class="avatar">
+                <!-- <img src="../../img/favicon.png" alt="Avatar" class="avatar"> -->
             </div>
 
             <div class="container">
@@ -75,8 +74,12 @@
         </div>
     </div>
 
-<!--     
-    <div class="join-container" id="signDiv">
+    <div id="landingPage">
+        <img src="/client/img/meht-solar-pixels.jpg" id="backgroundIMG">
+    </div>
+
+    
+    <!-- <div class="join-container" id="signDiv">
         <header class="join-header">
         </header>
         <main class="join-main">
@@ -91,30 +94,33 @@
             <button id="signIn" class="btn">Login</button>
             <button id="signUp" class="btn">Sign Up</button>
         </main>
-    </div>
-    -->
+    </div> -->
+   
 
     <div id="chat-container" class="chat-container" style="display:none;">
         <header class="chat-header">
             <i class="fa-thin fa-globe-stand"></i>
-            <h1>XenoGenesis</h1>
             <a id="create-btn" class="btn">Create Room</a>
             <a id="join-btn" class="btn">Join Room</a>
             <a id="leave-btn" class="btn" style="color:red">Leave Room</a>
         </header>
         <main class="chat-main">
             <div class="chat-sidebar">
-                <h3><i class="fas fa-comments"></i> Room Name:</h3>
-                <h2 id="room-name"></h2>
+                <h3><i class="fas fa-comments"></i> Rooms:</h3>
+                <div id="rooms">
+                    <h2 id="global-name">Global</h2>
+                    <h2 id="room-name" style="display:none;"></h2>
+                </div>
                 <h3><i class="fas fa-users"></i> Users</h3>
                 <ul id="users"></ul>
             </div>
-            <div class="chat-messages"></div>
+            <div class="chat-messages" id="globalChatDiv"></div>
+            <div class="chat-messages" id="roomChatDiv" style="display:none"></div>
         </main>
         <div class="chat-form-container">
             <form id="chat-form">
                 <input id="msg" type="text" placeholder="Enter Message" required autocomplete="off" />
-                <button class="btn"><i class="fas fa-paper-plane"></i> Send</button>
+                <button class="btn" id="sendButton"><i class="fas fa-paper-plane"></i> Send</button>
             </form>
         </div>
     </div>

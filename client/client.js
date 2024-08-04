@@ -1,14 +1,15 @@
+// Variables
+const socket = io();
+
+// Chat Objects
 const chatForm = document.getElementById('chat-form');
-const chatMessages = document.querySelector('.chat-messages');
-const roomName = document.getElementById('room-name');
+const globalChatMessages = document.getElementById('globalChatDiv');
+const globalNameText = document.getElementById('global-name');
+const roomChatMessages = document.getElementById('roomChatDiv');
+var roomNameText = document.getElementById('room-name');
 const userList = document.getElementById('users');
 
-// Get username and room from URL
-// const { username, room } = Qs.parse(location.search, {
-//     ignoreQueryPrefix: true,
-// });
-
-const socket = io();
+globalNameText.style.backgroundColor = "green";
 
 //Login logic
 var signDiv = document.getElementById('signDiv');
@@ -17,6 +18,8 @@ var signDivPassword = document.getElementById('password');
 var signDivSignIn = document.getElementById('signIn');
 var signDivSignUp = document.getElementById('signUp');
 var chatDiv = document.getElementById('chat-container');
+var landingPage = document.getElementById('landingPage');
+var backgroundIMG = document.getElementById('backgroundIMG');
 
 //Modal Login
 var modal = document.getElementById('id01');
@@ -29,16 +32,23 @@ window.onclick = function(event) {
     }
 }
 
+loginButton.onclick = function(event) {
+    document.getElementById('id01').style.display='block';
+    document.getElementById("username").focus();
+    //socket.emit('signIn', { username: "bob", password: "pass" });
+}
 
 
 signDivSignIn.onclick = function () {
     socket.emit('signIn', { username: signDivUsername.value, password: signDivPassword.value });
     modal.style.display = "none";
+    closeMenu()
 }
 
 signDivSignUp.onclick = function () {
     socket.emit('signUp', { username: signDivUsername.value, password: signDivPassword.value });
     modal.style.display = "none";
+    closeMenu()
 }
 
 // Listen for Enter kepress on signin input
@@ -52,6 +62,7 @@ signDivPassword.addEventListener("keypress", function (event) {
 socket.on('signInResponse', function (data) {
     if (data.success) {
         //signDiv.style.display = 'none';
+        landingPage.style.display = "none";
         loginButton.style.display = "none";
         chatDiv.style.display = '';
         socket.emit('joinRoom', 'Global');
@@ -69,7 +80,6 @@ socket.on('signUpResponse', function (data) {
         alert("Sign up unsuccessul.");
 });
 
-
 // Get room and users
 socket.on('roomUsers', ({ room, users }) => {
     outputRoomName(room);
@@ -81,12 +91,30 @@ socket.on('message', (message) => {
     outputMessage(message);
 
     // Scroll down
-    chatMessages.scrollTop = chatMessages.scrollHeight;
+    globalChatMessages.scrollTop = globalChatMessages.scrollHeight;
+    roomChatMessages.scrollTop = roomChatMessages.scrollHeight;
 });
+
+socket.on('roomCreated', (roomName) => {
+    console.log("Room Created: "+roomName)
+    roomNameText.style.display ="";
+    socket.emit('joinRoom', roomName );
+})
+
+socket.on('leaveRoom',(roomName) =>{
+    roomNameText.style.display ="none";
+})
 
 // Message submit
 chatForm.addEventListener('submit', (e) => {
     e.preventDefault();
+
+    //Determine what chat to send message to based on what room is visible
+    let roomName = "Global"
+    console.log(globalNameText.style)
+    if(globalChatMessages.style.display.match("none")){
+        roomName = roomNameText.innerText;
+    }
 
     // Get message text
     let msg = e.target.elements.msg.value;
@@ -105,57 +133,152 @@ chatForm.addEventListener('submit', (e) => {
     if(msg[0]==='@'){
         socket.emit('privateMessage',{
             recipient:msg.slice(1,msg.indexOf(':')),
-            message:msg.slice(msg.indexOf(':') + 1)
+            message:msg.slice(msg.indexOf(':') + 1),
+            room:roomName
         });
     }
 
     else if(msg[0]==='.'){
         socket.emit('commandMessage',{
-            message:msg.replaceAll(".","")
+            message:msg.replaceAll(".",""),
+            room:roomName
         });
     }
 
     else
-        socket.emit('chatMessage', msg);
+        socket.emit('chatMessage', {
+            msg:msg,
+            room:roomName
+        });
 
 });
+
+globalNameText.onclick = function(){
+    roomChatMessages.style.display = "none";
+    roomNameText.style.backgroundColor = "#667aff"
+    globalChatMessages.style.display = "";
+    globalNameText.style.backgroundColor = "green";
+    
+}
+
+roomNameText.onclick = function(){
+    globalChatMessages.style.display = "none";
+    globalNameText.style.backgroundColor = "#667aff"
+    roomChatMessages.style.display = "";
+    roomNameText.style.backgroundColor = "green";
+    
+}
 
 // Output message to DOM
 function outputMessage(message) {
 
+if(message.type == "broadcast"){
+    console.log("Broadcast")
+    //If message is a broadcast, send to ALL rooms
     const div = document.createElement('div');
+    div.id = message.username;
     div.classList.add('message');
     const p = document.createElement('p');
     p.classList.add('meta');
     p.innerText = message.username;
     switch (message.admin) {
         case true:
-            p.style.color="magenta";
+            p.style.color = "magenta";
             p.innerText = message.username + "  (admin)";
             break;
-
     }
     p.innerHTML += `<span>  ${message.time}</span>`;
+    p.style.fontSize = "12px"
     div.appendChild(p);
     const para = document.createElement('p');
     para.classList.add('text');
     para.innerText = message.text;
     switch (message.type) {
         case "status":
-            para.style.color="green";
+            para.style.color = "green";
+            break;
+        case "broadcast":
+            para.style.color = "yellow";
             break;
         case "pm":
-            para.style.color="magenta";
+            para.style.color = "magenta";
             break;
     }
-    div.appendChild(para);
-    document.querySelector('.chat-messages').appendChild(div);
+    div.appendChild(para)
+    document.getElementById("globalChatDiv").appendChild(div);
+    document.getElementById("roomChatDiv").appendChild(div);
+    return;
 }
 
+let roomNameDiv = "globalChatDiv";
+let chatMessages = globalChatMessages;
+
+if(message.room !== "Global"){
+    roomNameDiv = "roomChatDiv"
+    chatMessages = roomChatMessages
+}
+
+    // If the previous message was sent by them same user, combine the message div, otherwise seperate
+    if (chatMessages.childNodes.length >= 1) {
+        let lastMessage = chatMessages.lastElementChild
+        if (lastMessage.id == message.username) {
+            const p = document.createElement('p');
+            p.classList.add('meta');
+
+            const para = document.createElement('p');
+            para.classList.add('text');
+            para.innerText = message.text;
+            switch (message.type) {
+                case "status":
+                    para.style.color = "green";
+                    break;
+                case "pm":
+                    para.style.color = "magenta";
+                    break;
+            }
+            chatMessages.lastElementChild.appendChild(para)
+            return;
+        }
+    }
+
+    const div = document.createElement('div');
+    div.id = message.username;
+    div.classList.add('message');
+    const p = document.createElement('p');
+    p.classList.add('meta');
+    p.innerText = message.username;
+    switch (message.admin) {
+        case true:
+            p.style.color = "magenta";
+            p.innerText = message.username + "  (admin)";
+            break;
+    }
+    p.innerHTML += `<span>  ${message.time}</span>`;
+    p.style.fontSize = "12px"
+    div.appendChild(p);
+    const para = document.createElement('p');
+    para.classList.add('text');
+    para.innerText = message.text;
+    switch (message.type) {
+        case "status":
+            para.style.color = "green";
+            break;
+        case "broadcast":
+            para.style.color = "yellow";
+            break;
+        case "pm":
+            para.style.color = "magenta";
+            break;
+    }
+    div.appendChild(para)
+    document.getElementById(roomNameDiv).appendChild(div);
+
+
+}
 
 // Add room name to DOM
 function outputRoomName(room) {
-    roomName.innerText = room;
+    roomNameText.innerText = room;
 }
 
 // Add users to DOM
@@ -170,63 +293,49 @@ function outputUsers(users) {
 
 //Prompt the user before leave chat room
 document.getElementById('leave-btn').addEventListener('click', () => {
-    if (roomName.innerText == "Global") {
+    globalChat = document.getElementById('globalChatDiv');
+    console.log(globalChat);
 
+    if(globalChat.style.display == "none"){
+        console.log("NOT global chat")
+        roomName = roomNameText.innerText;
+        socket.emit('leaveRoom', roomNameText.innerText);
+    }
+    
+
+
+    else{
         const leaveRoom = confirm('Are you sure you want to leave the chatroom?');
         if (leaveRoom) {
             signDiv.style.display = '';
             chatDiv.style.display = 'none';
+            socket.emit('leaveRoom', "Global");
         } else {
         }
     }
-
-    else
-        socket.emit('joinRoom', 'Global');
+        
 });
 
 //Create new room with a static name, this will be a join game button soon
 document.getElementById('create-btn').addEventListener('click', () => {
-    socket.emit('joinRoom', "Second Chat" );
+    socket.emit("createRoom");
+    roomNameText.click();
 });
 
 document.getElementById('join-btn').addEventListener('click', () => {
-    
-    let test = prompt("Enter room name", '');
-    
-    socket.emit('joinRoom', test);
+    let roomName = prompt("Enter room name", '');
+    socket.emit('joinRoom', roomName);
+});
+
+socket.on("joinRoom", (room) => {
+    roomNameText.style.display ="";
+    globalChatMessages.style.display = "none";
+    globalNameText.style.backgroundColor = "#667aff"
+    roomChatMessages.style.display = "";
+    roomNameText.style.backgroundColor = "green";
 });
 
 
-//Initialize
-// socket.on('init', function(data) {
-//     if(data.selfId){
-//         selfId = data.selfId;
-//     }
-//     for (var i = 0; i < data.player.length; i++) {
-//         new Player(data.player[i]);
-//     }
-// });
-
-
-// //Update
-// socket.on('update', function(data) {
-//     for (var i = 0; i < data.player.length; i++) {
-//         var pack = data.player[i];
-//         var p = Player.list[pack.id];
-//         if (p) {
-//             if (pack.x !== undefined)
-//                 p.x = pack.x;
-//             if (pack.y !== undefined)
-//                 p.y = pack.y;
-//             if (pack.hp !== undefined)
-//                 p.hp = pack.hp;
-//             if (pack.score !== undefined)
-//                 p.score = pack.score;
-//             if (pack.map !== undefined)
-//                 p.map = pack.map;
-//         }
-//     }
-// });
 
 //Remove
 socket.on('remove', function (data) {
@@ -235,8 +344,9 @@ socket.on('remove', function (data) {
     }
 });
 
-// HTML Design
 
+
+// HTML Design
 const hamburger = document.querySelector(".hamburger");
 const navMenu = document.querySelector(".nav-menu");
 

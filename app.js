@@ -47,7 +47,6 @@ io.on('connection', (socket) => {
     SOCKET_LIST[socket.id] = socket;
 
     socket.on('signIn', function(data) {
-        console.log(data)
         Database.isValidPassword(data, function(res){
             if (!res) 
                 return socket.emit('signInResponse', { success: false });
@@ -57,7 +56,6 @@ io.on('connection', (socket) => {
             //     Player.onConnect(socket,data.username,io,progress);
             // })
             Database.isAdmin(data,function(admin){ 
-                console.log(admin);
                 Player.onConnect(socket,data.username,admin,io);
                 socket.emit('signInResponse', { success: true });
             })

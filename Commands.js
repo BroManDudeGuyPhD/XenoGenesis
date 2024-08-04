@@ -48,7 +48,7 @@ class Commands {
                 io.emit("message", formatMessage({
                     username: botName,
                     text: data.param,
-                    type: "status",
+                    type: "broadcast",
                 }));
             }
         },
