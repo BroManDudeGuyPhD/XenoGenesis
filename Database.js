@@ -84,7 +84,8 @@ Database.getPlayerProgress = function(username,cb){
     if(!USE_DB)
         return cb({items:[]});
     db.progress.findOne({username:username}, function(err, res){
-        cb({items:res.items});
+        //cb({items:res.items});
+        cb({items:[]});
     });
     
 }

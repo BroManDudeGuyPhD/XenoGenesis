@@ -396,12 +396,28 @@ Player.onConnect = function(socket,username,admin,io){
         }
     });
 
+
+    socket.on('startGame', (data) => {
+        console.log(data)
+        Database.getPlayerProgress(player.username,function(progress){
+            Player.onGameStart(player.socket,player.username,progress, data.room);
+        });
+        socket.to(data.room).emit("gameStarted")
+        console.log("SOCKET::  ROOM startred: "+ data.room)
+    });
+
+    socket.on('beginGame', (data) => {
+        // Database.getPlayerProgress(data.username,function(progress){
+        //     Player.onGameStart(player.socket,player.username,progress, room);
+        // });
+        console.log("SOCKET::  ROOM began: "+ data.room)
+    });
+
 }
 
 ////
 // Player Starts a Game
-Player.onGameStart = function(socket,username,progress){
-    player.inventory = new Inventory(progress.items,socket,true);
+Player.onGameStart = function(socket,username, progress, room){
     var map = 'forest';
 
     const continents = ["NorthWest", "NorthEast", "SouthEast", "SouthWest","Middle"];
@@ -416,19 +432,24 @@ Player.onGameStart = function(socket,username,progress){
         }
     }
 
+
     var player = Player({
         username:username,
         id:socket.id,
         socket:socket,
         map:map,
+        room:room,
         x:x,
         y:y,
+        inventory:progress,
         startingContinent:startingLocation,
     });
 
+    player.inventory = new Inventory(progress.items,socket,true);
+
     player.inventory.refreshRender();
 
-    
+    console.log("Game started for room: "+player.room)
     console.log(player.username+" joined the server -- "+startingLocation +" "+x+","+y);
 
     // Key Presses
@@ -458,7 +479,7 @@ Player.onGameStart = function(socket,username,progress){
 
     // Player Sockets
     
-    socket.emit('init',{
+    socket.to(room).emit('init',{
         selfId:socket.id,
         player:Player.getAllInitPack(),
     })

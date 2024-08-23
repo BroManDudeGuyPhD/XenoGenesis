@@ -116,12 +116,15 @@
 
         socket.on('addToChat', function (data) {
             if(data.type === "pm"){
+                console.log(data.type)
                 chatText.innerHTML += '<div style="color:red">' + data.message + '</div>';
             }
             else if(data.type === "status"){
+                console.log(data.type)
                 chatText.innerHTML += '<div style="color:magenta; font-style: bold;" >' + data.message + '</div>';
             }
             else if(data.type === "welcome"){
+                console.log(data.type)
                 chatText.innerHTML += '<div style="color:green; font-style: italic;" >' + data.message + '</div>';
             }
             else{

@@ -12,7 +12,7 @@ var userCount = document.getElementById('userCount');
 
 globalNameText.style.backgroundColor = "green";
 
-//Login logic
+// Login logic
 var signDiv = document.getElementById('signDiv');
 var signDivUsername = document.getElementById('username');
 var signDivPassword = document.getElementById('password');
@@ -22,9 +22,14 @@ var chatDiv = document.getElementById('chat-container');
 var landingPage = document.getElementById('landingPage');
 var backgroundIMG = document.getElementById('backgroundIMG');
 
-//Modal Login
+// Modal Login
 var modal = document.getElementById('id01');
 var loginButton = document.getElementById('loginNav');
+
+// Buttons
+var createRoomButton = document.getElementById('create-btn');
+var joinRoomButton = document.getElementById('join-btn');
+var startGameButton = document.getElementById('start-btn');
 
 // When the user clicks anywhere outside of the modal, close it
 window.onclick = function(event) {
@@ -301,6 +306,8 @@ document.getElementById('leave-btn').addEventListener('click', () => {
         roomName = roomNameText.innerText;
         socket.emit('leaveRoom', roomNameText.innerText);
         roomNameText.style.display ="none";
+        createRoomButton.style.display = "";
+        startGameButton.style.display = "none";
     }
     
     else{
@@ -316,14 +323,22 @@ document.getElementById('leave-btn').addEventListener('click', () => {
 });
 
 //Create new room with a static name, this will be a join game button soon
-document.getElementById('create-btn').addEventListener('click', () => {
+createRoomButton.addEventListener('click', () => {
     socket.emit("createRoom");
     roomNameText.click();
+    createRoomButton.style.display = "none";
+    startGameButton.style.display = "";
 });
 
-document.getElementById('join-btn').addEventListener('click', () => {
+joinRoomButton.addEventListener('click', () => {
     let roomName = prompt("Enter room name", '');
     socket.emit('joinRoom', roomName);
+});
+
+startGameButton.addEventListener('click', () => {
+    socket.emit('startGame', {room:roomNameText.innerText});
+    gameDiv.style.display = 'inline-block';
+
 });
 
 socket.on("joinRoom", (room) => {
@@ -333,6 +348,10 @@ socket.on("joinRoom", (room) => {
     roomChatMessages.style.display = "";
     roomNameText.style.backgroundColor = "green";
 });
+
+socket.on("gameStarted", function(){
+    socket.emit('beginGame', roomName);
+})
 
 
 
@@ -364,4 +383,164 @@ navLink.forEach(n => n.addEventListener("click", closeMenu));
 function closeMenu() {
     hamburger.classList.remove("active");
     navMenu.classList.remove("active");
+}
+
+
+var changeMap = function(){
+    console.log("Change Map")
+    socket.emit('changeMap');
+}
+
+//Game
+var Img = {};
+Img.player = new Image();
+Img.player.src = '/client/img/player.png';
+
+Img.map = {};
+Img.map['forest'] = new Image();
+Img.map['forest'].src = '/client/img/map.png';
+Img.map['snow'] = new Image();
+Img.map['snow'].src = '/client/img/snowMap.png';
+
+
+var ctx = document.getElementById("ctx").getContext("2d");
+var ctxUi = document.getElementById("ctx-ui").getContext("2d");
+ctx.font = '30px Arial';
+
+var Player = function (initPack) {
+    var self = {};
+    self.id = initPack.id;
+    self.number = initPack.number;
+    self.x = initPack.x;
+    self.y = initPack.y;
+    self.hp = initPack.hp;
+    self.hpMax = initPack.hpMax;
+    self.score = initPack.score;
+    self.map = initPack.map;
+
+    self.draw = function(){
+        var hpWidth = 50 * self.hp / self.hpMax;
+
+        //HP Bar
+        ctx.fillStyle = 'red';
+        ctx.fillRect(self.x - 40, self.y - 70,hpWidth,4);
+
+        //Player Image
+        var width = Img.player.width;
+        var height = Img.player.height;
+
+        ctx.drawImage(Img.player,
+            0, 0, Img.player.width, Img.player.height,
+            self.x - width / 2, self.y - height / 2, width, height);
+
+        //Score
+        //ctx.fillText(self.score,self.x,self.y-60)
+    }
+
+    Player.list[self.id] = self;
+    return self;
+}
+
+Player.list = {};
+var selfId = null;
+
+//Initialize
+socket.on('init', function(data) {
+    if(data.selfId){
+        selfId = data.selfId;
+    }
+    for (var i = 0; i < data.player.length; i++) {
+        new Player(data.player[i]);
+    }
+});
+
+
+//Update
+socket.on('update', function(data) {
+    for (var i = 0; i < data.player.length; i++) {
+        var pack = data.player[i];
+        var p = Player.list[pack.id];
+        if (p) {
+            if (pack.x !== undefined)
+                p.x = pack.x;
+            if (pack.y !== undefined)
+                p.y = pack.y;
+            if (pack.hp !== undefined)
+                p.hp = pack.hp;
+            if (pack.score !== undefined)
+                p.score = pack.score;
+            if (pack.map !== undefined)
+                p.map = pack.map;
+        }
+    }
+});
+
+//Remove
+socket.on('remove', function (data) {
+    for (var i = 0; i < data.player.length; i++) {
+        delete Player.list[data.player[i]];
+    }
+});
+
+//Draw Map
+var drawMap = function(){
+    var player = Player.list[selfId];
+    ctx.drawImage(Img.map[player.map],0,0);
+}
+
+//Draw GAME
+
+var drawScore = function(){
+    if(lastScore === Player.list[selfId].score)
+        return;
+    
+    lastScore = Player.list[selfId].score;
+    ctxUi.clearRect(0, 0, 500, 500);
+    ctxUi.fillStyle = 'white';
+    ctxUi.font = "20px Arial";
+    ctxUi.fillText("Score: "+Player.list[selfId].score,0,30);
+}
+
+var lastScore = -1;
+
+setInterval(function () {
+    //Do not draw map or player info until player is logged in
+    if(!selfId)
+        return;
+
+    ctx.clearRect(0, 0, 800, 1600);
+    drawMap();
+    drawScore();
+    for (var i in Player.list)
+        Player.list[i].draw();
+}, 20);
+
+
+document.onkeydown = function (event) {
+    if (event.keyCode === 68) //d
+        socket.emit('keyPress', { inputId: 'right', state: true });
+    else if (event.keyCode === 83) //s
+        socket.emit('keyPress', { inputId: 'down', state: true });
+    else if (event.keyCode === 65) //a
+        socket.emit('keyPress', { inputId: 'left', state: true });
+    else if (event.keyCode === 87) // w
+        socket.emit('keyPress', { inputId: 'up', state: true });
+}
+
+document.onkeyup = function (event) {
+    if (event.keyCode === 68) //d
+        socket.emit('keyPress', { inputId: 'right', state: false });
+    else if (event.keyCode === 83) //s
+        socket.emit('keyPress', { inputId: 'down', state: false });
+    else if (event.keyCode === 65) //a
+        socket.emit('keyPress', { inputId: 'left', state: false });
+    else if (event.keyCode === 87) // w
+        socket.emit('keyPress', { inputId: 'up', state: false });
+
+//Block right-click
+document.oncontextmenu = function(event){
+    event.preventDefault();
+}
+
+
 }

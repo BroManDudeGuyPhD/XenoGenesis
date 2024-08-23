@@ -78,7 +78,24 @@
         <img src="/client/img/meht-solar-pixels.jpg" id="backgroundIMG">
     </div>
 
+    <div id="gameDiv" style="display:none;">
+        <div id="game" style="position: absolute; width: 1600; height: 800;">
+            <canvas id="ctx" width="1600" height="800" style="position:absolute; border:1px solid #ffffff;"></canvas>
+            <canvas id="ctx-ui" width="1600" height="800" style="position:absolute; border:1px solid #ffffff;"></canvas>
+
+            <div id="ui" style="position:absolute;width: 500px; height: 800px; ">
+                <button onclick="changeMap()" style="position:absolute; bottom: 0px; left: 0px">
+                    Change Map
+                </button>
+            </div>
+        </div>
     
+
+        <div id="belowGame" style="margin-top:800px">
+            <div id="inventory"></div>
+        </div>
+    </div>
+
     <!-- <div class="join-container" id="signDiv">
         <header class="join-header">
         </header>
@@ -95,11 +112,11 @@
             <button id="signUp" class="btn">Sign Up</button>
         </main>
     </div> -->
-   
 
     <div id="chat-container" class="chat-container" style="display:none;">
         <header class="chat-header">
             <i class="fa-thin fa-globe-stand"></i>
+            <a id="start-btn" class="btn" style="color:green; display:none" >Start Game</a>
             <a id="create-btn" class="btn">Create Room</a>
             <a id="join-btn" class="btn">Join Room</a>
             <a id="leave-btn" class="btn" style="color:red">Leave Room</a>
@@ -129,6 +146,7 @@
         integrity="sha256-TDxXjkAUay70ae/QJBEpGKkpVslXaHHayklIVglFRT4=" crossorigin="anonymous"></script>
     <script src="/socket.io/socket.io.js"></script>
     <script type="text/javascript" src="/client/client.js"></script>
+    <script src="/client/Inventory.js"></script>
 
     <script>
 
