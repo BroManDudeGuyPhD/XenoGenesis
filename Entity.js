@@ -190,6 +190,7 @@ String.prototype.toHHMMSS = function () {
 Player.onConnect = function(socket,username,admin,io){
     //console.log(io.of("/").adapter);
     console.log(username +" joined")
+
     var player = Player({
         username:username,
         id:socket.id,
@@ -400,7 +401,7 @@ Player.onConnect = function(socket,username,admin,io){
     socket.on('startGame', (data) => {
         console.log(data)
         Database.getPlayerProgress(player.username,function(progress){
-            Player.onGameStart(player.socket,player.username,progress, data.room);
+            Player.onGameStart(player.socket,player.username,progress, io, data.room);
         });
         socket.to(data.room).emit("gameStarted")
         console.log("SOCKET::  ROOM startred: "+ data.room)
@@ -417,7 +418,7 @@ Player.onConnect = function(socket,username,admin,io){
 
 ////
 // Player Starts a Game
-Player.onGameStart = function(socket,username, progress, room){
+Player.onGameStart = function(socket,username, progress, io, room){
     var map = 'forest';
 
     const continents = ["NorthWest", "NorthEast", "SouthEast", "SouthWest","Middle"];
@@ -479,10 +480,15 @@ Player.onGameStart = function(socket,username, progress, room){
 
     // Player Sockets
     
-    socket.to(room).emit('init',{
+    io.in(room).emit('init',{
         selfId:socket.id,
         player:Player.getAllInitPack(),
     })
+
+    // socket.emit('init',{
+    //     selfId:socket.id,
+    //     player:Player.getAllInitPack(),
+    // })
 
     // Save Intentory, if player was in a game
     socket.on('disconnect', function(){
