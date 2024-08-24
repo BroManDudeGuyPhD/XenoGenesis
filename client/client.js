@@ -88,7 +88,7 @@ socket.on('signUpResponse', function (data) {
 
 // Get room and users
 socket.on('roomUsers', ({ room, users, usersCount }) => {
-    //outputRoomName(room);
+    outputRoomName(room);
     outputUsers(users);
     userCount.innerText = ` Users:    ${usersCount} online`
 });

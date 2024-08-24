@@ -20,7 +20,7 @@ class Commands {
         uptime: {
             desc: "Returns the uptime of the server",
             execute(data) {
-                var socket = data.socket, param = data.param, io = data.io;
+                var socket = data.socket, param = data.param, io = data.io, player = data.player;
                 var time = process.uptime();
                 var uptime = (time + "").toHHMMSS();
 
@@ -43,7 +43,8 @@ class Commands {
         broadcast: {
             desc: "Sends a server message to all players",
             execute(data) {
-                var socket = data.socket, param = data.param, io = data.io;
+                var socket = data.socket, param = data.param, io = data.io, player = data.player;
+                var time = process.uptime();
 
                 io.emit("message", formatMessage({
                     username: botName,
@@ -61,8 +62,8 @@ class Commands {
             desc: "Make user an admin aka op",
             ex: "op <username>",
             execute(data) {
-                var socket = data.socket, param = data.param, io = data.io;
-
+                var socket = data.socket, param = data.param, io = data.io, player = data.player;
+                var time = process.uptime();
                 Database.isUsernameTaken({ username: param }, function (res) {
                     if (res) {
                         Database.makeAdmin({ username: param }, function (result) {
@@ -110,7 +111,8 @@ class Commands {
             desc: "Removes admin rights from user",
             ex: "deop <username>",
             execute(data) {
-                var socket = data.socket, param = data.param, io = data.io;
+                var socket = data.socket, param = data.param, io = data.io, player = data.player;
+                var time = process.uptime();
 
                 Database.isUsernameTaken({ username: param }, function (res) {
                     if (res) {
@@ -157,12 +159,12 @@ class Commands {
     } //End of AdminCommands
 
     runNormalCommand() {
-        this.normal[this.command].execute({ socket: this.socket, param: this.param, io: this.io })
+        this.normal[this.command].execute({ socket: this.socket, param: this.param, io: this.io ,player: this.player})
 
     }
 
     runAdminCommand() {
-        this.admin[this.command].execute({ socket: this.socket, param: this.param, io: this.io })
+        this.admin[this.command].execute({ socket: this.socket, param: this.param, io: this.io, player: this.player })
     }
 }
 

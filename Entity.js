@@ -4,6 +4,7 @@ const { uniqueNamesGenerator, colors, animals } = require('unique-names-generato
 var _ = require('lodash');
 require('./client/Inventory');
 let Commands = require('./Commands')
+let Room = require('./Room')
 const formatMessage = require("./utils/messages");
 const {
     userJoin,
@@ -146,7 +147,9 @@ Player = function (param) {
 }
 
 Player.list = {};
-roomList = [mainChat];
+roomList = [];
+let newRoom = new Room("server", "Global");
+roomList.push(newRoom);
 
 var continentCoords = {
     NorthEast:{
@@ -233,7 +236,7 @@ Player.onConnect = function(socket,username,admin,io){
 
         //Search roomList array values represnted as lowercase to check if entered room name is valid regardless of case
         const roomIndex = roomList.findIndex(element => {
-            return element.toLowerCase() === room.toLowerCase();
+            return element.name.toLowerCase() === room.toLowerCase();
         });
 
         if ( roomIndex !== -1 ) {
@@ -293,9 +296,17 @@ Player.onConnect = function(socket,username,admin,io){
 
         let roomName = _.startCase(shortName); 
         console.log(roomName)
-        roomList.push(roomName);
+        //roomList.push(roomName);
+
+        let newRoom = new Room(player.username, roomName);
+        roomList.push(newRoom);
+
+        console.log("ROOM LIST: ")
+        console.log(roomList)
 
         socket.emit("roomCreated",roomName)
+
+
     });
 
 
