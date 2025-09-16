@@ -84,7 +84,7 @@ Player = function (param) {
     self.hp = 100;
     self.hpMax = 100;
     self.score = 0;
-    self.startingContinent = "";
+    self.startingContinent = param.startingContinent || "";
     self.conquredContinents = "";
     self.socket = param.socket;
     self.jointime = param.jointime;
@@ -194,7 +194,8 @@ Player.onConnect = function(socket,username,admin,io){
     //console.log(io.of("/").adapter);
     console.log(username +" joined")
 
-    var player = Player({
+    // Store player data but don't create game player object yet
+    var playerData = {
         username:username,
         id:socket.id,
         socket:socket,
@@ -206,27 +207,52 @@ Player.onConnect = function(socket,username,admin,io){
             minute: 'numeric',
             second: 'numeric'
         }).format(new Date()),
-    });
+    };
+
+    // Don't add user to chat system immediately - wait for them to join a room
 
     socket.on('leaveRoom', (room) => {
 
         const userLeaving = userLeave(socket.id);
         if (userLeaving) {
-            // Send users and room info
+            // Send users and room info to the room they're leaving
             io.in(room).emit("roomUsers", {
                 room: room,
                 users: getRoomUsers(room),
                 usersCount: Player.getLength() 
             });
+            
+            // Send a leave message to the room they're leaving
+            io.in(room).emit("message", formatMessage({
+                username: botName,
+                text: `${userLeaving.username} has left the chat`,
+                type: "status",
+                room: room
+            }));
         }
-        if (room !== mainChat) {
-            const user = userJoin(socket.id, player.username, mainChat);
+        
+        // Only auto-join Global if they're leaving a specific room (not Global itself)
+        if (room !== mainChat && room !== "Global") {
+            const user = userJoin(socket.id, playerData.username, mainChat);
+            socket.leave(room);
+            socket.join(mainChat);
+            playerData.room = mainChat;
+            
+            // Send welcome message to Global
+            socket.emit("message", formatMessage({
+                username: botName,
+                text: `Welcome back to ${mainChat} chat!`,
+                type: "update",
+                admin: "admin",
+                room: mainChat
+            }));
+            
+            // Update Global room users
             io.in(mainChat).emit("roomUsers", {
                 room: mainChat,
                 users: getRoomUsers(mainChat),
                 usersCount: Player.getLength() 
             });
-
         }
 
     });
@@ -241,9 +267,9 @@ Player.onConnect = function(socket,username,admin,io){
 
         if ( roomIndex !== -1 ) {
             room = _.startCase(room);
-            const user = userJoin(socket.id, player.username, room);
+            const user = userJoin(socket.id, playerData.username, room);
             socket.join(room);
-            player.room = room;
+            playerData.room = room;
 
             // Welcome current user
             socket.emit("message", formatMessage({
@@ -261,7 +287,7 @@ Player.onConnect = function(socket,username,admin,io){
                 .emit(
                     "message", formatMessage({
                         username: botName,
-                        text: `${player.username} has joined the chat`,
+                        text: `${playerData.username} has joined the chat`,
                         type: "status",
                         admin: "admin"
                     }));
@@ -273,8 +299,28 @@ Player.onConnect = function(socket,username,admin,io){
                 usersCount: Player.getLength() 
             });
 
+            // Check if there's an active game in this room and auto-join the player
+            // Only auto-join if the user is joining a room that's not Global and has active players
+            if (room !== "Global" && room !== mainChat) {
+                const playersInRoom = Object.values(Player.list).filter(p => p.room === room);
+                console.log(`🔍 JOIN ROOM DEBUG - User: ${playerData.username}, Room: ${room}, Total Players in list: ${Object.keys(Player.list).length}, Players in this room: ${playersInRoom.length}`);
+                
+                if (playersInRoom.length > 0) {
+                    console.log(`🎮 Auto-joining ${playerData.username} to existing game in room: ${room}`);
+                    
+                    // Auto-start the game for the joining player (they become a player immediately)
+                    Database.getPlayerProgress(playerData.username, function(progress) {
+                        Player.onGameStart(playerData.socket, playerData.username, progress, io, room, playerData.admin);
+                    });
+                } else {
+                    console.log(`❌ No active game in room ${room} for ${playerData.username} to join`);
+                }
+            } else {
+                console.log(`⏩ Skipping game init for ${playerData.username} joining ${room} (Global or main chat)`);
+            }
+
             if(room !== "Global")
-                socket.emit("joinRoom");
+                socket.emit("joinRoom", room);
         }
 
         else{
@@ -298,7 +344,7 @@ Player.onConnect = function(socket,username,admin,io){
         console.log(roomName)
         //roomList.push(roomName);
 
-        let newRoom = new Room(player.username, roomName);
+        let newRoom = new Room(playerData.username, roomName);
         roomList.push(newRoom);
 
         console.log("ROOM LIST: ")
@@ -312,10 +358,10 @@ Player.onConnect = function(socket,username,admin,io){
 
     socket.on("chatMessage", (data) => {
         io.in(data.room).emit("message", formatMessage({
-            username: player.username,
+            username: playerData.username,
             text: data.msg,
             type: "normal",
-            admin: player.admin,
+            admin: playerData.admin,
             room:data.room
         }));
         
@@ -336,7 +382,7 @@ Player.onConnect = function(socket,username,admin,io){
 
         } else {
             recipientSocket.emit("message", formatMessage({
-                username: player.username + " (whisper)",
+                username: playerData.username + " (whisper)",
                 text: data.message,
                 type: "pm",
             }));
@@ -352,12 +398,12 @@ Player.onConnect = function(socket,username,admin,io){
     socket.on('commandMessage', function(data){
         const command = data.message.split(" ")[0];
         const param = data.message.replace(command, "").trim()
-        console.log("### Username: " + player.username, " - Command: " + command)
+        console.log("### Username: " + playerData.username, " - Command: " + command)
         
         if (param.length > 1) 
             console.log("Param: " + param)
 
-        let commands = new Commands(command,param,io,player,socket);
+        let commands = new Commands(command,param,io,playerData,socket);
 
         //Logic to execute commands
         if (command in commands.normal) {
@@ -366,9 +412,9 @@ Player.onConnect = function(socket,username,admin,io){
 
         else if (command in commands.admin) {
             //Check if user is admin
-            Database.isAdmin({ username: player.username }, function (res) {
+            Database.isAdmin({ username: playerData.username }, function (res) {
                 if (res !== true) {
-                    console.log("NOT Admin " + player.username);
+                    console.log("NOT Admin " + playerData.username);
                     return;
                 }
                 //Execute command if they are
@@ -391,16 +437,24 @@ Player.onConnect = function(socket,username,admin,io){
     });
 
     socket.on("disconnect", () => {
-        const user = userLeave(socket.id);
-    
+        const user = getCurrentUser(socket.id);
         if (user) {
+            // Send leave message to the room the user was actually in
             io.to(user.room).emit(
                 "message",
-                formatMessage(botName, `${user.username} has left the chat`)
+                formatMessage({
+                    username: botName,
+                    text: `${user.username} has left the chat`,
+                    type: "status",
+                    room: user.room
+                })
             );
+            
+            // Remove user from the users array
+            userLeave(socket.id);
     
-            // Send users and room info
-            io.in(user.room).emit("roomUsers", {
+            // Send updated room users to the room they left (not Global)
+            io.to(user.room).emit("roomUsers", {
                 room: user.room,
                 users: getRoomUsers(user.room),
                 usersCount: Player.getLength() 
@@ -410,12 +464,56 @@ Player.onConnect = function(socket,username,admin,io){
 
 
     socket.on('startGame', (data) => {
-        console.log(data)
-        Database.getPlayerProgress(player.username,function(progress){
-            Player.onGameStart(player.socket,player.username,progress, io, data.room);
+        console.log('🎮 Starting game for room:', data.room);
+        
+        // Get all users in the room
+        const usersInRoom = getRoomUsers(data.room);
+        console.log('🎮 Users in room:', usersInRoom.map(u => u.username));
+        
+        let playersCreated = 0;
+        const totalPlayers = usersInRoom.length;
+        
+        // Start the game for all users in the room
+        usersInRoom.forEach(user => {
+            // Get the socket for this user from socket.io room members
+            const userSocket = io.sockets.sockets.get(user.id);
+            
+            if (userSocket) {
+                console.log(`🎮 Starting game for user: ${user.username} (${user.id})`);
+                Database.getPlayerProgress(user.username, function(progress){
+                    // Determine if user is admin (only the person who clicked start game is admin for now)
+                    const isAdmin = user.id === socket.id;
+                    
+                    // Create the player but don't send init events yet
+                    Player.onGameStart(userSocket, user.username, progress, null, data.room, isAdmin);
+                    
+                    playersCreated++;
+                    
+                    // After all players are created, send one coordinated init event to all
+                    if (playersCreated === totalPlayers) {
+                        console.log('🎮 All players created, sending coordinated init events');
+                        
+                        // Get updated room players data
+                        const roomPlayers = Object.values(Player.list).filter(p => p.room === data.room);
+                        const roomPlayerData = roomPlayers.map(p => p.getInitPack());
+                        
+                        // Send personalized init data to each player
+                        roomPlayers.forEach(player => {
+                            player.socket.emit('init', {
+                                selfId: player.socket.id,
+                                player: roomPlayerData,
+                            });
+                        });
+                    }
+                });
+            } else {
+                console.log(`❌ Could not find socket for user: ${user.username} (${user.id})`);
+            }
         });
-        socket.to(data.room).emit("gameStarted")
-        console.log("SOCKET::  ROOM startred: "+ data.room)
+        
+        // Notify other sockets in the room that the game started (but they're already in it)
+        socket.to(data.room).emit("gameStarted");
+        console.log("SOCKET:: ROOM started: " + data.room + " with " + usersInRoom.length + " players");
     });
 
     socket.on('beginGame', (data) => {
@@ -429,19 +527,49 @@ Player.onConnect = function(socket,username,admin,io){
 
 ////
 // Player Starts a Game
-Player.onGameStart = function(socket,username, progress, io, room){
+Player.onGameStart = function(socket,username, progress, io, room, admin){
     var map = 'forest';
 
     const continents = ["NorthWest", "NorthEast", "SouthEast", "SouthWest","Middle"];
-    const startingLocation = continents[Math.floor(Math.random() * continents.length)];
+    
+    // Find continents already taken in this room
+    const takenContinents = [];
+    for(var i in Player.list){
+        const player = Player.list[i];
+        if(player.room === room && player.startingContinent) {
+            takenContinents.push(player.startingContinent);
+        }
+    }
+    
+    // Find available continents
+    const availableContinents = continents.filter(continent => !takenContinents.includes(continent));
+    
+    // Select continent (random from available, or error if room is full)
+    let startingLocation;
+    if(availableContinents.length > 0) {
+        startingLocation = availableContinents[Math.floor(Math.random() * availableContinents.length)];
+    } else {
+        console.log(`❌ Room ${room} is full! No available continents for ${username}`);
+        socket.emit('roomFull', { message: 'Room is full (5 players max)' });
+        return; // Don't create the player
+    }
+    
     var x,y
     
-    //Get Random stary x,y based on continent coordinates
+    //Get starting x,y based on continent coordinates
     for(place in continentCoords){
         if(place === startingLocation){
             x = continentCoords[place].x;
             y = continentCoords[place].y;
+            break; // Exit loop once found
         }
+    }
+    
+    // Fallback if continent coordinates weren't found (shouldn't happen)
+    if(x === undefined || y === undefined) {
+        console.log(`❌ Warning: No coordinates found for continent ${startingLocation}, using default position`);
+        x = 900; // Middle position as fallback
+        y = 400;
     }
 
 
@@ -455,6 +583,7 @@ Player.onGameStart = function(socket,username, progress, io, room){
         y:y,
         inventory:progress,
         startingContinent:startingLocation,
+        admin:admin,
     });
 
     player.inventory = new Inventory(progress.items,socket,true);
@@ -462,7 +591,9 @@ Player.onGameStart = function(socket,username, progress, io, room){
     player.inventory.refreshRender();
 
     console.log("Game started for room: "+player.room)
-    console.log(player.username+" joined the server -- "+startingLocation +" "+x+","+y);
+    console.log(`${player.username} joined the server -- ${startingLocation} at ${x},${y}`);
+    console.log(`Available continents were: [${availableContinents.join(', ')}]`);
+    console.log(`Taken continents in room ${room}: [${takenContinents.join(', ')}]`);
 
     // Key Presses
     socket.on('keyPress', function (data) {
@@ -491,10 +622,20 @@ Player.onGameStart = function(socket,username, progress, io, room){
 
     // Player Sockets
     
-    io.in(room).emit('init',{
-        selfId:socket.id,
-        player:Player.getAllInitPack(),
-    })
+    // Get players in the current room only
+    const playersInRoom = Object.values(Player.list).filter(p => p.room === room);
+    const roomPlayerData = playersInRoom.map(p => p.getInitPack());
+    
+    // Only send init events if io is provided (for coordinated multi-user start, io will be null)
+    if (io) {
+        // Send personalized init data to each player in the room
+        playersInRoom.forEach(player => {
+            player.socket.emit('init', {
+                selfId: player.socket.id,
+                player: roomPlayerData,
+            });
+        });
+    }
 
     // socket.emit('init',{
     //     selfId:socket.id,
@@ -526,22 +667,8 @@ Player.onDisconnect = function(socket, io){
     delete Player.list[socket.id];
     removePack.player.push(socket.id);
 
-    const user = userLeave(socket.id);
-        if (user) {
-            io.to(user.room).emit(
-                "message", formatMessage({
-                    username: botName,
-                    text: `${user.username} has left the chat`,
-                    type: "status",
-            }));
-
-            // Send users and room info
-            io.in(user.room).emit("roomUsers", {
-                room: user.room,
-                users: getRoomUsers(user.room),
-                usersCount: Player.getLength() 
-            });
-        }
+    // Don't duplicate the user leave logic here since it's handled in the disconnect event
+    // The user leave and room update is already handled in the socket disconnect event above
 }
 
 Player.update = function(){
