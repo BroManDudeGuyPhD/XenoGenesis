@@ -1,6 +1,10 @@
 // Variables
 const socket = io();
 
+// Current room tracking
+let currentRoom = "Global"; // Track which room the user is actually in
+let gameActive = false; // Track if there's an active game to display
+
 // Chat Objects
 const chatForm = document.getElementById('chat-form');
 const globalChatMessages = document.getElementById('globalChatDiv');
@@ -9,6 +13,13 @@ const roomChatMessages = document.getElementById('roomChatDiv');
 var roomNameText = document.getElementById('room-name');
 var userList = document.getElementById('users');
 var userCount = document.getElementById('userCount');
+var gameDiv = document.getElementById('gameDiv');
+
+// Debug gameDiv
+console.log('gameDiv element found:', !!gameDiv);
+if (!gameDiv) {
+    console.error('❌ gameDiv element not found! Check if element exists in DOM');
+}
 
 globalNameText.style.backgroundColor = "green";
 
@@ -45,17 +56,19 @@ loginButton.onclick = function(event) {
 }
 
 
-signDivSignIn.onclick = function () {
+signDivSignIn.addEventListener('click', function (e) {
+    e.preventDefault();
     socket.emit('signIn', { username: signDivUsername.value, password: signDivPassword.value });
     modal.style.display = "none";
     closeMenu()
-}
+});
 
-signDivSignUp.onclick = function () {
+signDivSignUp.addEventListener('click', function (e) {
+    e.preventDefault();
     socket.emit('signUp', { username: signDivUsername.value, password: signDivPassword.value });
     modal.style.display = "none";
     closeMenu()
-}
+});
 
 // Listen for Enter kepress on signin input
 signDivPassword.addEventListener("keypress", function (event) {
@@ -72,6 +85,7 @@ socket.on('signInResponse', function (data) {
         loginButton.style.display = "none";
         chatDiv.style.display = '';
         socket.emit('joinRoom', 'Global');
+        currentRoom = 'Global'; // Update current room tracking
     }
 
     else
@@ -88,9 +102,19 @@ socket.on('signUpResponse', function (data) {
 
 // Get room and users
 socket.on('roomUsers', ({ room, users, usersCount }) => {
-    outputRoomName(room);
-    outputUsers(users);
-    userCount.innerText = ` Users:    ${usersCount} online`
+    // Only update the display if this roomUsers event is for the room the user is actually in
+    if (room === currentRoom) {
+        if (room === "Global") {
+            // Update global chat users
+            outputUsers(users);
+            userCount.innerText = ` Users:    ${usersCount} online`;
+        } else {
+            // Update room name and users for specific rooms
+            outputRoomName(room);
+            outputUsers(users);
+            userCount.innerText = ` Users:    ${usersCount} online`;
+        }
+    }
 });
 
 // Message from server
@@ -106,6 +130,7 @@ socket.on('roomCreated', (roomName) => {
     console.log("Room Created: "+roomName)
     roomNameText.style.display ="";
     socket.emit('joinRoom', roomName );
+    currentRoom = roomName; // Update current room tracking
     roomNameText.innerText = roomName;
 })
 
@@ -164,6 +189,9 @@ globalNameText.onclick = function(){
     globalChatMessages.style.display = "";
     globalNameText.style.backgroundColor = "green";
     
+    // Hide game when switching to Global chat
+    gameDiv.style.display = 'none';
+    
 }
 
 roomNameText.onclick = function(){
@@ -172,6 +200,10 @@ roomNameText.onclick = function(){
     roomChatMessages.style.display = "";
     roomNameText.style.backgroundColor = "green";
     
+    // Show game if there's an active game
+    if(gameActive && currentRoom !== "Global") {
+        gameDiv.style.display = 'inline-block';
+    }
 }
 
 // Output message to DOM
@@ -297,7 +329,8 @@ function outputUsers(users) {
 }
 
 //Prompt the user before leave chat room
-document.getElementById('leave-btn').addEventListener('click', () => {
+document.getElementById('leave-btn').addEventListener('click', (e) => {
+    e.preventDefault(); // Prevent default link behavior
     globalChat = document.getElementById('globalChatDiv');
     console.log(globalChat);
 
@@ -308,6 +341,12 @@ document.getElementById('leave-btn').addEventListener('click', () => {
         roomNameText.style.display ="none";
         createRoomButton.style.display = "";
         startGameButton.style.display = "none";
+        currentRoom = "Global"; // Back to Global after leaving room
+        
+        // Hide game div when leaving room
+        gameDiv.style.display = 'none';
+        gameActive = false; // Mark game as inactive
+        Player.list = {}; // Clear player data
     }
     
     else{
@@ -316,6 +355,12 @@ document.getElementById('leave-btn').addEventListener('click', () => {
             signDiv.style.display = '';
             chatDiv.style.display = 'none';
             socket.emit('leaveRoom', "Global");
+            currentRoom = null; // No room after leaving app
+            
+            // Hide game div when leaving app
+            gameDiv.style.display = 'none';
+            gameActive = false; // Mark game as inactive
+            Player.list = {}; // Clear player data
         } else {
         }
     }
@@ -323,25 +368,33 @@ document.getElementById('leave-btn').addEventListener('click', () => {
 });
 
 //Create new room with a static name, this will be a join game button soon
-createRoomButton.addEventListener('click', () => {
+createRoomButton.addEventListener('click', (e) => {
+    e.preventDefault(); // Prevent default link behavior
     socket.emit("createRoom");
     roomNameText.click();
     createRoomButton.style.display = "none";
     startGameButton.style.display = "";
 });
 
-joinRoomButton.addEventListener('click', () => {
+joinRoomButton.addEventListener('click', (e) => {
+    e.preventDefault(); // Prevent default link behavior
     let roomName = prompt("Enter room name", '');
     socket.emit('joinRoom', roomName);
+    if (roomName) {
+        currentRoom = roomName; // Update current room tracking
+    }
 });
 
-startGameButton.addEventListener('click', () => {
+startGameButton.addEventListener('click', (e) => {
+    e.preventDefault(); // Prevent default link behavior
+    console.log('🎮 START GAME CLICKED - Room:', currentRoom);
     socket.emit('startGame', {room:roomNameText.innerText});
-    gameDiv.style.display = 'inline-block';
-
+    // Don't set gameDiv.style.display here - let the init event handle it
 });
 
 socket.on("joinRoom", (room) => {
+    console.log(`🏠 JOINED ROOM: ${room}, updating currentRoom from ${currentRoom} to ${room}`);
+    currentRoom = room; // Ensure currentRoom is updated when server confirms room join
     roomNameText.style.display ="";
     globalChatMessages.style.display = "none";
     globalNameText.style.backgroundColor = "#667aff"
@@ -350,17 +403,17 @@ socket.on("joinRoom", (room) => {
 });
 
 socket.on("gameStarted", function(){
-    socket.emit('beginGame', roomName);
+    socket.emit('beginGame', {room: currentRoom});
 })
 
 
 
-//Remove
-socket.on('remove', function (data) {
-    for (var i = 0; i < data.player.length; i++) {
-        delete Player.list[data.player[i]];
-    }
-});
+//Remove - (duplicate removed, keeping the one lower in the file)
+// socket.on('remove', function (data) {
+//     for (var i = 0; i < data.player.length; i++) {
+//         delete Player.list[data.player[i]];
+//     }
+// });
 
 
 
@@ -446,11 +499,72 @@ var selfId = null;
 
 //Initialize
 socket.on('init', function(data) {
+    console.log(`📡 RECEIVED INIT - Room: ${currentRoom}, Players: ${data.player ? data.player.length : 0}, SelfId: ${!!data.selfId}, Timestamp: ${new Date().toLocaleTimeString()}`);
+    
     if(data.selfId){
         selfId = data.selfId;
+        console.log('🔑 SelfId set to:', selfId);
     }
-    for (var i = 0; i < data.player.length; i++) {
-        new Player(data.player[i]);
+    
+    // Show game div if:
+    // 1. We have player data AND
+    // 2. (We're not in Global chat OR we are a player ourselves with selfId)
+    console.log(`🔍 GAME DISPLAY CONDITIONS:`);
+    console.log(`   data.player exists: ${!!data.player}`);
+    console.log(`   data.player.length: ${data.player ? data.player.length : 'N/A'}`);
+    console.log(`   currentRoom: "${currentRoom}"`);
+    console.log(`   currentRoom !== "Global": ${currentRoom !== "Global"}`);
+    console.log(`   data.selfId: ${data.selfId}`);
+    console.log(`   Final condition: ${data.player && data.player.length > 0 && (currentRoom !== "Global" || data.selfId)}`);
+    
+    if(data.player && data.player.length > 0 && (currentRoom !== "Global" || data.selfId)) {
+        console.log('✅ SHOWING GAME - Players:', data.player.length, 'SelfId:', !!data.selfId, 'Room:', currentRoom);
+        
+        console.log('🎮 Setting gameDiv.style.display to inline-block...');
+        gameDiv.style.display = 'inline-block';
+        console.log('🎮 gameDiv.style.display is now:', gameDiv.style.display);
+        console.log('🎮 gameDiv.offsetWidth:', gameDiv.offsetWidth, 'gameDiv.offsetHeight:', gameDiv.offsetHeight);
+        
+        // Add a delay to check if gameDiv stays visible
+        setTimeout(() => {
+            console.log('🕐 After 100ms - gameDiv.style.display:', gameDiv.style.display);
+            console.log('🕐 After 100ms - gameDiv visible dimensions:', gameDiv.offsetWidth, 'x', gameDiv.offsetHeight);
+        }, 100);
+        
+        setTimeout(() => {
+            console.log('🕑 After 1000ms - gameDiv.style.display:', gameDiv.style.display);
+            console.log('🕑 After 1000ms - gameDiv visible dimensions:', gameDiv.offsetWidth, 'x', gameDiv.offsetHeight);
+        }, 1000);
+        
+        gameActive = true; // Mark game as active
+        console.log('🎮 gameActive set to:', gameActive);
+        
+        // Clear existing players before adding new ones
+        console.log('🎮 Clearing Player.list...');
+        Player.list = {};
+        
+        // Initialize players
+        console.log('🎮 Initializing', data.player.length, 'players...');
+        for (var i = 0; i < data.player.length; i++) {
+            console.log('🎮 Creating player', i + 1, ':', data.player[i]);
+            new Player(data.player[i]);
+        }
+        console.log('🎮 Player.list now contains:', Object.keys(Player.list).length, 'players');
+        console.log('🎮 Final Player.list:', Player.list);
+        
+        // All players who receive init events are now active players (no more viewers)
+        if (data.selfId) {
+            console.log('🎮 Player mode - has selfId:', data.selfId);
+            // Hide Start Game button since player is already in the game
+            startGameButton.style.display = "none";
+        } else {
+            console.log('⚠️ Warning: Received init without selfId - this should not happen anymore');
+        }
+    } else {
+        console.log('❌ NOT SHOWING GAME - Room:', currentRoom, 'Players:', data.player ? data.player.length : 0, 'SelfId:', !!data.selfId);
+        gameDiv.style.display = 'none';
+        gameActive = false; // Mark game as inactive
+        Player.list = {};
     }
 });
 
@@ -485,12 +599,14 @@ socket.on('remove', function (data) {
 //Draw Map
 var drawMap = function(){
     var player = Player.list[selfId];
+    if (!player) return; // Safety check
     ctx.drawImage(Img.map[player.map],0,0);
 }
 
 //Draw GAME
 
 var drawScore = function(){
+    if (!Player.list[selfId]) return; // Safety check
     if(lastScore === Player.list[selfId].score)
         return;
     
@@ -503,16 +619,40 @@ var drawScore = function(){
 
 var lastScore = -1;
 
+var drawFrameCount = 0;
+var lastDrawLog = 0;
 setInterval(function () {
-    //Do not draw map or player info until player is logged in
-    if(!selfId)
+    // Only draw if we have an active game (either as player or viewer)
+    if(!gameActive || Object.keys(Player.list).length === 0) {
         return;
+    }
+
+    drawFrameCount++;
+    
+    // Log every 3 seconds instead of every second to reduce spam
+    if (drawFrameCount - lastDrawLog >= 180) { // 60fps * 3 seconds
+        console.log(`🎨 DRAWING - Frame: ${drawFrameCount}, gameActive: ${gameActive}, players: ${Object.keys(Player.list).length}, selfId: ${selfId || 'null'}`);
+        lastDrawLog = drawFrameCount;
+    }
 
     ctx.clearRect(0, 0, 800, 1600);
-    drawMap();
-    drawScore();
-    for (var i in Player.list)
+    
+    // Draw map - use any player's map if we don't have selfId
+    if (selfId && Player.list[selfId]) {
+        drawMap();
+        drawScore();
+    } else if (Object.keys(Player.list).length > 0) {
+        // For viewers, draw map from any available player
+        var anyPlayer = Object.values(Player.list)[0];
+        if (anyPlayer) {
+            ctx.drawImage(Img.map[anyPlayer.map],0,0);
+        }
+    }
+    
+    // Draw all players (works for both players and viewers)
+    for (var i in Player.list) {
         Player.list[i].draw();
+    }
 }, 20);
 
 

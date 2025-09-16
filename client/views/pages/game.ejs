@@ -14,7 +14,7 @@
 
 <body style="background-color: #23272a;">
 
-    <div id="gameDiv">
+    <div id="gameDiv" style="width: 1600px; min-height: 800px;">
         <div id="game" style="position: absolute; width: 1600; height: 800;">
             <canvas id="ctx" width="1600" height="800" style="position:absolute; border:1px solid #ffffff;"></canvas>
             <canvas id="ctx-ui" width="1600" height="800" style="position:absolute; border:1px solid #ffffff;"></canvas>
@@ -154,43 +154,43 @@
         Player.list = {};
         var selfId = null;
 
-        //Initialize
-        socket.on('init', function(data) {
-            if(data.selfId){
-                selfId = data.selfId;
-            }
-            for (var i = 0; i < data.player.length; i++) {
-                new Player(data.player[i]);
-            }
-        });
+        //Initialize - Handled by client.js
+        // socket.on('init', function(data) {
+        //     if(data.selfId){
+        //         selfId = data.selfId;
+        //     }
+        //     for (var i = 0; i < data.player.length; i++) {
+        //         new Player(data.player[i]);
+        //     }
+        // });
 
 
-        //Update
-        socket.on('update', function(data) {
-            for (var i = 0; i < data.player.length; i++) {
-                var pack = data.player[i];
-                var p = Player.list[pack.id];
-                if (p) {
-                    if (pack.x !== undefined)
-                        p.x = pack.x;
-                    if (pack.y !== undefined)
-                        p.y = pack.y;
-                    if (pack.hp !== undefined)
-                        p.hp = pack.hp;
-                    if (pack.score !== undefined)
-                        p.score = pack.score;
-                    if (pack.map !== undefined)
-                        p.map = pack.map;
-                }
-            }
-        });
+        //Update - Handled by client.js
+        // socket.on('update', function(data) {
+        //     for (var i = 0; i < data.player.length; i++) {
+        //         var pack = data.player[i];
+        //         var p = Player.list[pack.id];
+        //         if (p) {
+        //             if (pack.x !== undefined)
+        //                 p.x = pack.x;
+        //             if (pack.y !== undefined)
+        //                 p.y = pack.y;
+        //             if (pack.hp !== undefined)
+        //                 p.hp = pack.hp;
+        //             if (pack.score !== undefined)
+        //                 p.score = pack.score;
+        //             if (pack.map !== undefined)
+        //                 p.map = pack.map;
+        //         }
+        //     }
+        // });
 
-        //Remove
-        socket.on('remove', function (data) {
-            for (var i = 0; i < data.player.length; i++) {
-                delete Player.list[data.player[i]];
-            }
-        });
+        //Remove - Handled by client.js
+        // socket.on('remove', function (data) {
+        //     for (var i = 0; i < data.player.length; i++) {
+        //         delete Player.list[data.player[i]];
+        //     }
+        // });
 
         //Draw Map
         var drawMap = function(){

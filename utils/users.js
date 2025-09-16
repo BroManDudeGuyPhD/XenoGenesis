@@ -2,10 +2,15 @@ const users = [];
 
 // Join user to chat
 function userJoin(id, username, room) {
+  // Remove user if they already exist (to handle room changes)
+  const existingIndex = users.findIndex(user => user.id === id);
+  if (existingIndex !== -1) {
+    users.splice(existingIndex, 1);
+  }
+  
   const user = { id, username, room };
-
   users.push(user);
-
+  
   return user;
 }
 

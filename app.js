@@ -90,7 +90,8 @@ setInterval(function(){
     var packs = Entity.getFrameUpdateData();
     for(var i in SOCKET_LIST){
         var socket = SOCKET_LIST[i];
-        socket.emit('init',packs.initPack);
+        // Don't send init events in the main loop - they should only be sent on join/game start
+        // socket.emit('init',packs.initPack);
         socket.emit('update',packs.updatePack);
         socket.emit('remove',packs.removePack);
     }

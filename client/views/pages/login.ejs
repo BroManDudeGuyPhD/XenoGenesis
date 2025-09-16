@@ -59,8 +59,8 @@
                 <label for="psw"><b>Password</b></label>
                 <input type="password" placeholder="Enter Password" id="password" name="psw" required>
 
-                <button type="submit" id="signIn" class="btn">Login</button>
-                <button type="submit" id="signUp" class="btn">Sign Up</button>
+                <button type="button" id="signIn" class="btn">Login</button>
+                <button type="button" id="signUp" class="btn">Sign Up</button>
                 <label>
                     <input type="checkbox" checked="checked" name="remember"> Remember me
                 </label>
@@ -78,7 +78,7 @@
         <img src="/client/img/meht-solar-pixels.jpg" id="backgroundIMG">
     </div>
 
-    <div id="gameDiv" style="display:none;">
+    <div id="gameDiv" style="display:none; width: 1600px; min-height: 800px;">
         <div id="game" style="position: absolute; width: 1600; height: 800;">
             <canvas id="ctx" width="1600" height="800" style="position:absolute; border:1px solid #ffffff;"></canvas>
             <canvas id="ctx-ui" width="1600" height="800" style="position:absolute; border:1px solid #ffffff;"></canvas>
