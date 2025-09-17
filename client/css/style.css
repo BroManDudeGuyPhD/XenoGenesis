@@ -454,3 +454,204 @@ span.psw {
 #sendButton{
 	width: 10%
 }
+
+/* ========================================
+   BEHAVIORAL EXPERIMENT STYLES 
+   ======================================== */
+
+#experimentContainer {
+	font-family: 'Roboto', sans-serif;
+	background-color: #36393f;
+	color: #dcddde;
+}
+
+.status-card {
+	transition: background-color 0.3s ease;
+}
+
+.status-card:hover {
+	background-color: #4f545c !important;
+}
+
+#experimentHeader h2 {
+	font-size: 28px;
+	font-weight: bold;
+}
+
+#triadStatus {
+	font-size: 16px;
+}
+
+.grid-cell {
+	font-size: 18px;
+	font-weight: bold;
+	transition: all 0.3s ease;
+	border-radius: 8px;
+}
+
+.grid-cell:hover:not(:disabled) {
+	transform: scale(1.05);
+	box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+.grid-cell:active:not(:disabled) {
+	transform: scale(0.95);
+}
+
+.grid-cell.impulsive {
+	border-color: #f04747 !important;
+}
+
+.grid-cell.impulsive:hover:not(:disabled) {
+	background-color: #f04747 !important;
+	color: #ffffff;
+}
+
+.grid-cell.self-control {
+	border-color: #43b581 !important;
+}
+
+.grid-cell.self-control:hover:not(:disabled) {
+	background-color: #43b581 !important;
+	color: #ffffff;
+}
+
+.grid-cell:disabled {
+	cursor: not-allowed;
+	opacity: 0.5;
+}
+
+#gameArea {
+	min-height: 400px;
+	display: flex;
+	flex-direction: column;
+	justify-content: center;
+}
+
+#lobbyPhase, #decisionPhase, #resultsPhase, #finalResults {
+	animation: fadeIn 0.5s ease-in;
+}
+
+@keyframes fadeIn {
+	from { opacity: 0; transform: translateY(20px); }
+	to { opacity: 1; transform: translateY(0); }
+}
+
+#startExperimentBtn {
+	font-size: 18px;
+	font-weight: bold;
+	transition: all 0.3s ease;
+	border-radius: 8px;
+}
+
+#startExperimentBtn:hover {
+	background-color: #3ca374 !important;
+	transform: translateY(-2px);
+	box-shadow: 0 4px 12px rgba(67, 181, 129, 0.3);
+}
+
+#exportDataBtn {
+	font-size: 16px;
+	font-weight: bold;
+	transition: all 0.3s ease;
+	border-radius: 8px;
+}
+
+#exportDataBtn:hover {
+	background-color: #677bc4 !important;
+	transform: translateY(-2px);
+	box-shadow: 0 4px 12px rgba(114, 137, 218, 0.3);
+}
+
+#roundResults, #finalStats {
+	background-color: #2f3136;
+	padding: 15px;
+	border-radius: 8px;
+	margin: 10px 0;
+	border-left: 4px solid #7289da;
+}
+
+#tokenUpdate {
+	background-color: #2f3136;
+	padding: 12px;
+	border-radius: 8px;
+	border-left: 4px solid #43b581;
+}
+
+#culturantStatus {
+	font-weight: bold;
+	padding: 8px;
+}
+
+.grid-row {
+	margin-bottom: 10px;
+}
+
+.grid-symbol {
+	font-size: 24px;
+	font-weight: bold;
+}
+
+/* Token display animations */
+#whiteTokens, #blackTokens, #totalEarnings {
+	transition: all 0.5s ease;
+}
+
+#whiteTokens.updated, #blackTokens.updated, #totalEarnings.updated {
+	animation: pulse 0.6s ease-in-out;
+}
+
+@keyframes pulse {
+	0% { transform: scale(1); }
+	50% { transform: scale(1.1); color: #43b581; }
+	100% { transform: scale(1); }
+}
+
+/* Responsive design for smaller screens */
+@media screen and (max-width: 1200px) {
+	#experimentContainer {
+		width: 95%;
+		padding: 15px;
+	}
+	
+	.status-card {
+		padding: 10px;
+	}
+	
+	#decisionGrid {
+		max-width: 500px;
+	}
+	
+	.grid-cell {
+		width: 70px;
+		height: 45px;
+		font-size: 16px;
+	}
+}
+
+@media screen and (max-width: 768px) {
+	#statusPanel {
+		flex-direction: column;
+		gap: 10px;
+	}
+	
+	.status-card {
+		text-align: center;
+	}
+	
+	#decisionGrid {
+		max-width: 400px;
+	}
+	
+	.grid-cell {
+		width: 60px;
+		height: 40px;
+		font-size: 14px;
+		margin: 0 3px;
+	}
+	
+	.grid-row span {
+		width: 100px;
+		font-size: 14px;
+	}
+}

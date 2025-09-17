@@ -27,9 +27,7 @@ app.get('/about', function(req, res) {
     res.render('about');
 });
 
-app.get('/game', function(req, res) {
-    res.render('game');
-});
+// Remove game route - game interface should be embedded in main page
 
 app.get('/globalChat', function(req, res) {
     res.render('globalChat');
