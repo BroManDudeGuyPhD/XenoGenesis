@@ -1,9 +1,25 @@
 // Variables
 const socket = io();
 
+// Debug logging
+console.log('🔧 Client.js loaded, socket initialized');
+
+// DOM ready check
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('🔧 DOM ready, checking elements...');
+    const selectionSection = document.getElementById('selectionSection');
+    const lockInBtn = document.getElementById('lockInBtn');
+    console.log('🔧 DOM ready check: selectionSection =', selectionSection ? 'found' : 'NOT FOUND');
+    console.log('🔧 DOM ready check: lockInBtn =', lockInBtn ? 'found' : 'NOT FOUND');
+});
+
 // Current room tracking
 let currentRoom = "Global"; // Track which room the user is actually in
 let gameActive = false; // Track if there's an active game to display
+
+// Selection and lock-in state (global scope)
+let selectedChoice = null;
+let isLockedIn = false;
 
 // Chat Objects (will be initialized when DOM is ready)
 let chatForm, globalChatMessages, globalNameText, roomChatMessages, roomNameText, userList, userCount, gameDiv;
@@ -1053,6 +1069,167 @@ socket.on('aiPlayersAdded', function(data) {
     document.getElementById('lobbyPhase').appendChild(statusDiv);
 });
 
+// Handle turn-based decision making
+socket.on('yourTurn', function(data) {
+    console.log('🔧 yourTurn received:', data); // Temporary debug
+    
+    // Reset client-side lock-in state for new round
+    selectedChoice = null;
+    isLockedIn = false;
+    
+    // Show decision interface
+    const lobbyPhase = document.getElementById('lobbyPhase');
+    const decisionPhase = document.getElementById('decisionPhase');
+    const resultsPhase = document.getElementById('resultsPhase');
+    const finalResults = document.getElementById('finalResults');
+    
+    console.log('🔧 Phase elements check:');
+    console.log('  - lobbyPhase:', lobbyPhase ? 'found' : 'NOT FOUND');
+    console.log('  - decisionPhase:', decisionPhase ? 'found' : 'NOT FOUND');
+    console.log('  - resultsPhase:', resultsPhase ? 'found' : 'NOT FOUND');
+    console.log('  - finalResults:', finalResults ? 'found' : 'NOT FOUND');
+    
+    if (lobbyPhase) lobbyPhase.style.display = 'none';
+    if (decisionPhase) decisionPhase.style.display = 'block';
+    if (resultsPhase) resultsPhase.style.display = 'none';
+    if (finalResults) finalResults.style.display = 'none';
+    
+    // Reset selection UI elements
+    const selectedChoiceDiv = document.getElementById('selectedChoice');
+    const lockInBtn = document.getElementById('lockInBtn');
+    const lockInStatus = document.getElementById('lockInStatus');
+    
+    console.log('🔧 Selection elements check:');
+    console.log('  - selectedChoice:', selectedChoiceDiv ? 'found' : 'NOT FOUND');
+    console.log('  - lockInBtn:', lockInBtn ? 'found' : 'NOT FOUND');
+    console.log('  - lockInStatus:', lockInStatus ? 'found' : 'NOT FOUND');
+    
+    if (selectedChoiceDiv) {
+        selectedChoiceDiv.textContent = 'No selection made';
+        selectedChoiceDiv.style.color = '#6c757d';
+    }
+    if (lockInBtn) {
+        lockInBtn.disabled = true;
+        lockInBtn.textContent = 'Lock In Choice';
+        lockInBtn.style.backgroundColor = '#6c757d';
+        lockInBtn.style.cursor = 'not-allowed';
+    }
+    if (lockInStatus) {
+        lockInStatus.textContent = '';
+    }
+    
+    // Reset button styles
+    document.querySelectorAll('.grid-cell').forEach(btn => {
+        btn.style.backgroundColor = '#40444b';
+        btn.style.transform = 'scale(1)';
+    });
+    
+    // Update round info
+    const roundInfo = document.getElementById('roundInfo');
+    const currentRound = document.getElementById('currentRound');
+    const conditionInfo = document.getElementById('conditionInfo');
+    
+    console.log('🔧 Round info elements check:');
+    console.log('  - roundInfo:', roundInfo ? 'found' : 'NOT FOUND');
+    console.log('  - currentRound:', currentRound ? 'found' : 'NOT FOUND');
+    console.log('  - conditionInfo:', conditionInfo ? 'found' : 'NOT FOUND');
+    
+    if (roundInfo) roundInfo.style.display = 'block';
+    if (currentRound) currentRound.textContent = data.round || 1;
+    if (conditionInfo) conditionInfo.textContent = `Condition: ${data.condition || 'Baseline'}`;
+    
+    // Update active player indicator
+    const activePlayer = document.getElementById('activePlayer');
+    if (activePlayer) {
+        if (data.isModerator) {
+            // Moderators only observe
+            activePlayer.textContent = `Observing: ${data.activePlayer}'s Turn`;
+            activePlayer.style.color = '#7289da';
+        } else {
+            activePlayer.textContent = data.isYourTurn 
+                ? 'Your Turn - Make Your Choice!' 
+                : `Waiting for ${data.activePlayer} to choose...`;
+            activePlayer.style.color = data.isYourTurn ? '#28a745' : '#ffc107';
+        }
+        activePlayer.style.fontWeight = 'bold';
+    }
+    
+    // Enable/disable choice buttons based on turn (moderators can't vote)
+    const canVote = data.isYourTurn && !data.isModerator;
+    const isParticipant = !data.isModerator; // Participants can see voting interface even when not their turn
+    
+    console.log('🔧 Moderator check:', data.isModerator, 'canVote:', canVote, 'isParticipant:', isParticipant); // Temporary debug
+    
+    // Hide/show the entire decision grid for moderators
+    const decisionGrid = document.getElementById('decisionGrid');
+    if (decisionGrid) {
+        decisionGrid.style.display = isParticipant ? 'block' : 'none';
+        console.log('🔧 Decision grid set to:', isParticipant ? 'block' : 'none'); // Temporary debug
+    } else {
+        console.log('🔧 decisionGrid element not found!'); // Temporary debug
+    }
+    
+    const choiceButtons = document.querySelectorAll('.grid-cell');
+    choiceButtons.forEach(button => {
+        button.disabled = !canVote;
+        button.style.opacity = canVote ? '1' : '0.5';
+        button.style.cursor = canVote ? 'pointer' : 'not-allowed';
+        
+        // Add visual feedback for active player
+        if (canVote) {
+            button.style.border = '2px solid #28a745';
+        } else {
+            button.style.border = '2px solid #6c757d';
+        }
+    });
+    
+    // Show/hide selection section based on participant status (not just voting ability)
+    const selectionSection = document.getElementById('selectionSection');
+    if (selectionSection) {
+        selectionSection.style.display = isParticipant ? 'block' : 'none';
+        console.log('🔧 Selection section set to:', isParticipant ? 'block' : 'none'); // Temporary debug
+    } else {
+        console.log('🔧 selectionSection element not found!'); // Temporary debug
+    }
+    
+    // Update choice status message
+    const choiceStatus = document.getElementById('choiceStatus');
+    if (choiceStatus) {
+        if (data.isModerator) {
+            choiceStatus.textContent = 'You are observing as moderator - players will make their choices';
+            choiceStatus.style.color = '#7289da';
+        } else {
+            choiceStatus.textContent = data.isYourTurn 
+                ? 'Select your choice above, then click Lock In' 
+                : `Waiting for ${data.activePlayer} to make their choice...`;
+            choiceStatus.style.color = data.isYourTurn ? '#28a745' : '#6c757d';
+        }
+    }
+    
+    // Hide moderator controls during gameplay
+    const startBtn = document.getElementById('startExperimentBtn');
+    const addAIBtn = document.getElementById('addAIBtn');
+    if (startBtn) startBtn.style.display = 'none';
+    if (addAIBtn) addAIBtn.style.display = 'none';
+    
+    // For moderator, show additional info about all players
+    if (data.isModerator) {
+        const moderatorInfo = document.getElementById('moderatorInfo') || document.createElement('div');
+        moderatorInfo.id = 'moderatorInfo';
+        moderatorInfo.innerHTML = `
+            <div style="background: #f8f9fa; padding: 10px; margin: 10px 0; border-radius: 5px; border-left: 4px solid #007bff;">
+                <h6 style="margin: 0 0 5px 0; color: #007bff;">Moderator View</h6>
+                <p style="margin: 0; font-size: 12px;">Total Players: ${data.totalPlayers} | Round: ${data.round} | Active: ${data.activePlayer}</p>
+            </div>
+        `;
+        
+        const decisionPhase = document.getElementById('decisionPhase');
+        if (decisionPhase && !document.getElementById('moderatorInfo')) {
+            decisionPhase.appendChild(moderatorInfo);
+        }
+    }
+});
+
 // New round started
 socket.on('newRound', function(data) {
     console.log('🔄 New round started:', data);
@@ -1467,30 +1644,83 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
     
-    // Choice buttons
+    // Choice buttons - Selection phase (no longer instant submission)
     document.addEventListener('click', function(e) {
         if (e.target.classList.contains('grid-cell') && !e.target.disabled) {
             e.preventDefault();
             const choice = e.target.getAttribute('data-choice');
-            console.log(`🧠 Player chose: ${choice}`);
             
-            // Disable all buttons after choice
+            // Store selection but don't submit yet
+            selectedChoice = choice;
+            
+            // Clear previous selections
+            document.querySelectorAll('.grid-cell').forEach(btn => {
+                btn.style.backgroundColor = '#40444b';
+                btn.style.transform = 'scale(1)';
+            });
+            
+            // Highlight selected button
+            e.target.style.backgroundColor = '#7289da';
+            e.target.style.transform = 'scale(1.1)';
+            
+            // Show selection status and enable lock-in button
+            const selectedChoiceDiv = document.getElementById('selectedChoice');
+            const lockInBtn = document.getElementById('lockInBtn');
+            
+            if (selectedChoiceDiv) {
+                selectedChoiceDiv.textContent = `Selected: ${choice.charAt(0).toUpperCase() + choice.slice(1)}`;
+                selectedChoiceDiv.style.color = '#faa61a';
+            }
+            
+            if (lockInBtn && !isLockedIn) {
+                lockInBtn.disabled = false;
+                lockInBtn.textContent = 'Lock In Choice';
+                lockInBtn.style.backgroundColor = '#7289da';
+                lockInBtn.style.cursor = 'pointer';
+            }
+            
+            // Update status
+            document.getElementById('choiceStatus').textContent = `Selected: ${choice}. Click "Lock In Choice" to confirm.`;
+        }
+    });
+    
+    // Lock In button handler
+    document.addEventListener('click', function(e) {
+        if (e.target.id === 'lockInBtn' && selectedChoice && !isLockedIn) {
+            e.preventDefault();
+            
+            // Mark as locked in
+            isLockedIn = true;
+            
+            // Disable all buttons after lock-in
             document.querySelectorAll('.grid-cell').forEach(btn => {
                 btn.disabled = true;
                 btn.style.opacity = '0.5';
+                btn.style.cursor = 'not-allowed';
             });
             
-            // Highlight chosen button
-            e.target.style.backgroundColor = '#7289da';
+            // Update lock-in button
+            const lockInBtn = document.getElementById('lockInBtn');
+            if (lockInBtn) {
+                lockInBtn.textContent = '✓ Choice Locked In';
+                lockInBtn.style.backgroundColor = '#43b581';
+                lockInBtn.disabled = true;
+                lockInBtn.style.cursor = 'not-allowed';
+            }
             
             // Update status
-            document.getElementById('choiceStatus').textContent = `You chose: ${choice}. Waiting for other players...`;
+            document.getElementById('choiceStatus').textContent = `You locked in: ${selectedChoice}. Waiting for other players...`;
+            document.getElementById('lockInStatus').textContent = '✓ Your choice has been locked in successfully';
             
             // Emit choice to server
             socket.emit('makeChoice', { 
-                choice: choice,
-                room: currentRoom
+                choice: selectedChoice,
+                room: currentRoom,
+                lockedIn: true
             });
+            
+            // Reset for next round
+            selectedChoice = null;
         }
     });
     

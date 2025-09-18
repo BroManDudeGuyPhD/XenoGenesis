@@ -96,26 +96,36 @@ var AIPlayer = {
         // Simple random decision based on behavior type
         const choice = Math.random() < aiPlayer.impulsiveChance ? 'impulsive' : 'self-control';
         aiPlayer.currentChoice = choice;
+        aiPlayer.isLockedIn = true; // AI players automatically lock in their decisions
         
-        console.log(`🤖 ${aiPlayer.username} chose: ${choice}`);
+        console.log(`🤖 ${aiPlayer.username} chose and locked in: ${choice}`);
         return choice;
     },
     
     // Simulate AI making decisions for all AI players in a room
     processAIDecisions: function(room, gameSession) {
         const roomPlayers = Object.values(Player.list).filter(p => p.room === room);
-        const aiPlayers = roomPlayers.filter(p => p.isAI && !p.currentChoice);
+        const aiPlayers = roomPlayers.filter(p => p.isAI && (!p.currentChoice || !p.isLockedIn));
         
         aiPlayers.forEach(aiPlayer => {
             setTimeout(() => {
                 AIPlayer.makeDecision(aiPlayer);
                 
-                // Check if all players have made decisions after this AI decision
+                // Check if all voting players (exclude moderator) have locked in after this AI decision
                 const allPlayers = Object.values(Player.list).filter(p => p.room === room);
-                const allChoicesMade = allPlayers.every(p => p.currentChoice !== null);
+                const currentRoom = roomList.find(r => r.name === room);
+                const votingPlayers = allPlayers.filter(p => {
+                    return !(currentRoom && p.username === currentRoom.creator); // Exclude moderator
+                });
+                const allLockedIn = votingPlayers.every(p => p.isLockedIn && p.currentChoice !== null);
                 
-                if (allChoicesMade) {
-                    processRound(room, gameSession);
+                console.log(`🤖 AI ${aiPlayer.username} finished decision. Lock-in status: ${votingPlayers.filter(p => p.isLockedIn).length}/${votingPlayers.length}`);
+                
+                if (allLockedIn) {
+                    console.log(`🎯 All voting players locked in after AI decision! Processing round...`);
+                    setTimeout(() => {
+                        processRound(room, gameSession);
+                    }, 500);
                 }
             }, Math.random() * AIConfig.decisionDelay); // Random delay up to 2 seconds
         });
@@ -864,86 +874,223 @@ Player.onConnect = function(socket,username,admin,io){
     socket.on('startGame', (data) => {
         console.log('🎮 Starting game for room:', data.room);
         
-        // Get all users in the room
-        const usersInRoom = getRoomUsers(data.room);
-        console.log('🎮 Users in room:', usersInRoom.map(u => u.username));
-        
-        let playersCreated = 0;
-        const totalPlayers = usersInRoom.length;
-        
-        // Start the game for all users in the room
-        usersInRoom.forEach(user => {
-            // Get the socket for this user from socket.io room members
-            const userSocket = io.sockets.sockets.get(user.id);
+        try {
+            // Get all users in the room (chat users, not game players yet)
+            const usersInRoom = getRoomUsers(data.room);
+            console.log('🎮 Users in room:', usersInRoom.map(u => u.username));
             
-            if (userSocket) {
-                console.log(`🎮 Starting game for user: ${user.username} (${user.id})`);
-                Database.getPlayerProgress(user.username, function(progress){
-                    // Determine if user is admin (only the person who clicked start game is admin for now)
-                    const isAdmin = user.id === socket.id;
+            if (!usersInRoom || usersInRoom.length === 0) {
+                console.log('❌ No users found in room:', data.room);
+                socket.emit('error', { message: 'No users found in room' });
+                return;
+            }
+            
+            // Check if players already exist in this room (from previous game start or AI addition)
+            const existingPlayers = Object.values(Player.list).filter(p => p.room === data.room);
+            console.log('🎮 Existing players in room:', existingPlayers.map(p => `${p.username} (${p.isAI ? 'AI' : 'Human'})`));
+            
+            // Only create players for users who don't already have a Player object
+            const usersNeedingPlayers = usersInRoom.filter(user => 
+                !existingPlayers.find(p => p.id === user.id)
+            );
+            
+            console.log('🎮 Users needing Player objects:', usersNeedingPlayers.map(u => u.username));
+            
+            if (usersNeedingPlayers.length === 0) {
+                console.log('🎮 All users already have Player objects, starting game...');
+                // All users already have players, just start the game
+                startGameForExistingPlayers(data.room, socket);
+                return;
+            }
+            
+            let playersCreated = 0;
+            const totalPlayersToCreate = usersNeedingPlayers.length;
+            
+            // Start the game for users who need Player objects
+            usersNeedingPlayers.forEach(user => {
+                try {
+                    // Get the socket for this user from socket.io room members
+                    const userSocket = io.sockets.sockets.get(user.id);
                     
-                    // Create the player but don't send init events yet
-                    Player.onGameStart(userSocket, user.username, progress, null, data.room, isAdmin);
-                    
-                    playersCreated++;
-                    
-                    // After all players are created, send one coordinated init event to all
-                    if (playersCreated === totalPlayers) {
-                        console.log('🎮 All players created, sending coordinated init events');
-                        
-                        // Get updated room players data
-                        const roomPlayers = Object.values(Player.list).filter(p => p.room === data.room);
-                        const roomPlayerData = roomPlayers.map(p => p.getInitPack());
-                        
-                        // Send personalized init data to each player
-                        roomPlayers.forEach(player => {
-                            player.socket.emit('init', {
-                                selfId: player.socket.id,
-                                player: roomPlayerData,
-                            });
+                    if (userSocket) {
+                        console.log(`🎮 Creating Player object for user: ${user.username} (${user.id})`);
+                        Database.getPlayerProgress(user.username, function(progress){
+                            try {
+                                // Determine if user is admin (only the person who clicked start game is admin for now)
+                                const isAdmin = user.id === socket.id;
+                                
+                                // Create the player but don't send init events yet
+                                Player.onGameStart(userSocket, user.username, progress, null, data.room, isAdmin);
+                                
+                                playersCreated++;
+                                
+                                // After all players are created, start the game
+                                if (playersCreated === totalPlayersToCreate) {
+                                    console.log('🎮 All new players created, starting game...');
+                                    startGameForExistingPlayers(data.room, socket);
+                                }
+                            } catch (error) {
+                                console.error('❌ Error in Database.getPlayerProgress callback:', error);
+                                socket.emit('error', { message: 'Error starting game for player: ' + user.username });
+                            }
                         });
+                    } else {
+                        console.log(`❌ Could not find socket for user: ${user.username} (${user.id})`);
+                        // Still count as "processed" so we don't wait forever
+                        playersCreated++;
+                        if (playersCreated === totalPlayersToCreate) {
+                            startGameForExistingPlayers(data.room, socket);
+                        }
+                    }
+                } catch (userError) {
+                    console.error('❌ Error processing user in startGame:', userError, 'User:', user);
+                    playersCreated++;
+                    if (playersCreated === totalPlayersToCreate) {
+                        startGameForExistingPlayers(data.room, socket);
+                    }
+                }
+            });
+            
+        } catch (error) {
+            console.error('❌ Critical error in startGame handler:', error);
+            socket.emit('error', { message: 'Critical error starting game' });
+        }
+    });
+    
+    // Helper function to start game for existing players
+    function startGameForExistingPlayers(room, initiatingSocket) {
+        try {
+            console.log('🎮 Starting game for existing players in room:', room);
+            
+            // Get all players in the room (both human and AI)
+            const roomPlayers = Object.values(Player.list).filter(p => p.room === room);
+            const humanPlayers = roomPlayers.filter(p => !p.isAI);
+            
+            console.log(`🎮 Room ${room} has ${roomPlayers.length} total players (${humanPlayers.length} human, ${roomPlayers.length - humanPlayers.length} AI)`);
+            
+            // Get or create game session
+            const gameSession = GameSession.get(room) || GameSession.create(room);
+            gameSession.gameState = 'playing'; // Set to playing state
+            
+            // Send init data to all human players (AI players don't need init events)
+            const roomPlayerData = roomPlayers.map(p => p.getInitPack());
+            humanPlayers.forEach(player => {
+                if (player.socket && typeof player.socket.emit === 'function') {
+                    player.socket.emit('init', {
+                        selfId: player.socket.id,
+                        player: roomPlayerData,
+                    });
+                    
+                    // Send game start notification
+                    player.socket.emit('triadComplete', {
+                        message: 'Game started! Get ready to make choices.',
+                        playerPosition: player.triadPosition,
+                        gameSession: {
+                            currentRound: gameSession.currentRound,
+                            maxRounds: gameSession.maxRounds,
+                            condition: gameSession.currentCondition.name,
+                            grid: gameSession.grid,
+                            totalPlayers: roomPlayers.length,
+                            gameState: 'playing'
+                        }
+                    });
+                } else {
+                    console.warn(`⚠️ Player ${player.username} has invalid socket`);
+                }
+            });
+            
+            // Notify all sockets in the room that the game started
+            io.to(room).emit("gameStarted");
+            console.log(`🎮 Game started successfully in ${room} with ${roomPlayers.length} players`);
+            
+            // Start the behavioral experiment rounds
+            if (gameSession) {
+                gameSession.gameState = 'playing';
+                gameSession.currentRound = 1;
+                gameSession.activePlayerIndex = 0;
+                
+                console.log(`🧪 Starting behavioral experiment Round ${gameSession.currentRound} in ${room}`);
+                
+                // Clear any previous choices
+                roomPlayers.forEach(p => p.currentChoice = null);
+                
+                // Emit yourTurn event to start gameplay
+                roomPlayers.forEach((player, index) => {
+                    if (player.socket && typeof player.socket.emit === 'function') {
+                        const currentRoom = roomList.find(r => r.name === room);
+                        const isModerator = currentRoom && player.username === currentRoom.creator;
+                        
+                        // In behavioral experiments, all non-moderator players can vote simultaneously
+                        const canVote = !isModerator && !player.isAI; // Human participants can vote
+                        
+                        player.socket.emit('yourTurn', {
+                            isYourTurn: canVote, // All participants can vote, not turn-based
+                            isModerator: isModerator,
+                            activePlayer: canVote ? player.username : 'Waiting for participants',
+                            round: gameSession.currentRound,
+                            condition: gameSession.currentCondition.name,
+                            grid: gameSession.grid,
+                            playerPosition: player.triadPosition,
+                            totalPlayers: roomPlayers.length
+                        });
+                        console.log(`🎯 Sent yourTurn to ${player.username} (canVote: ${canVote}, moderator: ${isModerator})`);
                     }
                 });
-            } else {
-                console.log(`❌ Could not find socket for user: ${user.username} (${user.id})`);
+                
+                // Trigger AI decisions immediately since all players vote simultaneously
+                const aiPlayersInRoom = roomPlayers.filter(p => p.isAI);
+                if (aiPlayersInRoom.length > 0) {
+                    console.log(`🤖 Found ${aiPlayersInRoom.length} AI players, triggering their decisions...`);
+                    setTimeout(() => {
+                        AIPlayer.processAIDecisions(room, gameSession);
+                    }, AIPlayer.decisionDelay);
+                }
             }
-        });
-        
-        // Notify other sockets in the room that the game started (but they're already in it)
-        socket.to(data.room).emit("gameStarted");
-        console.log("SOCKET:: ROOM started: " + data.room + " with " + usersInRoom.length + " players");
-        
-        // Emit playersInRoom event to update poker table positions immediately on game start
-        const room = data.room;
-        const currentRoom = roomList.find(r => r.name === room);
-        const playersInRoom = Object.values(Player.list).filter(p => p.room === room);
-        const allRoomUsers = getRoomUsers(room);
-        
-        // Create player list with moderator info
-        const playersWithModerator = allRoomUsers.map(user => ({
-            username: user.username,
-            id: user.id,
-            isAI: false, // Users from getRoomUsers are human players
-            isModerator: currentRoom && user.username === currentRoom.creator
-        }));
-        
-        // Add any AI players that might be in the room
-        const aiPlayersInRoom = playersInRoom.filter(p => p.isAI);
-        aiPlayersInRoom.forEach(aiPlayer => {
-            playersWithModerator.push({
-                username: aiPlayer.username,
-                id: aiPlayer.id,
-                isAI: true,
-                isModerator: false
+            
+            // Update poker table positions
+            updateRoomPlayersDisplay(room);
+            
+        } catch (error) {
+            console.error('❌ Error in startGameForExistingPlayers:', error);
+            initiatingSocket.emit('error', { message: 'Error starting game' });
+        }
+    }
+    
+    // Helper function to update room players display
+    function updateRoomPlayersDisplay(room) {
+        try {
+            const currentRoom = roomList.find(r => r.name === room);
+            const playersInRoom = Object.values(Player.list).filter(p => p.room === room);
+            const allRoomUsers = getRoomUsers(room);
+            
+            // Create player list with moderator info
+            const playersWithModerator = allRoomUsers.map(user => ({
+                username: user.username,
+                id: user.id,
+                isAI: false, // Users from getRoomUsers are human players
+                isModerator: currentRoom && user.username === currentRoom.creator
+            }));
+            
+            // Add any AI players that might be in the room
+            const aiPlayersInRoom = playersInRoom.filter(p => p.isAI);
+            aiPlayersInRoom.forEach(aiPlayer => {
+                playersWithModerator.push({
+                    username: aiPlayer.username,
+                    id: aiPlayer.id,
+                    isAI: true,
+                    isModerator: false
+                });
             });
-        });
-        
-        console.log(`🎮 Emitting playersInRoom on game start for ${room}:`, playersWithModerator);
-        io.to(room).emit('playersInRoom', {
-            room: room,
-            players: playersWithModerator
-        });
-    });
+            
+            console.log(`🎮 Emitting playersInRoom for ${room}:`, playersWithModerator);
+            io.to(room).emit('playersInRoom', {
+                room: room,
+                players: playersWithModerator
+            });
+        } catch (error) {
+            console.error('❌ Error updating room players display:', error);
+        }
+    }
 
     socket.on('addAIPlayers', (data) => {
         const username = socket.username;
@@ -1090,95 +1237,86 @@ Player.onConnect = function(socket,username,admin,io){
 ////
 // Player Starts a Game
 Player.onGameStart = function(socket,username, progress, io, room, admin){
-    // Allow flexible player count for testing - no longer restrict to exactly 3 players
-    const currentPlayersInRoom = [];
-    for(var i in Player.list){
-        const player = Player.list[i];
-        if(player.room === room) {
-            currentPlayersInRoom.push(player);
+    try {
+        console.log(`🎯 Player.onGameStart called for ${username} in room ${room}`);
+        
+        // Check if this player already exists in this room
+        const existingPlayer = Object.values(Player.list).find(p => p.room === room && p.username === username);
+        if (existingPlayer) {
+            console.log(`⚠️ Player ${username} already exists in room ${room}, skipping creation`);
+            return existingPlayer; // Return existing player instead of creating new one
         }
-    }
-    
-    // Only restrict if we have too many (still cap at 3 total)
-    if(currentPlayersInRoom.length >= 3) {
-        console.log(`❌ Triad ${room} is full! Maximum 3 players allowed`);
-        socket.emit('roomFull', { message: 'Triad is full (3 players max)' });
-        return; // Don't create the player
-    }
+        
+        // Allow flexible player count - count current players in room more intelligently
+        const currentPlayersInRoom = Object.values(Player.list).filter(p => p.room === room);
+        const humanPlayersInRoom = currentPlayersInRoom.filter(p => !p.isAI);
+        const aiPlayersInRoom = currentPlayersInRoom.filter(p => p.isAI);
+        
+        console.log(`🔍 Room ${room} capacity check: ${currentPlayersInRoom.length} total (${humanPlayersInRoom.length} human + ${aiPlayersInRoom.length} AI)`);
+        
+        // More flexible capacity: Allow multiple human players + AI up to reasonable limit
+        // For behavioral experiments: typically 1 moderator + 2-3 participants = 3-4 total
+        if(currentPlayersInRoom.length >= 4) {
+            console.log(`❌ Room ${room} is at maximum capacity! Maximum 4 players allowed`);
+            socket.emit('roomFull', { message: 'Room is at maximum capacity (4 players max)' });
+            return null;
+        }
 
-    var player = Player({
-        username:username,
-        id:socket.id,
-        socket:socket,
-        room:room,
-        x:0, // Not used in behavioral experiment
-        y:0, // Not used in behavioral experiment  
-        inventory:progress,
-        startingContinent:"", // Not used in behavioral experiment
-        admin:admin,
-    });
+        var player = Player({
+            username:username,
+            id:socket.id,
+            socket:socket,
+            room:room,
+            x:0, // Not used in behavioral experiment
+            y:0, // Not used in behavioral experiment  
+            inventory:progress,
+            startingContinent:"", // Not used in behavioral experiment
+            admin:admin,
+        });
 
-    player.inventory = new Inventory(progress.items,socket,true);
-    player.inventory.refreshRender();
+        if (!player) {
+            console.error('❌ Failed to create player object');
+            socket.emit('error', { message: 'Failed to create player' });
+            return;
+        }
 
-    console.log(`🧠 ${player.username} joined behavioral experiment in room: ${player.room}`);
-    
-    // Create or get game session for this room
-    const gameSession = GameSession.create(room);
-    
-    // Always show triad status and allow experiment to start with 1+ players
-    const allPlayersInRoom = Object.values(Player.list).filter(p => p.room === room);
-    const humanPlayers = allPlayersInRoom.filter(p => !p.isAI);
-    console.log(`👥 Current players in room ${room}: ${allPlayersInRoom.length}/3 (${humanPlayers.length} human, ${allPlayersInRoom.length - humanPlayers.length} AI)`);
-    
-    // Assign poker table positions immediately when any player joins
-    GameSession.assignTriadPositions(room);
-    
-    // Always set to ready state for flexible testing
-    gameSession.gameState = 'ready';
+        player.inventory = new Inventory(progress.items,socket,true);
+        player.inventory.refreshRender();
+
+        console.log(`🧠 ${player.username} joined behavioral experiment in room: ${player.room}`);
+        
+        // Create or get game session for this room
+        const gameSession = GameSession.create(room);
+        
+        if (!gameSession) {
+            console.error('❌ Failed to create/get game session for room:', room);
+            socket.emit('error', { message: 'Failed to create game session' });
+            return;
+        }
+        
+        // Always show triad status and allow experiment to start with 1+ players
+        const allPlayersInRoom = Object.values(Player.list).filter(p => p.room === room);
+        const humanPlayers = allPlayersInRoom.filter(p => !p.isAI);
+        console.log(`👥 Current players in room ${room}: ${allPlayersInRoom.length}/3 (${humanPlayers.length} human, ${allPlayersInRoom.length - humanPlayers.length} AI)`);
+        
+        // Assign poker table positions immediately when any player joins
+        GameSession.assignTriadPositions(room);
+        
+        // Always set to ready state for flexible testing
+        gameSession.gameState = 'ready';
     
     // Notify all human players (AI players don't need notifications)
     humanPlayers.forEach(p => {
-        p.socket.emit('triadComplete', {
-            message: `Experiment ready to begin! (${allPlayersInRoom.length}/3 players)`,
-            playerPosition: p.triadPosition || allPlayersInRoom.findIndex(ap => ap.id === p.id) + 1,
-            gameSession: {
-                currentRound: gameSession.currentRound,
-                maxRounds: gameSession.maxRounds,
-                condition: gameSession.currentCondition.name,
-                grid: gameSession.grid,
-                canAddAI: allPlayersInRoom.length < 3,
-                totalPlayers: allPlayersInRoom.length,
-                players: allPlayersInRoom.map(player => ({
-                    id: player.id,
-                    username: player.username,
-                    triadPosition: player.triadPosition,
-                    seatPosition: player.seatPosition,
-                    isAI: player.isAI,
-                    behaviorType: player.behaviorType
-                }))
-            }
-        });
-    });
-    if(allPlayersInRoom.length === 3) {
-        console.log(`🎯 Triad complete in ${room}! Initializing behavioral experiment...`);
-        
-        // Assign positions (P1, P2, P3) for turn order
-        GameSession.assignTriadPositions(room);
-        
-        // Set game state to ready
-        gameSession.gameState = 'ready';
-        
-        // Notify all players in room that experiment can begin
-        allPlayersInRoom.forEach(p => {
+        if (p.socket && typeof p.socket.emit === 'function') {
             p.socket.emit('triadComplete', {
-                message: 'Triad complete! Experiment ready to begin.',
-                playerPosition: p.triadPosition,
+                message: `Experiment ready to begin! (${allPlayersInRoom.length}/3 players)`,
+                playerPosition: p.triadPosition || allPlayersInRoom.findIndex(ap => ap.id === p.id) + 1,
                 gameSession: {
                     currentRound: gameSession.currentRound,
                     maxRounds: gameSession.maxRounds,
                     condition: gameSession.currentCondition.name,
                     grid: gameSession.grid,
+                    canAddAI: allPlayersInRoom.length < 3,
                     totalPlayers: allPlayersInRoom.length,
                     players: allPlayersInRoom.map(player => ({
                         id: player.id,
@@ -1190,6 +1328,44 @@ Player.onGameStart = function(socket,username, progress, io, room, admin){
                     }))
                 }
             });
+        } else {
+            console.warn(`⚠️ Player ${p.username} has invalid socket, skipping triadComplete notification`);
+        }
+    });
+    if(allPlayersInRoom.length === 3) {
+        console.log(`🎯 Triad complete in ${room}! Initializing behavioral experiment...`);
+        
+        // Assign positions (P1, P2, P3) for turn order
+        GameSession.assignTriadPositions(room);
+        
+        // Set game state to ready
+        gameSession.gameState = 'ready';
+        
+        // Notify all human players in room that experiment can begin (skip AI players)
+        allPlayersInRoom.forEach(p => {
+            if (p.socket && typeof p.socket.emit === 'function' && !p.isAI) {
+                p.socket.emit('triadComplete', {
+                    message: 'Triad complete! Experiment ready to begin.',
+                    playerPosition: p.triadPosition,
+                    gameSession: {
+                        currentRound: gameSession.currentRound,
+                        maxRounds: gameSession.maxRounds,
+                        condition: gameSession.currentCondition.name,
+                        grid: gameSession.grid,
+                        totalPlayers: allPlayersInRoom.length,
+                        players: allPlayersInRoom.map(player => ({
+                            id: player.id,
+                            username: player.username,
+                            triadPosition: player.triadPosition,
+                            seatPosition: player.seatPosition,
+                            isAI: player.isAI,
+                            behaviorType: player.behaviorType
+                        }))
+                    }
+                });
+            } else if (p.isAI) {
+                console.log(`🤖 Skipping notification for AI player: ${p.username}`);
+            }
         });
     }
 
@@ -1202,19 +1378,51 @@ Player.onGameStart = function(socket,username, progress, io, room, admin){
             return;
         }
         
-        player.currentChoice = data.choice; // 'impulsive' or 'self-control'
-        console.log(`🧠 ${player.username} chose: ${data.choice}`);
+        // Check if this player is the moderator (moderators can't vote)
+        const currentRoom = roomList.find(r => r.name === room);
+        const isModerator = currentRoom && player.username === currentRoom.creator;
         
-        // Trigger AI players to make their decisions
-        AIPlayer.processAIDecisions(room, gameSession);
+        if (isModerator) {
+            socket.emit('error', { message: 'Moderators cannot vote in the experiment' });
+            return;
+        }
         
-        // Check if all players in triad have made choices (will be checked again in AI processing)
-        const roomPlayers = Object.values(Player.list).filter(p => p.room === room);
-        const allChoicesMade = roomPlayers.every(p => p.currentChoice !== null);
-        
-        if (allChoicesMade) {
-            // Process round immediately if no AI players or all already decided
-            processRound(room, gameSession);
+        // Only process if this is a lock-in
+        if (data.lockedIn) {
+            player.currentChoice = data.choice; // 'impulsive' or 'self-control'
+            player.isLockedIn = true;
+            console.log(`🔒 ${player.username} locked in choice: ${data.choice}`);
+            
+            // Check if all non-moderator players have locked in their choices
+            const roomPlayers = Object.values(Player.list).filter(p => p.room === room);
+            const votingPlayers = roomPlayers.filter(p => {
+                const playerRoom = roomList.find(r => r.name === room);
+                return !(playerRoom && p.username === playerRoom.creator); // Exclude moderator
+            });
+            
+            const allLockedIn = votingPlayers.every(p => p.isLockedIn && p.currentChoice !== null);
+            
+            console.log(`🎯 Lock-in status: ${votingPlayers.filter(p => p.isLockedIn).length}/${votingPlayers.length} players locked in`);
+            
+            // AI players auto-lock-in when they make decisions
+            if (!allLockedIn) {
+                // Trigger AI players to make their decisions and auto-lock-in
+                AIPlayer.processAIDecisions(room, gameSession);
+            }
+            
+            // Check again after AI processing
+            const allFinallyLockedIn = votingPlayers.every(p => p.isLockedIn && p.currentChoice !== null);
+            
+            if (allFinallyLockedIn) {
+                console.log(`🎯 All players locked in! Processing round...`);
+                // Small delay to ensure all UI updates are complete
+                setTimeout(() => {
+                    processRound(room, gameSession);
+                }, 500);
+            }
+        } else {
+            // Just a selection, not a lock-in yet
+            console.log(`🎯 ${player.username} selected (not locked): ${data.choice}`);
         }
     });
 
@@ -1254,6 +1462,10 @@ Player.onGameStart = function(socket,username, progress, io, room, admin){
         });
     });
     
+    } catch (error) {
+        console.error('❌ Error in Player.onGameStart:', error, 'for user:', username, 'room:', room);
+        socket.emit('error', { message: 'Error joining game' });
+    }
 }
 
 Player.getAllInitPack = function(){
@@ -1295,38 +1507,44 @@ function startNewRound(roomName, gameSession) {
     
     console.log(`🔄 Starting round ${gameSession.currentRound} in room ${roomName}`);
     
-    // Reset player choices for new round
+    // Reset player choices and lock-in status for new round
     const roomPlayers = Object.values(Player.list).filter(p => p.room === roomName);
-    roomPlayers.forEach(p => p.currentChoice = null);
-    
-    // Determine who is active player for this round (rotating turn order)
-    const activePlayerIndex = (gameSession.currentRound - 1) % 3;
-    gameSession.activePlayerIndex = activePlayerIndex;
-    
-    roomPlayers.forEach((player, index) => {
-        player.isActivePlayer = (index === activePlayerIndex);
+    roomPlayers.forEach(p => {
+        p.currentChoice = null;
+        p.isLockedIn = false; // Reset lock-in status for new round
     });
     
-    // Notify all human players about the new round (AI players don't need notifications)
-    roomPlayers.forEach(player => {
+    // Notify all human players about the new round and reset UI
+    roomPlayers.forEach((player, index) => {
         if (player.socket) { // Only notify human players with real sockets
-            player.socket.emit('newRound', {
+            const currentRoom = roomList.find(r => r.name === roomName);
+            const isModerator = currentRoom && player.username === currentRoom.creator;
+            
+            // In behavioral experiments, all non-moderator players can vote simultaneously
+            const canVote = !isModerator && !player.isAI; // Human participants can vote
+            
+            player.socket.emit('yourTurn', {
+                isYourTurn: canVote, // All participants can vote, not turn-based
+                isModerator: isModerator,
+                activePlayer: canVote ? player.username : 'Round ' + gameSession.currentRound,
                 round: gameSession.currentRound,
-                maxRounds: gameSession.maxRounds,
-                activePlayer: roomPlayers[activePlayerIndex].username,
-                isYourTurn: player.isActivePlayer,
                 condition: gameSession.currentCondition.name,
                 grid: gameSession.grid,
-                whiteTokensRemaining: GlobalTokenPool.whiteTokens,
-                aiPlayersCount: roomPlayers.filter(p => p.isAI).length
+                playerPosition: player.triadPosition,
+                totalPlayers: roomPlayers.length
             });
+            console.log(`🎯 Sent yourTurn for round ${gameSession.currentRound} to ${player.username} (canVote: ${canVote}, moderator: ${isModerator})`);
         }
     });
     
-    // Automatically start AI decision process
-    setTimeout(() => {
-        AIPlayer.processAIDecisions(roomName, gameSession);
-    }, 1000); // 1 second delay before AI starts thinking
+    // Trigger AI decisions for the new round
+    const aiPlayersInRoom = roomPlayers.filter(p => p.isAI);
+    if (aiPlayersInRoom.length > 0) {
+        console.log(`🤖 Found ${aiPlayersInRoom.length} AI players for round ${gameSession.currentRound}, triggering their decisions...`);
+        setTimeout(() => {
+            AIPlayer.processAIDecisions(roomName, gameSession);
+        }, AIPlayer.decisionDelay);
+    }
 }
 
 function processRound(roomName, gameSession) {
