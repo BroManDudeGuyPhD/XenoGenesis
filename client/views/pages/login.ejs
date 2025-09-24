@@ -5,6 +5,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+    
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.12.1/css/all.min.css"
         integrity="sha256-mmgLkCYLUQbXn0B1SRqzHar6dCnv9oZFPEC1g1cwlkk=" crossorigin="anonymous" />
     <link rel="stylesheet" href="../../css/style.css" />
@@ -13,7 +14,7 @@
     <link rel="icon" type="image/x-icon" href="../client/img/favicon.png">
 </head>
 
-<body style="background-color: #2c2f33;">
+<body class="login-page" style="background-color: #000000;">
     <!-- <div id="signDiv" class="signIn">
         Username: <input id="signDiv-username" type="text"></input><br>
         Password: <input id="signDiv-password" type="password"></input><br>
@@ -32,7 +33,7 @@
                     <a href="#" class="nav-link">About</a>
                 </li> -->
                 <li class="nav-item">
-                    <button style="width:auto;" id="loginNav">Login</button>
+                    <button id="loginNav"><span>Login</span></button>
                 </li>
             </ul>
             <div class="hamburger">
@@ -114,31 +115,58 @@
                 </div>
             </div>
 
+            <!-- Token Pool Status -->
+            <div id="tokenPoolStatus" style="background-color: #40444b; padding: 15px; border-radius: 5px; margin-bottom: 20px;">
+                <!-- White Token Pool Visual -->
+                <div style="text-align: center; margin-bottom: 10px;">
+                    <span style="color: #ffffff; margin-right: 10px;">Global White Token Pool:</span>
+                    <span id="globalTokenPool" style="color: #faa61a; font-size: 18px; font-weight: bold;">2500</span>
+                    <span style="color: #b9bbbe; margin-left: 5px;">/2500</span>
+                </div>
+                
+                <!-- Token Pool Progress Bar -->
+                <div style="background-color: #2c2f33; border-radius: 10px; height: 12px; margin: 8px 0; overflow: hidden; position: relative;">
+                    <div id="tokenPoolBar" style="background: linear-gradient(90deg, #faa61a 0%, #ffcc4d 50%, #f1c40f 100%); height: 100%; width: 100%; transition: width 0.8s ease-in-out; border-radius: 10px; position: relative;">
+                        <!-- Pool Drain Animation -->
+                        <div style="position: absolute; right: 0; top: 0; height: 100%; width: 3px; background-color: rgba(255,255,255,0.3); animation: poolDrain 2s infinite;"></div>
+                    </div>
+                </div>
+                
+                <!-- Culturant Counter -->
+                <div style="text-align: center; margin-top: 10px;">
+                    <span style="color: #b9bbbe; margin-right: 10px;">Culturants Produced:</span>
+                    <span id="culturantCount" style="color: #7289da; font-size: 16px; font-weight: bold;">0</span>
+                </div>
+            </div>
+
             <!-- Poker Table Container -->
             <div id="pokerTable" style="position: relative; width: 100%; height: 400px; background-color: #2c2f33; border-radius: 10px; margin-bottom: 20px;">
                 
                 <div id="leftPlayer" class="poker-seat" style="position: absolute; left: 20px; top: 50%; transform: translateY(-50%); width: 120px; height: 80px; background-color: #36393f; border: 2px solid #7289da; border-radius: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center;">
-                    <div class="player-name" style="color: #ffffff; font-size: 14px; font-weight: bold;"></div>
-                    <div class="player-status" style="color: #b9bbbe; font-size: 12px;"></div>
-                    <div class="ai-indicator" style="color: #faa61a; font-size: 10px; display: none;">🤖 AI</div>
+                    <div class="player-name" style="color: #ffffff; font-size: 16px; font-weight: bold;"></div>
+                    <div class="player-status" style="color: #b9bbbe; font-size: 14px;"></div>
+                    <div class="ai-indicator" style="color: #faa61a; font-size: 12px; display: none;">🤖 AI</div>
+                    <div class="player-wallet" style="color: #43b581; font-size: 12px; margin-top: 2px;"></div>
                 </div>
                 
                 <div id="topPlayer" class="poker-seat" style="position: absolute; top: 20px; left: 50%; transform: translateX(-50%); width: 120px; height: 80px; background-color: #36393f; border: 2px solid #7289da; border-radius: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center;">
-                    <div class="player-name" style="color: #ffffff; font-size: 14px; font-weight: bold;"></div>
-                    <div class="player-status" style="color: #b9bbbe; font-size: 12px;"></div>
-                    <div class="ai-indicator" style="color: #faa61a; font-size: 10px; display: none;">🤖 AI</div>
+                    <div class="player-name" style="color: #ffffff; font-size: 16px; font-weight: bold;"></div>
+                    <div class="player-status" style="color: #b9bbbe; font-size: 14px;"></div>
+                    <div class="ai-indicator" style="color: #faa61a; font-size: 12px; display: none;">🤖 AI</div>
+                    <div class="player-wallet" style="color: #43b581; font-size: 12px; margin-top: 2px;"></div>
                 </div>
                 
                 <div id="rightPlayer" class="poker-seat" style="position: absolute; right: 20px; top: 50%; transform: translateY(-50%); width: 120px; height: 80px; background-color: #36393f; border: 2px solid #7289da; border-radius: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center;">
-                    <div class="player-name" style="color: #ffffff; font-size: 14px; font-weight: bold;"></div>
-                    <div class="player-status" style="color: #b9bbbe; font-size: 12px;"></div>
-                    <div class="ai-indicator" style="color: #faa61a; font-size: 10px; display: none;">🤖 AI</div>
+                    <div class="player-name" style="color: #ffffff; font-size: 16px; font-weight: bold;"></div>
+                    <div class="player-status" style="color: #b9bbbe; font-size: 14px;"></div>
+                    <div class="ai-indicator" style="color: #faa61a; font-size: 12px; display: none;">🤖 AI</div>
+                    <div class="player-wallet" style="color: #43b581; font-size: 12px; margin-top: 2px;"></div>
                 </div>
                 
                 <!-- Moderator Position -->
-                <div id="moderatorPosition" class="moderator-seat" style="position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); width: 120px; height: 70px; background-color: #2c2f33; border: 2px solid #43b581; border-radius: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center;">
-                    <div class="moderator-name" style="color: #43b581; font-size: 11px; font-weight: bold;">Waiting for Moderator...</div>
-                    <div style="color: #43b581; font-size: 10px; font-weight: bold;">Moderator</div>
+                <div id="moderatorPosition" class="moderator-seat" style="position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); width: 120px; height: 70px; background-color: #2c2f33; border: 2px solid #9b59b6; border-radius: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center;">
+                    <div class="moderator-name" style="color: #9b59b6; font-size: 13px; font-weight: bold;">Waiting for Moderator...</div>
+                    <div style="color: #9b59b6; font-size: 12px; font-weight: bold;">Moderator</div>
                     <div style="color: #b9bbbe; font-size: 9px;">Game Host</div>
                 </div>
                 
@@ -164,63 +192,386 @@
 
                 <!-- Decision Grid Phase -->
                 <div id="decisionPhase" style="display: none; text-align: center;">
-                    <div id="roundInfo" style="margin-bottom: 30px;">
-                        <h3 id="activePlayer" style="color: #ffffff; margin-bottom: 10px;"></h3>
-                        <p id="conditionInfo" style="color: #b9bbbe; font-size: 16px;"></p>
-                        <p id="tokenPoolInfo" style="color: #faa61a; font-size: 14px;"></p>
-                    </div>
-
-                    <!-- 2x3 Decision Grid -->
-                    <div id="decisionGrid" style="margin: 30px auto; max-width: 600px;">
-                        <div style="color: #ffffff; margin-bottom: 15px; font-size: 18px;">Choose Your Action:</div>
+                    <!-- Decision Grid and Results Container -->
+                    <div id="decisionGridContainer" style="display: flex; gap: 30px; margin: 30px auto; justify-content: center; align-items: flex-start; flex-wrap: wrap;">
                         
-                        <!-- Row 1 (Impulsive - Odd) -->
-                        <div class="grid-row" style="display: flex; margin-bottom: 15px; justify-content: center;">
-                            <span style="color: #ffffff; width: 120px; text-align: right; padding-right: 20px; line-height: 50px;">Impulsive:</span>
-                            <button class="grid-cell impulsive" data-choice="impulsive" data-col="1" style="width: 80px; height: 50px; margin: 0 5px; border: 2px solid #f04747; background-color: #40444b; color: #ffffff; cursor: pointer;">
-                                <span class="grid-symbol">+</span>
-                            </button>
-                            <button class="grid-cell impulsive" data-choice="impulsive" data-col="2" style="width: 80px; height: 50px; margin: 0 5px; border: 2px solid #f04747; background-color: #40444b; color: #ffffff; cursor: pointer;">
-                                <span class="grid-symbol">-</span>
-                            </button>
-                            <button class="grid-cell impulsive" data-choice="impulsive" data-col="3" style="width: 80px; height: 50px; margin: 0 5px; border: 2px solid #f04747; background-color: #40444b; color: #ffffff; cursor: pointer;">
-                                <span class="grid-symbol">+</span>
-                            </button>
+                        <!-- Left Side: Round Results Panel -->
+                        <div style="flex: 0 0 auto; min-width: 300px; max-width: 350px; align-self: flex-start;">
+                            
+                            <!-- Lock In Section - positioned above Round Results -->
+                            <div id="selectionSection" style="display: none; margin-bottom: 20px;">
+                                <div style="background: rgba(54, 57, 63, 0.8); backdrop-filter: blur(12px); border-radius: 8px; padding: 14px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2); border: 1px solid rgba(114, 118, 125, 0.2); width: 100%;">
+                                    <div style="display: flex; align-items: center; justify-content: center; gap: 6px; margin-bottom: 10px;">
+                                        <div style="width: 4px; height: 4px; background-color: #7289da; border-radius: 50%; animation: subtlePulse 2s infinite;"></div>
+                                        <div id="selectedChoice" style="color: #dcddde; font-size: 13px; font-weight: 500;">No selection made</div>
+                                        <div style="width: 4px; height: 4px; background-color: #7289da; border-radius: 50%; animation: subtlePulse 2s infinite;"></div>
+                                    </div>
+                                    
+                                    <button id="lockInBtn" style="
+                                        background: linear-gradient(135deg, #5865f2, #4752c4);
+                                        color: white;
+                                        padding: 8px 16px;
+                                        font-size: 12px;
+                                        font-weight: 500;
+                                        border: none;
+                                        border-radius: 6px;
+                                        cursor: pointer;
+                                        position: relative;
+                                        overflow: hidden;
+                                        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+                                        box-shadow: 0 2px 6px rgba(88, 101, 242, 0.25);
+                                        letter-spacing: 0.3px;
+                                        width: 100%;
+                                    " disabled onmouseover="
+                                        if (!this.disabled) {
+                                            this.style.transform = 'translateY(-1px)';
+                                            this.style.boxShadow = '0 4px 12px rgba(88, 101, 242, 0.35)';
+                                        }
+                                    " onmouseout="
+                                        if (!this.disabled) {
+                                            this.style.transform = 'translateY(0)';
+                                            this.style.boxShadow = '0 2px 6px rgba(88, 101, 242, 0.25)';
+                                        }
+                                    ">
+                                        <span id="lockInText" style="position: relative; z-index: 1;">🔒 Lock In Choice</span>
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <!-- Token Conversion Rate Display -->
+                            <div id="tokenConversionDisplay" style="display: none; margin-bottom: 15px;">
+                                <div style="background: rgba(54, 57, 63, 0.9); backdrop-filter: blur(12px); border-radius: 6px; padding: 12px; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15); border: 1px solid rgba(114, 118, 125, 0.3);">
+                                    <div style="color: #faa61a; font-size: 12px; font-weight: 600; margin-bottom: 8px; text-align: center; opacity: 0.8;">Current Token Values</div>
+                                    <div style="display: flex; align-items: center; justify-content: space-around; gap: 12px;">
+                                        <div style="display: flex; align-items: center; gap: 6px;">
+                                            <span style="font-size: 14px;">⚪</span>
+                                            <span id="whiteTokenValue" style="color: #ffffff; font-size: 13px; font-weight: 500;">$0.01</span>
+                                        </div>
+                                        <div style="display: flex; align-items: center; gap: 6px;">
+                                            <span style="font-size: 14px;">⚫</span>
+                                            <span id="blackTokenValue" style="color: #ffffff; font-size: 13px; font-weight: 500;">$0.05</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Round Results Phase -->
+                            <div id="resultsPhase" style="display: block; width: 100%;">
+                                <div style="background: rgba(64, 68, 75, 0.8); backdrop-filter: blur(12px); border-radius: 8px; padding: 16px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2); border: 1px solid rgba(114, 118, 125, 0.2); height: 480px; overflow-y: auto;">
+                                    <h4 id="roundResultsTitle" style="color: #ffffff; margin: 0 0 12px 0; font-size: 16px;">Experiment Ready</h4>
+                                    <div id="roundResults" style="color: #b9bbbe; margin-bottom: 12px; font-size: 14px;">Waiting for first round to begin...</div>
+                                    <div id="tokenUpdate" style="color: #43b581; font-size: 15px; margin-bottom: 8px; font-weight: 500;"></div>
+                                    <div id="roundEarnings" style="color: #43b581; font-size: 14px; margin-bottom: 10px; font-weight: 500;"></div>
+                                    <div id="culturantStatus" style="color: #7289da; font-size: 13px;"></div>
+                                    <div id="activeIncentive" style="color: #faa61a; font-size: 12px; margin-top: 8px;"></div>
+                                    <div id="baselineExitNotification" style="display: none; background: linear-gradient(135deg, #43b581, #5bc0de); color: #ffffff; font-size: 12px; font-weight: 600; margin-top: 8px; padding: 8px 12px; border-radius: 6px; cursor: pointer; box-shadow: 0 2px 8px rgba(67, 181, 129, 0.3); border: 1px solid rgba(255, 255, 255, 0.2); transition: all 0.3s ease;" onclick="this.style.display='none';" onmouseover="this.style.transform='scale(1.02)'; this.style.boxShadow='0 4px 16px rgba(67, 181, 129, 0.5)';" onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='0 2px 8px rgba(67, 181, 129, 0.3)';">
+                                        <div style="display: flex; align-items: center; gap: 8px;">
+                                            <span style="font-size: 16px;">🎯</span>
+                                            <span id="baselineExitText">Baseline condition exited on turn X</span>
+                                            <span style="font-size: 11px; opacity: 0.8; margin-left: auto;">(click to dismiss)</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
-
-                        <!-- Row 2 (Self-Control - Even) -->
-                        <div class="grid-row" style="display: flex; justify-content: center;">
-                            <span style="color: #ffffff; width: 120px; text-align: right; padding-right: 20px; line-height: 50px;">Self-Control:</span>
-                            <button class="grid-cell self-control" data-choice="self-control" data-col="1" style="width: 80px; height: 50px; margin: 0 5px; border: 2px solid #43b581; background-color: #40444b; color: #ffffff; cursor: pointer;">
-                                <span class="grid-symbol">-</span>
-                            </button>
-                            <button class="grid-cell self-control" data-choice="self-control" data-col="2" style="width: 80px; height: 50px; margin: 0 5px; border: 2px solid #43b581; background-color: #40444b; color: #ffffff; cursor: pointer;">
-                                <span class="grid-symbol">+</span>
-                            </button>
-                            <button class="grid-cell self-control" data-choice="self-control" data-col="3" style="width: 80px; height: 50px; margin: 0 5px; border: 2px solid #43b581; background-color: #40444b; color: #ffffff; cursor: pointer;">
-                                <span class="grid-symbol">-</span>
-                            </button>
+                        
+                        <!-- Right Side: 8x8 Decision Grid -->
+                        <div id="decisionGrid" style="flex: 0 0 auto;">                        
+                            <!-- Grid container with row headers and cells -->
+                            <div style="display: flex;">
+                                <!-- Row headers (numbers 1-8) -->
+                                <div style="display: flex; flex-direction: column;">
+                                    <div style="height: 38px; margin-bottom: 10px;"></div> <!-- Spacer to align with column headers -->
+                                    <div class="row-header" data-row="1" style="width: 80px; height: 50px; display: flex; align-items: center; justify-content: center; color: #ffffff; font-weight: bold; font-size: 14px; margin: 0; padding: 0; transition: all 0.3s ease;">1</div>
+                                    <div class="row-header" data-row="2" style="width: 80px; height: 50px; display: flex; align-items: center; justify-content: center; color: #000000; font-weight: bold; font-size: 14px; margin: 0; padding: 0; transition: all 0.3s ease;">2</div>
+                                    <div class="row-header" data-row="3" style="width: 80px; height: 50px; display: flex; align-items: center; justify-content: center; color: #ffffff; font-weight: bold; font-size: 14px; margin: 0; padding: 0; transition: all 0.3s ease;">3</div>
+                                    <div class="row-header" data-row="4" style="width: 80px; height: 50px; display: flex; align-items: center; justify-content: center; color: #000000; font-weight: bold; font-size: 14px; margin: 0; padding: 0; transition: all 0.3s ease;">4</div>
+                                    <div class="row-header" data-row="5" style="width: 80px; height: 50px; display: flex; align-items: center; justify-content: center; color: #ffffff; font-weight: bold; font-size: 14px; margin: 0; padding: 0; transition: all 0.3s ease;">5</div>
+                                    <div class="row-header" data-row="6" style="width: 80px; height: 50px; display: flex; align-items: center; justify-content: center; color: #000000; font-weight: bold; font-size: 14px; margin: 0; padding: 0; transition: all 0.3s ease;">6</div>
+                                    <div class="row-header" data-row="7" style="width: 80px; height: 50px; display: flex; align-items: center; justify-content: center; color: #ffffff; font-weight: bold; font-size: 14px; margin: 0; padding: 0; transition: all 0.3s ease;">7</div>
+                                    <div class="row-header" data-row="8" style="width: 80px; height: 50px; display: flex; align-items: center; justify-content: center; color: #000000; font-weight: bold; font-size: 14px; margin: 0; padding: 0; transition: all 0.3s ease;">8</div>
+                                </div>
+                                
+                                <!-- The actual grid -->
+                                <div style="display: flex; flex-direction: column;">
+                                    <!-- Column Headers -->
+                                    <div class="grid-header" style="display: flex; margin-bottom: 10px; width: 400px;">
+                                        <div class="column-header" data-column="A" style="width: 50px; text-align: center; color: #faa61a; font-weight: bold; font-size: 14px; cursor: pointer; padding: 8px 0; border-radius: 4px; transition: all 0.3s ease;">A</div>
+                                        <div class="column-header" data-column="B" style="width: 50px; text-align: center; color: #faa61a; font-weight: bold; font-size: 14px; cursor: pointer; padding: 8px 0; border-radius: 4px; transition: all 0.3s ease;">B</div>
+                                        <div class="column-header" data-column="C" style="width: 50px; text-align: center; color: #faa61a; font-weight: bold; font-size: 14px; cursor: pointer; padding: 8px 0; border-radius: 4px; transition: all 0.3s ease;">C</div>
+                                        <div class="column-header" data-column="D" style="width: 50px; text-align: center; color: #faa61a; font-weight: bold; font-size: 14px; cursor: pointer; padding: 8px 0; border-radius: 4px; transition: all 0.3s ease;">D</div>
+                                        <div class="column-header" data-column="E" style="width: 50px; text-align: center; color: #faa61a; font-weight: bold; font-size: 14px; cursor: pointer; padding: 8px 0; border-radius: 4px; transition: all 0.3s ease;">E</div>
+                                        <div class="column-header" data-column="F" style="width: 50px; text-align: center; color: #faa61a; font-weight: bold; font-size: 14px; cursor: pointer; padding: 8px 0; border-radius: 4px; transition: all 0.3s ease;">F</div>
+                                        <div class="column-header" data-column="G" style="width: 50px; text-align: center; color: #faa61a; font-weight: bold; font-size: 14px; cursor: pointer; padding: 8px 0; border-radius: 4px; transition: all 0.3s ease;">G</div>
+                                        <div class="column-header" data-column="H" style="width: 50px; text-align: center; color: #faa61a; font-weight: bold; font-size: 14px; cursor: pointer; padding: 8px 0; border-radius: 4px; transition: all 0.3s ease;">H</div>
+                                    </div>
+                                    
+                                    <!-- 8x8 Grid with clickable rows -->
+                                    <div id="grid8x8" style="border: 2px solid #72767d; background-color: #2c2f33; width: 400px; box-sizing: border-box;">
+                                        <!-- Grid will be populated dynamically by JavaScript -->
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                    </div>
+                        
+                        <style>
+                            .clickable-row:hover .grid-cell-8x8 {
+                                background-color: rgba(255, 215, 0, 0.3) !important;
+                                border-color: #ffd700 !important;
+                                color: #000000 !important;
+                                box-shadow: 0 0 5px rgba(255, 215, 0, 0.5) !important;
+                            }
+                            .clickable-row:hover .row-label {
+                                filter: brightness(1.3) !important;
+                                border-color: #ffd700 !important;
+                            }
+                            
+                            .clickable-column:hover {
+                                background-color: rgba(114, 137, 218, 0.3) !important;
+                                border-color: #7289da !important;
+                                transform: scale(1.05) !important;
+                                box-shadow: 0 0 10px rgba(114, 137, 218, 0.4) !important;
+                            }
+                            .column-header:hover {
+                                background-color: rgba(114, 137, 218, 0.3) !important;
+                                transform: scale(1.1) !important;
+                            }
+                            .column-header.selected {
+                                background-color: #7289da !important;
+                                color: #ffffff !important;
+                                transform: scale(1.1) !important;
+                                box-shadow: 0 0 8px rgba(114, 137, 218, 0.6) !important;
+                            }
+                            .column-selected .grid-cell-8x8 {
+                                border-color: #7289da !important;
+                                box-shadow: inset 0 0 3px rgba(114, 137, 218, 0.3) !important;
+                            }
+                        </style>
+                        
+                        <!-- Moderator Column Selection (only visible to moderator) -->
+                        <div id="moderatorColumnControl" style="display: none; margin-top: 20px; padding: 15px; background-color: #40444b; border-radius: 8px; border: 2px solid #7289da; width: 480px; box-sizing: border-box;">
+                            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px;">
+                                <h4 style="color: #7289da; margin: 0; font-size: 16px;">🎛️ Moderator Column Control</h4>
+                                <label style="color: #b9bbbe; font-size: 14px; display: flex; align-items: center; cursor: pointer;">
+                                    <input type="checkbox" id="autoColumnToggle" checked style="margin-right: 8px; transform: scale(1.2);">
+                                    Auto-select random column
+                                </label>
+                            </div>
+                            
+                            <!-- Pending mode change notification -->
+                            <div id="pendingModeInfo" style="display: none; background-color: #2f3136; padding: 8px 12px; border-radius: 4px; font-size: 12px; text-align: center; margin-bottom: 10px; border-left: 3px solid #ffa500;"></div>
+                            
+                            <div id="manualColumnSelection" style="display: none;">
+                                <div style="color: #ffffff; margin-bottom: 10px; font-size: 14px; text-align: center;">Select Column for This Round:</div>
+                                <div style="display: flex; gap: 8px; justify-content: center;">
+                                    <button class="column-select-btn clickable-column" data-column="A" style="width: 45px; height: 45px; background-color: #7289da; color: white; border: 2px solid #5b6eae; border-radius: 6px; font-weight: bold; cursor: pointer; transition: all 0.3s ease;">A</button>
+                                    <button class="column-select-btn clickable-column" data-column="B" style="width: 45px; height: 45px; background-color: #7289da; color: white; border: 2px solid #5b6eae; border-radius: 6px; font-weight: bold; cursor: pointer; transition: all 0.3s ease;">B</button>
+                                    <button class="column-select-btn clickable-column" data-column="C" style="width: 45px; height: 45px; background-color: #7289da; color: white; border: 2px solid #5b6eae; border-radius: 6px; font-weight: bold; cursor: pointer; transition: all 0.3s ease;">C</button>
+                                    <button class="column-select-btn clickable-column" data-column="D" style="width: 45px; height: 45px; background-color: #7289da; color: white; border: 2px solid #5b6eae; border-radius: 6px; font-weight: bold; cursor: pointer; transition: all 0.3s ease;">D</button>
+                                    <button class="column-select-btn clickable-column" data-column="E" style="width: 45px; height: 45px; background-color: #7289da; color: white; border: 2px solid #5b6eae; border-radius: 6px; font-weight: bold; cursor: pointer; transition: all 0.3s ease;">E</button>
+                                    <button class="column-select-btn clickable-column" data-column="F" style="width: 45px; height: 45px; background-color: #7289da; color: white; border: 2px solid #5b6eae; border-radius: 6px; font-weight: bold; cursor: pointer; transition: all 0.3s ease;">F</button>
+                                    <button class="column-select-btn clickable-column" data-column="G" style="width: 45px; height: 45px; background-color: #7289da; color: white; border: 2px solid #5b6eae; border-radius: 6px; font-weight: bold; cursor: pointer; transition: all 0.3s ease;">G</button>
+                                    <button class="column-select-btn clickable-column" data-column="H" style="width: 45px; height: 45px; background-color: #7289da; color: white; border: 2px solid #5b6eae; border-radius: 6px; font-weight: bold; cursor: pointer; transition: all 0.3s ease;">H</button>
+                                </div>
+                                <div id="selectedColumnDisplay" style="margin-top: 10px; color: #43b581; font-weight: bold; text-align: center; font-size: 14px;"></div>
+                            </div>
+                            
+                            <div id="autoColumnDisplay" style="color: #b9bbbe; text-align: center; font-size: 14px; margin-top: 10px;">
+                                System will automatically select a random column each round
+                            </div>
+                        </div>
+                        
+                        <!-- Advanced Testing Panel (Moderator Only) -->
+                        <div id="testingPanel" style="display: none; background: linear-gradient(135deg, #2f1b14, #3d2817); border: 2px solid #ff6b35; border-radius: 8px; padding: 15px; margin-top: 20px; box-shadow: 0 4px 8px rgba(255, 107, 53, 0.3);">
+                            <div style="display: flex; align-items: center; justify-content: center; margin-bottom: 15px; cursor: pointer;" onclick="toggleTestingPanel()">
+                                <span style="color: #ff6b35; font-size: 16px; font-weight: bold;">⚠️ TESTING SETTINGS</span>
+                                <span id="testingPanelToggle" style="color: #ff6b35; margin-left: 10px; font-size: 14px;">[Click to Expand]</span>
+                            </div>
+                            
+                            <div id="testingControls" style="display: none;">
+                                <!-- Warning Banner -->
+                                <div style="background-color: #7d2d00; color: #ffddcc; padding: 10px; border-radius: 4px; margin-bottom: 15px; text-align: center; font-size: 13px; border: 1px solid #ff6b35;">
+                                    <strong>⚠️ WARNING:</strong> These are advanced testing tools. Use only for debugging and research purposes.
+                                </div>
+                                
+                                <!-- AI Behavior Control -->
+                                <div style="margin-bottom: 15px;">
+                                    <h5 style="color: #ff6b35; margin: 0 0 8px 0; font-size: 14px;">🤖 AI Behavior Testing</h5>
+                                    <select id="aiBehaviorMode" style="width: 100%; padding: 6px; background-color: #2c2f33; color: #ffffff; border: 1px solid #72767d; border-radius: 4px; font-size: 13px;">
+                                        <option value="random">Random (Default)</option>
+                                        <option value="all_impulsive">Force All AI → Odd Rows</option>
+                                        <option value="all_selfcontrol">Force All AI → Even Rows</option>
+                                        <option value="mixed">Force Mixed Pattern (Alt. Odd/Even)</option>
+                                        <option value="specific_row">Force Specific Row (Set Below)</option>
+                                    </select>
+                                    <input type="number" id="specificRowNumber" min="1" max="8" placeholder="Row (1-8)" style="width: 80px; padding: 4px; margin-top: 5px; background-color: #2c2f33; color: #ffffff; border: 1px solid #72767d; border-radius: 3px; font-size: 12px; display: none;">
+                                </div>
+                                
+                                <!-- Experimental Condition Control -->
+                                <div style="margin-bottom: 15px;">
+                                    <h5 style="color: #ff6b35; margin: 0 0 8px 0; font-size: 14px;">💰 Experimental Condition</h5>
+                                    <select id="experimentalCondition" style="width: 100%; padding: 6px; background-color: #2c2f33; color: #ffffff; border: 1px solid #72767d; border-radius: 4px; font-size: 13px;">
+                                        <option value="BASELINE">Baseline (White: $0.01, Black: $0.05, Max: $0.06)</option>
+                                        <option value="HIGH_CULTURANT">High Culturant (White: $0.02, Black: $0.07, Max: $0.09)</option>
+                                        <option value="HIGH_OPERANT">High Operant (White: $0.03, Black: $0.04, Max: $0.07)</option>
+                                        <option value="EQUAL_CULTURANT_OPERANT">Equal Culturant-Operant (White: $0.01, Black: $0.02, Max: $0.03)</option>
+                                    </select>
+                                    <button onclick="setCondition()" style="background-color: #43b581; color: white; padding: 5px 12px; border: none; border-radius: 3px; font-size: 12px; cursor: pointer; width: 100%; margin-top: 5px;">Apply Condition</button>
+                                    <div id="conditionStatus" style="margin-top: 5px; font-size: 11px; color: #43b581; text-align: center;">Current: Baseline</div>
+                                </div>
+                                
+                                <!-- System Message -->
+                                <div style="margin-bottom: 15px;">
+                                    <h5 style="color: #ff6b35; margin: 0 0 8px 0; font-size: 14px;">📢 System Message Broadcast</h5>
+                                    <input type="text" id="systemMessageText" placeholder="Type message to send to all players..." style="width: 100%; padding: 6px; background-color: #2c2f33; color: #ffffff; border: 1px solid #72767d; border-radius: 4px; font-size: 13px; margin-bottom: 5px;">
+                                    <button onclick="sendSystemMessage()" style="background-color: #7289da; color: white; padding: 5px 12px; border: none; border-radius: 3px; font-size: 12px; cursor: pointer; width: 100%;">Send Message</button>
+                                </div>
+                                
+                                <!-- Experiment Control -->
+                                <div style="margin-bottom: 10px;">
+                                    <h5 style="color: #ff6b35; margin: 0 0 8px 0; font-size: 14px;">⏸️ Experiment Control</h5>
+                                    <div style="display: flex; gap: 8px;">
+                                        <button id="pauseExperimentBtn" onclick="pauseExperiment()" style="background-color: #e74c3c; color: white; padding: 6px 12px; border: none; border-radius: 3px; font-size: 12px; cursor: pointer; flex: 1;">⏸️ Pause AI</button>
+                                        <button id="resumeExperimentBtn" onclick="resumeExperiment()" style="background-color: #43b581; color: white; padding: 6px 12px; border: none; border-radius: 3px; font-size: 12px; cursor: pointer; flex: 1; display: none;">▶️ Resume AI</button>
+                                        <button onclick="resetExperiment()" style="background-color: #7289da; color: white; padding: 6px 12px; border: none; border-radius: 3px; font-size: 12px; cursor: pointer; flex: 1;">🔄 Reset Round</button>
+                                    </div>
+                                    <div id="experimentStatus" style="margin-top: 5px; font-size: 11px; color: #43b581; text-align: center;"></div>
+                                </div>
+                                
+                                <!-- Player Incentives -->
+                                <div style="margin-bottom: 10px;">
+                                    <h5 style="color: #ff6b35; margin: 0 0 8px 0; font-size: 14px;">⭐ Player Incentives</h5>
+                                    <select id="incentivePlayer" style="width: 100%; padding: 6px; background-color: #2c2f33; color: #ffffff; border: 1px solid #72767d; border-radius: 4px; font-size: 13px; margin-bottom: 5px;">
+                                        <option value="">Select Player...</option>
+                                    </select>
+                                    <select id="incentiveType" style="width: 100%; padding: 6px; background-color: #2c2f33; color: #ffffff; border: 1px solid #72767d; border-radius: 4px; font-size: 13px; margin-bottom: 5px;">
+                                        <option value="">No Incentive</option>
+                                        <option value="performance">Performance (+1 black for odd rows)</option>
+                                        <option value="collaboration">Collaboration (+1 black for even rows)</option>
+                                        <option value="consistency">Consistency (+1 black for repeated choice)</option>
+                                        <option value="leadership">Leadership (+1 black when active player)</option>
+                                    </select>
+                                    <button onclick="setPlayerIncentive()" style="background-color: #faa61a; color: white; padding: 5px 12px; border: none; border-radius: 3px; font-size: 12px; cursor: pointer; width: 100%;">Set Incentive</button>
+                                    <div id="incentiveStatus" style="margin-top: 5px; font-size: 11px; color: #faa61a; text-align: center;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        
                         </div>
                     </div>
-
-                    <div id="choiceStatus" style="margin-top: 30px; color: #b9bbbe; font-size: 16px;"></div>
                     
-                    <!-- Selection Status and Lock In -->
-                    <div id="selectionSection" style="margin-top: 30px; display: none;">
-                        <div id="selectedChoice" style="color: #faa61a; font-size: 18px; margin-bottom: 15px; font-weight: bold;">No selection made</div>
-                        <button id="lockInBtn" style="background-color: #6c757d; color: white; padding: 12px 25px; font-size: 16px; border: none; border-radius: 5px; cursor: not-allowed; margin-top: 10px;" disabled>
-                            Lock In Choice
-                        </button>
-                        <div id="lockInStatus" style="color: #43b581; font-size: 14px; margin-top: 10px;"></div>
-                    </div>
-                </div>
-
-                <!-- Round Results Phase -->
-                <div id="resultsPhase" style="display: none; text-align: center;">
-                    <h3 style="color: #ffffff; margin-bottom: 20px;">Round Results</h3>
-                    <div id="roundResults" style="color: #b9bbbe; margin-bottom: 20px;"></div>
-                    <div id="tokenUpdate" style="color: #43b581; font-size: 18px; margin-bottom: 20px;"></div>
-                    <div id="culturantStatus" style="color: #7289da; font-size: 16px;"></div>
+                    <style>
+                        /* Responsive design for decision grid and results */
+                        @media (max-width: 1100px) {
+                            #decisionGridContainer {
+                                flex-direction: column !important;
+                                align-items: center !important;
+                                gap: 20px !important;
+                            }
+                            
+                            #decisionGridContainer > div:first-child {
+                                min-width: 100% !important;
+                                max-width: 600px !important;
+                                order: 2 !important;
+                            }
+                            
+                            #decisionGridContainer > div:last-child {
+                                order: 1 !important;
+                            }
+                            
+                            #resultsPhase > div {
+                                height: 220px !important;
+                            }
+                        }
+                        
+                        @media (max-width: 768px) {
+                            #selectionSection {
+                                flex-direction: column !important;
+                                align-items: center !important;
+                                gap: 15px !important;
+                            }
+                            
+                            #selectionSection div {
+                                width: 100% !important;
+                                max-width: 320px !important;
+                            }
+                            
+                            #decisionGridContainer > div:first-child {
+                                min-width: 100% !important;
+                                max-width: 100% !important;
+                            }
+                            
+                            #resultsPhase > div {
+                                height: 180px !important;
+                            }
+                        }
+                        
+                        /* Ensure nice alignment */
+                        #decisionGridContainer > div {
+                            margin-bottom: 0;
+                        }
+                    </style>
+                    
+                    <style>
+                        @keyframes subtlePulse {
+                            0%, 100% { opacity: 0.7; transform: scale(1); }
+                            50% { opacity: 1; transform: scale(1.1); }
+                        }
+                        
+                        @keyframes pulse {
+                            0% { box-shadow: 0 0 0 0 rgba(88, 101, 242, 0.3); }
+                            70% { box-shadow: 0 0 0 6px rgba(88, 101, 242, 0); }
+                            100% { box-shadow: 0 0 0 0 rgba(88, 101, 242, 0); }
+                        }
+                        
+                        #lockInBtn:disabled {
+                            background: linear-gradient(135deg, #4f545c, #40444b) !important;
+                            color: #72767d !important;
+                            cursor: not-allowed !important;
+                            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2) !important;
+                            transform: none !important;
+                        }
+                        
+                        #lockInBtn:not(:disabled):active {
+                            transform: translateY(0) scale(0.98) !important;
+                            box-shadow: 0 1px 4px rgba(88, 101, 242, 0.4) !important;
+                        }
+                        
+                        #lockInBtn:before {
+                            content: '';
+                            position: absolute;
+                            top: 0;
+                            left: -100%;
+                            width: 100%;
+                            height: 100%;
+                            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.15), transparent);
+                            transition: left 0.2s;
+                            pointer-events: none;
+                        }
+                        
+                        #lockInBtn:not(:disabled):hover:before {
+                            left: 100%;
+                        }
+                        
+                        /* Glassmorphism effect for selection section */
+                        #selectionSection > div {
+                            position: relative;
+                        }
+                        
+                        #selectionSection > div::before {
+                            content: '';
+                            position: absolute;
+                            top: 0;
+                            left: 0;
+                            right: 0;
+                            bottom: 0;
+                            background: linear-gradient(145deg, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0.008));
+                            border-radius: 8px;
+                            pointer-events: none;
+                        }
+                    </style>
                 </div>
             </div>
         </div>
@@ -240,7 +591,7 @@
                     <h2 id="global-name">Global</h2>
                     <h2 id="room-name" style="display:none;"></h2>
                 </div>
-                <h3><i class="fas fa-users" id="userCount"></i></h3>
+                <h3><i class="fas fa-users"></i> <span id="userCount">0 online</span></h3>
                 <ul id="users"></ul>
             </div>
             <div class="chat-messages" id="globalChatDiv"></div>
@@ -261,8 +612,169 @@
     <script type="text/javascript" src="/client/client.js"></script>
 
     <script>
-
-
+        // Animation control variables
+        let starInterval = null;
+        let spacecraftInterval = null;
+        let spacecraftTimeout = null;
+        let animationsActive = true;
+        
+        // Create twinkling stars effect
+        function createTwinklingStar() {
+            if (!animationsActive) return;
+            
+            const star = document.createElement('div');
+            star.className = 'twinkle-star';
+            
+            // Random position
+            const x = Math.random() * window.innerWidth;
+            const y = Math.random() * window.innerHeight;
+            
+            star.style.left = x + 'px';
+            star.style.top = y + 'px';
+            
+            // Random animation delay
+            star.style.animationDelay = Math.random() * 3 + 's';
+            
+            document.body.appendChild(star);
+            
+            // Remove star after animation completes several cycles
+            setTimeout(() => {
+                if (star.parentNode) {
+                    star.remove();
+                }
+            }, 12000 + Math.random() * 8000); // 12-20 seconds
+        }
+        
+        // Create spacecraft effect
+        function createSpacecraft() {
+            if (!animationsActive) return;
+            
+            const spacecraft = document.createElement('div');
+            spacecraft.className = 'spacecraft';
+            
+            // Start from random position on left side of screen
+            const startY = Math.random() * (window.innerHeight * 0.6) + (window.innerHeight * 0.2);
+            
+            spacecraft.style.left = '-20px';
+            spacecraft.style.top = startY + 'px';
+            
+            // Random animation delay
+            spacecraft.style.animationDelay = Math.random() * 2 + 's';
+            
+            document.body.appendChild(spacecraft);
+            
+            // Remove spacecraft after animation
+            setTimeout(() => {
+                if (spacecraft.parentNode) {
+                    spacecraft.remove();
+                }
+            }, 10000); // 10 seconds (animation is 8s + delay)
+        }
+        
+        // Stop all space animations
+        function stopSpaceAnimations() {
+            animationsActive = false;
+            
+            // Clear intervals
+            if (starInterval) clearInterval(starInterval);
+            if (spacecraftInterval) clearInterval(spacecraftInterval);
+            if (spacecraftTimeout) clearTimeout(spacecraftTimeout);
+            
+            // Remove existing stars and spacecraft
+            document.querySelectorAll('.twinkle-star, .spacecraft').forEach(element => {
+                element.remove();
+            });
+            
+            // Change background to Discord gray when entering game mode
+            document.body.style.backgroundColor = '#2c2f33';
+            
+            console.log('🌌 Space animations stopped - entering game mode');
+        }
+        
+        // Start space animations
+        function startSpaceAnimations() {
+            animationsActive = true;
+            
+            // Set background to black for space theme
+            document.body.style.backgroundColor = '#000000';
+            
+            // Create initial stars
+            for (let i = 0; i < 8; i++) {
+                setTimeout(() => createTwinklingStar(), i * 500);
+            }
+            
+            // Continue creating stars periodically
+            starInterval = setInterval(createTwinklingStar, 2000 + Math.random() * 3000);
+            
+            // Create spacecraft occasionally
+            spacecraftTimeout = setTimeout(() => {
+                createSpacecraft();
+                spacecraftInterval = setInterval(createSpacecraft, 15000 + Math.random() * 10000);
+            }, 5000);
+        }
+        
+        // Global function to stop animations (can be called from client.js)
+        window.stopSpaceAnimationsOnLogin = function() {
+            if (animationsActive) {
+                stopSpaceAnimations();
+            }
+        };
+        
+        // Check if user is actually in game mode (simplified)
+        function checkGameMode() {
+            const chatContainer = document.getElementById('chat-container');
+            const landingPage = document.getElementById('landingPage');
+            
+            // If landing page is hidden and chat is shown, user is logged in
+            if (landingPage && landingPage.style.display === 'none' && 
+                chatContainer && chatContainer.style.display === '') {
+                if (animationsActive) {
+                    stopSpaceAnimations();
+                }
+            }
+        }
+        
+        // Initialize animations when page loads
+        window.addEventListener('load', function() {
+            startSpaceAnimations();
+            
+            // Check for game mode every 2 seconds
+            setInterval(checkGameMode, 2000);
+            
+            // Also listen for visibility changes on key elements
+            const observer = new MutationObserver(checkGameMode);
+            
+            // Observe chat container
+            const chatContainer = document.getElementById('chat-container');
+            if (chatContainer) {
+                observer.observe(chatContainer, { attributes: true, attributeFilter: ['style'] });
+            }
+            
+            // Observe experiment container
+            const experimentContainer = document.getElementById('experimentContainer');
+            if (experimentContainer) {
+                observer.observe(experimentContainer, { attributes: true, attributeFilter: ['style'] });
+            }
+            
+            // Initialize token pool display
+            const globalTokenPool = document.getElementById('globalTokenPool');
+            const tokenPoolBar = document.getElementById('tokenPoolBar');
+            const culturantCount = document.getElementById('culturantCount');
+            
+            if (globalTokenPool) {
+                globalTokenPool.textContent = '2500';
+                console.log('🎯 Token pool display initialized');
+            }
+            
+            if (tokenPoolBar) {
+                tokenPoolBar.style.width = '100%';
+                console.log('🎯 Token pool bar initialized');
+            }
+            
+            if (culturantCount) {
+                culturantCount.textContent = '0';
+            }
+        });
     </script>
 
 </body>

@@ -18,7 +18,7 @@
 body {
 	font-family: 'Roboto', sans-serif;
 	font-size: 16px;
-	background: var(--light-color);
+	background: #000000;
 	margin: 20px;
 }
 
@@ -32,11 +32,293 @@ a {
 
 .btn {
 	cursor: pointer;
-	padding: 5px 15px;
-	background: var(--darkest-color);
-	color: var(--dark-color-a);
-	border: 0;
-	font-size: 17px;
+	padding: 10px 20px;
+	background: linear-gradient(135deg, 
+		rgba(72, 47, 247, 0.9) 0%, 
+		rgba(92, 63, 255, 0.85) 100%);
+	backdrop-filter: blur(12px);
+	-webkit-backdrop-filter: blur(12px);
+	color: white;
+	border: 1px solid rgba(255, 255, 255, 0.15);
+	border-radius: 8px;
+	font-size: 14px;
+	font-family: 'Inter', 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Roboto', sans-serif;
+	font-weight: 500;
+	letter-spacing: -0.01em;
+	text-decoration: none;
+	display: inline-block;
+	transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+	position: relative;
+	overflow: hidden;
+	box-shadow: 
+		0 4px 12px rgba(72, 47, 247, 0.2),
+		0 2px 6px rgba(72, 47, 247, 0.15),
+		inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.btn:hover {
+	background: linear-gradient(135deg, 
+		rgba(92, 63, 255, 0.95) 0%, 
+		rgba(109, 74, 255, 0.9) 100%);
+	color: white;
+	transform: translateY(-2px) scale(1.02);
+	box-shadow: 
+		0 6px 20px rgba(72, 47, 247, 0.3),
+		0 3px 10px rgba(72, 47, 247, 0.2),
+		inset 0 1px 0 rgba(255, 255, 255, 0.15);
+	border-color: rgba(255, 255, 255, 0.2);
+}
+
+.btn:active {
+	transform: translateY(-1px) scale(1.01);
+	box-shadow: 
+		0 4px 12px rgba(72, 47, 247, 0.25),
+		0 2px 6px rgba(72, 47, 247, 0.18),
+		inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+/* Specific Chat Button Styles */
+#create-btn {
+	background: linear-gradient(135deg, 
+		rgba(67, 181, 129, 0.9) 0%, 
+		rgba(46, 204, 113, 0.85) 100%) !important;
+}
+
+#create-btn:hover {
+	background: linear-gradient(135deg, 
+		rgba(46, 204, 113, 0.95) 0%, 
+		rgba(39, 174, 96, 0.9) 100%) !important;
+	box-shadow: 
+		0 6px 20px rgba(67, 181, 129, 0.3),
+		0 3px 10px rgba(67, 181, 129, 0.2),
+		inset 0 1px 0 rgba(255, 255, 255, 0.15) !important;
+}
+
+#join-btn {
+	background: linear-gradient(135deg, 
+		rgba(114, 137, 218, 0.9) 0%, 
+		rgba(88, 101, 242, 0.85) 100%) !important;
+}
+
+#join-btn:hover {
+	background: linear-gradient(135deg, 
+		rgba(88, 101, 242, 0.95) 0%, 
+		rgba(71, 82, 196, 0.9) 100%) !important;
+	box-shadow: 
+		0 6px 20px rgba(114, 137, 218, 0.3),
+		0 3px 10px rgba(114, 137, 218, 0.2),
+		inset 0 1px 0 rgba(255, 255, 255, 0.15) !important;
+}
+
+#leave-btn {
+	background: linear-gradient(135deg, 
+		rgba(244, 67, 54, 0.9) 0%, 
+		rgba(229, 57, 53, 0.85) 100%) !important;
+	color: white !important;
+}
+
+#leave-btn:hover {
+	background: linear-gradient(135deg, 
+		rgba(229, 57, 53, 0.95) 0%, 
+		rgba(211, 47, 47, 0.9) 100%) !important;
+	color: white !important;
+	box-shadow: 
+		0 6px 20px rgba(244, 67, 54, 0.3),
+		0 3px 10px rgba(244, 67, 54, 0.2),
+		inset 0 1px 0 rgba(255, 255, 255, 0.15) !important;
+}
+
+#sendButton {
+	background: linear-gradient(135deg, 
+		rgba(72, 47, 247, 0.9) 0%, 
+		rgba(92, 63, 255, 0.85) 100%) !important;
+	min-width: 80px;
+}
+
+#sendButton:hover {
+	background: linear-gradient(135deg, 
+		rgba(92, 63, 255, 0.95) 0%, 
+		rgba(109, 74, 255, 0.9) 100%) !important;
+}
+
+/* Modern Experiment Control Buttons */
+button[onclick*="sendSystemMessage"] {
+	background: linear-gradient(135deg, 
+		rgba(114, 137, 218, 0.9) 0%, 
+		rgba(88, 101, 242, 0.85) 100%) !important;
+	backdrop-filter: blur(10px) !important;
+	-webkit-backdrop-filter: blur(10px) !important;
+	border: 1px solid rgba(255, 255, 255, 0.12) !important;
+	border-radius: 6px !important;
+	color: white !important;
+	font-family: 'Inter', 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Roboto', sans-serif !important;
+	font-weight: 500 !important;
+	transition: all 0.3s ease !important;
+	box-shadow: 
+		0 3px 8px rgba(114, 137, 218, 0.2),
+		inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+}
+
+button[onclick*="sendSystemMessage"]:hover {
+	background: linear-gradient(135deg, 
+		rgba(88, 101, 242, 0.95) 0%, 
+		rgba(71, 82, 196, 0.9) 100%) !important;
+	transform: translateY(-1px) !important;
+	box-shadow: 
+		0 4px 12px rgba(114, 137, 218, 0.25),
+		inset 0 1px 0 rgba(255, 255, 255, 0.15) !important;
+}
+
+#pauseExperimentBtn,
+button[onclick*="pauseExperiment"] {
+	background: linear-gradient(135deg, 
+		rgba(231, 76, 60, 0.9) 0%, 
+		rgba(192, 57, 43, 0.85) 100%) !important;
+	backdrop-filter: blur(10px) !important;
+	border: 1px solid rgba(255, 255, 255, 0.12) !important;
+	border-radius: 6px !important;
+	font-family: 'Inter', sans-serif !important;
+	font-weight: 500 !important;
+	transition: all 0.3s ease !important;
+}
+
+#pauseExperimentBtn:hover,
+button[onclick*="pauseExperiment"]:hover {
+	background: linear-gradient(135deg, 
+		rgba(192, 57, 43, 0.95) 0%, 
+		rgba(169, 50, 38, 0.9) 100%) !important;
+	transform: translateY(-1px) !important;
+}
+
+#resumeExperimentBtn,
+button[onclick*="resumeExperiment"] {
+	background: linear-gradient(135deg, 
+		rgba(67, 181, 129, 0.9) 0%, 
+		rgba(46, 204, 113, 0.85) 100%) !important;
+	backdrop-filter: blur(10px) !important;
+	border: 1px solid rgba(255, 255, 255, 0.12) !important;
+	border-radius: 6px !important;
+	font-family: 'Inter', sans-serif !important;
+	font-weight: 500 !important;
+	transition: all 0.3s ease !important;
+}
+
+#resumeExperimentBtn:hover,
+button[onclick*="resumeExperiment"]:hover {
+	background: linear-gradient(135deg, 
+		rgba(46, 204, 113, 0.95) 0%, 
+		rgba(39, 174, 96, 0.9) 100%) !important;
+	transform: translateY(-1px) !important;
+}
+
+button[onclick*="resetExperiment"] {
+	background: linear-gradient(135deg, 
+		rgba(114, 137, 218, 0.9) 0%, 
+		rgba(88, 101, 242, 0.85) 100%) !important;
+	backdrop-filter: blur(10px) !important;
+	border: 1px solid rgba(255, 255, 255, 0.12) !important;
+	border-radius: 6px !important;
+	font-family: 'Inter', sans-serif !important;
+	font-weight: 500 !important;
+	transition: all 0.3s ease !important;
+}
+
+button[onclick*="resetExperiment"]:hover {
+	background: linear-gradient(135deg, 
+		rgba(88, 101, 242, 0.95) 0%, 
+		rgba(71, 82, 196, 0.9) 100%) !important;
+	transform: translateY(-1px) !important;
+}
+
+button[onclick*="setPlayerIncentive"] {
+	background: linear-gradient(135deg, 
+		rgba(250, 166, 26, 0.9) 0%, 
+		rgba(230, 126, 34, 0.85) 100%) !important;
+	backdrop-filter: blur(10px) !important;
+	border: 1px solid rgba(255, 255, 255, 0.12) !important;
+	border-radius: 6px !important;
+	font-family: 'Inter', sans-serif !important;
+	font-weight: 500 !important;
+	transition: all 0.3s ease !important;
+	box-shadow: 
+		0 3px 8px rgba(250, 166, 26, 0.2),
+		inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+}
+
+button[onclick*="setPlayerIncentive"]:hover {
+	background: linear-gradient(135deg, 
+		rgba(230, 126, 34, 0.95) 0%, 
+		rgba(211, 84, 0, 0.9) 100%) !important;
+	transform: translateY(-1px) !important;
+	box-shadow: 
+		0 4px 12px rgba(250, 166, 26, 0.25),
+		inset 0 1px 0 rgba(255, 255, 255, 0.15) !important;
+}
+
+/* Modern Input Fields and Selects in Experiment Interface */
+#systemMessageText,
+#incentivePlayer,
+#incentiveType {
+	background: rgba(44, 47, 51, 0.8) !important;
+	backdrop-filter: blur(8px) !important;
+	-webkit-backdrop-filter: blur(8px) !important;
+	border: 1px solid rgba(255, 255, 255, 0.1) !important;
+	border-radius: 6px !important;
+	color: #ffffff !important;
+	font-family: 'Inter', 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Roboto', sans-serif !important;
+	font-size: 13px !important;
+	padding: 8px 12px !important;
+	transition: all 0.3s ease !important;
+	box-shadow: 
+		inset 0 1px 2px rgba(0, 0, 0, 0.1),
+		0 1px 0 rgba(255, 255, 255, 0.05) !important;
+}
+
+#systemMessageText:focus,
+#incentivePlayer:focus,
+#incentiveType:focus {
+	border-color: rgba(72, 47, 247, 0.5) !important;
+	background: rgba(44, 47, 51, 0.9) !important;
+	outline: none !important;
+	box-shadow: 
+		0 0 0 2px rgba(72, 47, 247, 0.2),
+		inset 0 1px 2px rgba(0, 0, 0, 0.1),
+		0 1px 0 rgba(255, 255, 255, 0.08) !important;
+}
+
+#systemMessageText::placeholder {
+	color: rgba(255, 255, 255, 0.5) !important;
+}
+
+/* Modern Chat Input */
+#msg {
+	background: rgba(44, 47, 51, 0.8) !important;
+	backdrop-filter: blur(8px) !important;
+	-webkit-backdrop-filter: blur(8px) !important;
+	border: 1px solid rgba(255, 255, 255, 0.1) !important;
+	border-radius: 8px !important;
+	color: #ffffff !important;
+	font-family: 'Inter', 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Roboto', sans-serif !important;
+	font-size: 15px !important;
+	padding: 12px 16px !important;
+	transition: all 0.3s ease !important;
+	box-shadow: 
+		inset 0 1px 3px rgba(0, 0, 0, 0.1),
+		0 1px 0 rgba(255, 255, 255, 0.05) !important;
+}
+
+#msg:focus {
+	border-color: rgba(72, 47, 247, 0.6) !important;
+	background: rgba(44, 47, 51, 0.95) !important;
+	outline: none !important;
+	box-shadow: 
+		0 0 0 3px rgba(72, 47, 247, 0.2),
+		inset 0 1px 3px rgba(0, 0, 0, 0.1),
+		0 1px 0 rgba(255, 255, 255, 0.1) !important;
+}
+
+#msg::placeholder {
+	color: rgba(255, 255, 255, 0.6) !important;
 }
 
 /* Chat Page */
@@ -235,7 +517,7 @@ a {
 	margin: 5px auto;
 	-webkit-transition: all 0.3s ease-in-out;
 	transition: all 0.3s ease-in-out;
-	background-color: #101010;
+	background-color: #482ff7;
 }
 
 .nav-menu {
@@ -261,11 +543,166 @@ a {
 
 .nav-logo {
 	font-size: 3.7rem;
-	font-weight: 500;
+	font-weight: 600;
 	color: #482ff7;
+	font-family: 'Inter', 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+	letter-spacing: -0.02em;
+	transition: all 0.3s ease;
+	cursor: pointer;
+	position: relative;
+	/* CRT base glow - subtle for logged-in state */
+	text-shadow: 
+		0 0 3px rgba(72, 47, 247, 0.4),
+		0 0 6px rgba(72, 47, 247, 0.2),
+		0 0 10px rgba(72, 47, 247, 0.1);
+}
+
+/* Enhanced glow for login screen - always on */
+body.login-page .nav-logo {
+	color: #5c3fff;
+	text-shadow: 
+		0 0 10px rgba(72, 47, 247, 0.8),
+		0 0 20px rgba(72, 47, 247, 0.6),
+		0 0 30px rgba(72, 47, 247, 0.4),
+		0 0 40px rgba(92, 63, 255, 0.3);
+	filter: 
+		drop-shadow(0 0 8px rgba(72, 47, 247, 0.6))
+		drop-shadow(0 0 15px rgba(72, 47, 247, 0.4));
+}
+
+.nav-logo::before {
+	content: '';
+	position: absolute;
+	top: -10px;
+	left: -10px;
+	right: -10px;
+	bottom: -10px;
+	background: 
+		linear-gradient(90deg, transparent 48%, rgba(72, 47, 247, 0.03) 49%, rgba(72, 47, 247, 0.03) 51%, transparent 52%),
+		radial-gradient(ellipse at center, rgba(72, 47, 247, 0.05) 0%, transparent 70%);
+	pointer-events: none;
+	z-index: -1;
+	border-radius: 8px;
+	animation: crtScanlines 4s linear infinite;
+}
+
+/* Enhanced halo for login screen */
+body.login-page .nav-logo::before {
+	background: 
+		linear-gradient(90deg, transparent 47%, rgba(72, 47, 247, 0.06) 48%, rgba(72, 47, 247, 0.08) 50%, rgba(72, 47, 247, 0.06) 52%, transparent 53%),
+		radial-gradient(ellipse at center, rgba(72, 47, 247, 0.1) 0%, transparent 60%);
+	animation: crtScanlines 2s linear infinite, crtFlicker 6s ease-in-out infinite;
+}
+
+@keyframes crtScanlines {
+	0% { transform: translateY(-2px); opacity: 0.8; }
+	50% { transform: translateY(0px); opacity: 1; }
+	100% { transform: translateY(2px); opacity: 0.8; }
+}
+
+/* Hover effects only apply when NOT on login page */
+body:not(.login-page) .nav-logo:hover {
+	color: #5c3fff;
+	text-shadow: 
+		0 0 10px rgba(72, 47, 247, 0.8),
+		0 0 20px rgba(72, 47, 247, 0.6),
+		0 0 30px rgba(72, 47, 247, 0.4),
+		0 0 40px rgba(92, 63, 255, 0.3);
+	transform: scale(1.02);
+	/* Enhanced CRT effect on hover */
+	filter: 
+		drop-shadow(0 0 8px rgba(72, 47, 247, 0.6))
+		drop-shadow(0 0 15px rgba(72, 47, 247, 0.4));
+}
+
+body:not(.login-page) .nav-logo:hover::before {
+	background: 
+		linear-gradient(90deg, transparent 47%, rgba(72, 47, 247, 0.06) 48%, rgba(72, 47, 247, 0.08) 50%, rgba(72, 47, 247, 0.06) 52%, transparent 53%),
+		radial-gradient(ellipse at center, rgba(72, 47, 247, 0.1) 0%, transparent 60%);
+	animation: crtScanlines 2s linear infinite, crtFlicker 6s ease-in-out infinite;
+}
+
+@keyframes crtFlicker {
+	0%, 94%, 96%, 100% { opacity: 1; }
+	95% { opacity: 0.95; }
 }
 
 @media only screen and (max-width: 768px) {
+	.nav-logo {
+		font-size: 1.8rem;
+		font-weight: 600;
+		color: #482ff7;
+		font-family: 'Inter', 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+		text-align: left;
+		margin-right: auto;
+		letter-spacing: -0.01em;
+		transition: all 0.3s ease;
+		cursor: pointer;
+		position: relative;
+		/* CRT base glow - scaled for mobile */
+		text-shadow: 
+			0 0 2px rgba(72, 47, 247, 0.4),
+			0 0 4px rgba(72, 47, 247, 0.2),
+			0 0 6px rgba(72, 47, 247, 0.1);
+	}
+	
+	/* Enhanced glow for login screen - mobile */
+	body.login-page .nav-logo {
+		color: #5c3fff;
+		text-shadow: 
+			0 0 6px rgba(72, 47, 247, 0.8),
+			0 0 12px rgba(72, 47, 247, 0.6),
+			0 0 18px rgba(72, 47, 247, 0.4),
+			0 0 24px rgba(92, 63, 255, 0.3);
+		filter: 
+			drop-shadow(0 0 5px rgba(72, 47, 247, 0.6))
+			drop-shadow(0 0 10px rgba(72, 47, 247, 0.4));
+	}
+	
+	.nav-logo::before {
+		top: -6px;
+		left: -6px;
+		right: -6px;
+		bottom: -6px;
+		background: 
+			linear-gradient(90deg, transparent 48%, rgba(72, 47, 247, 0.02) 49%, rgba(72, 47, 247, 0.02) 51%, transparent 52%),
+			radial-gradient(ellipse at center, rgba(72, 47, 247, 0.04) 0%, transparent 70%);
+	}
+	
+	/* Enhanced halo for login screen - mobile */
+	body.login-page .nav-logo::before {
+		background: 
+			linear-gradient(90deg, transparent 47%, rgba(72, 47, 247, 0.05) 48%, rgba(72, 47, 247, 0.06) 50%, rgba(72, 47, 247, 0.05) 52%, transparent 53%),
+			radial-gradient(ellipse at center, rgba(72, 47, 247, 0.08) 0%, transparent 60%);
+		animation: crtScanlines 2s linear infinite, crtFlicker 6s ease-in-out infinite;
+	}
+	
+	/* Hover effects only apply when NOT on login page - mobile */
+	body:not(.login-page) .nav-logo:hover {
+		color: #5c3fff;
+		text-shadow: 
+			0 0 6px rgba(72, 47, 247, 0.8),
+			0 0 12px rgba(72, 47, 247, 0.6),
+			0 0 18px rgba(72, 47, 247, 0.4),
+			0 0 24px rgba(92, 63, 255, 0.3);
+		transform: scale(1.02);
+		/* Enhanced CRT effect on hover - mobile */
+		filter: 
+			drop-shadow(0 0 5px rgba(72, 47, 247, 0.6))
+			drop-shadow(0 0 10px rgba(72, 47, 247, 0.4));
+	}
+	
+	body:not(.login-page) .nav-logo:hover::before {
+		background: 
+			linear-gradient(90deg, transparent 47%, rgba(72, 47, 247, 0.05) 48%, rgba(72, 47, 247, 0.06) 50%, rgba(72, 47, 247, 0.05) 52%, transparent 53%),
+			radial-gradient(ellipse at center, rgba(72, 47, 247, 0.08) 0%, transparent 60%);
+	}
+	
+	.navbar {
+		justify-content: flex-start;
+		padding: 0.8rem 1rem;
+	}
+	
 	.nav-menu {
 		position: fixed;
 		left: -100%;
@@ -300,6 +737,34 @@ a {
 		margin: 2.5rem 0;
 	}
 
+	/* Mobile login button styling - Glass Morphism */
+	#loginNav {
+		font-size: 1rem !important;
+		padding: 12px 22px !important;
+		border-radius: 10px !important;
+		backdrop-filter: blur(12px) !important;
+		-webkit-backdrop-filter: blur(12px) !important;
+		background: linear-gradient(135deg, 
+			rgba(72, 47, 247, 0.85) 0%, 
+			rgba(92, 63, 255, 0.8) 50%, 
+			rgba(109, 74, 255, 0.85) 100%) !important;
+		border: 1px solid rgba(255, 255, 255, 0.12) !important;
+		box-shadow: 
+			0 6px 24px rgba(72, 47, 247, 0.2),
+			0 3px 12px rgba(72, 47, 247, 0.15),
+			inset 0 1px 0 rgba(255, 255, 255, 0.15) !important;
+	}
+
+	#loginNav:hover {
+		transform: translateY(-2px) scale(1.02) !important;
+		box-shadow: 
+			0 8px 32px rgba(72, 47, 247, 0.3),
+			0 4px 16px rgba(72, 47, 247, 0.2),
+			0 0 20px rgba(92, 63, 255, 0.15),
+			inset 0 1px 0 rgba(255, 255, 255, 0.2) !important;
+		border-color: rgba(255, 255, 255, 0.2) !important;
+	}
+
 	.hamburger {
 		display: block;
 		cursor: pointer;
@@ -309,16 +774,69 @@ a {
 
 
 
-/* Modal Login
-Full-width input fields */
+/* Modal Login - Modern input fields with glass morphism */
 input[type=text],
 input[type=password] {
 	width: 100%;
-	padding: 12px 20px;
-	margin: 8px 0;
+	padding: 14px 18px;
+	margin: 10px 0;
 	display: inline-block;
-	border: 1px solid #ccc;
+	border: 1px solid rgba(255, 255, 255, 0.15);
+	border-radius: 12px;
 	box-sizing: border-box;
+	background: rgba(255, 255, 255, 0.05);
+	backdrop-filter: blur(10px);
+	-webkit-backdrop-filter: blur(10px);
+	color: #ffffff;
+	font-size: 16px;
+	font-family: 'Inter', 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Roboto', sans-serif;
+	transition: all 0.3s ease;
+	box-shadow: 
+		inset 0 1px 3px rgba(0, 0, 0, 0.1),
+		0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+input[type=text]:focus,
+input[type=password]:focus {
+	outline: none;
+	border-color: rgba(72, 47, 247, 0.6);
+	background: rgba(255, 255, 255, 0.08);
+	box-shadow: 
+		0 0 0 3px rgba(72, 47, 247, 0.2),
+		inset 0 1px 3px rgba(0, 0, 0, 0.1),
+		0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+input[type=text]::placeholder,
+input[type=password]::placeholder {
+	color: rgba(255, 255, 255, 0.6);
+}
+
+/* Modern Labels */
+.container label {
+	color: rgba(255, 255, 255, 0.9) !important;
+	font-family: 'Inter', 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Roboto', sans-serif !important;
+	font-size: 14px !important;
+	font-weight: 500 !important;
+	margin-bottom: 6px !important;
+	margin-top: 8px !important;
+	display: block !important;
+	letter-spacing: -0.01em !important;
+}
+
+/* Modern Checkbox */
+.container input[type="checkbox"] {
+	width: auto !important;
+	margin-right: 8px !important;
+	accent-color: #482ff7 !important;
+}
+
+.container label:has(input[type="checkbox"]) {
+	display: flex !important;
+	align-items: center !important;
+	font-size: 13px !important;
+	color: rgba(255, 255, 255, 0.7) !important;
+	margin-top: 12px !important;
 }
 
 /* Set a style for all buttons */
@@ -336,11 +854,195 @@ button:hover {
 	opacity: 0.8;
 }
 
-/* Extra styles for the cancel button */
+/* Modern Modal Login/SignUp Buttons */
+#signIn,
+#signUp {
+	background: linear-gradient(135deg, 
+		rgba(72, 47, 247, 0.9) 0%, 
+		rgba(92, 63, 255, 0.85) 100%) !important;
+	backdrop-filter: blur(10px) !important;
+	-webkit-backdrop-filter: blur(10px) !important;
+	color: white !important;
+	padding: 14px 24px !important;
+	margin: 12px 0 !important;
+	border: 1px solid rgba(255, 255, 255, 0.15) !important;
+	border-radius: 12px !important;
+	cursor: pointer !important;
+	width: 100% !important;
+	font-family: 'Inter', 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Roboto', sans-serif !important;
+	font-size: 16px !important;
+	font-weight: 600 !important;
+	letter-spacing: -0.01em !important;
+	transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94) !important;
+	position: relative !important;
+	overflow: hidden !important;
+	box-shadow: 
+		0 4px 16px rgba(72, 47, 247, 0.25),
+		0 2px 8px rgba(72, 47, 247, 0.15),
+		inset 0 1px 0 rgba(255, 255, 255, 0.15) !important;
+}
+
+#signIn:hover,
+#signUp:hover {
+	opacity: 1 !important;
+	background: linear-gradient(135deg, 
+		rgba(92, 63, 255, 0.95) 0%, 
+		rgba(109, 74, 255, 0.9) 100%) !important;
+	transform: translateY(-2px) scale(1.02) !important;
+	box-shadow: 
+		0 8px 24px rgba(72, 47, 247, 0.35),
+		0 4px 12px rgba(72, 47, 247, 0.25),
+		inset 0 1px 0 rgba(255, 255, 255, 0.2) !important;
+	border-color: rgba(255, 255, 255, 0.25) !important;
+}
+
+#signIn:active,
+#signUp:active {
+	transform: translateY(-1px) scale(1.01) !important;
+	box-shadow: 
+		0 4px 12px rgba(72, 47, 247, 0.3),
+		0 2px 6px rgba(72, 47, 247, 0.2),
+		inset 0 1px 0 rgba(255, 255, 255, 0.15) !important;
+}
+
+/* Login Navigation Button - Ultra Modern Glass Morphism Style */
+#loginNav {
+	background: linear-gradient(135deg, 
+		rgba(72, 47, 247, 0.9) 0%, 
+		rgba(92, 63, 255, 0.85) 50%, 
+		rgba(109, 74, 255, 0.9) 100%) !important;
+	backdrop-filter: blur(15px) !important;
+	-webkit-backdrop-filter: blur(15px) !important;
+	color: white !important;
+	padding: 14px 28px !important;
+	margin: 0 !important;
+	border: 1px solid rgba(255, 255, 255, 0.15) !important;
+	border-radius: 12px !important;
+	cursor: pointer !important;
+	width: auto !important;
+	font-family: 'Inter', 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Roboto', 'Helvetica Neue', Arial, sans-serif !important;
+	font-size: 1.1rem !important;
+	font-weight: 600 !important;
+	letter-spacing: -0.02em !important;
+	transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94) !important;
+	position: relative !important;
+	overflow: hidden !important;
+	/* Modern glass morphism shadow */
+	box-shadow: 
+		0 8px 32px rgba(72, 47, 247, 0.25),
+		0 4px 16px rgba(72, 47, 247, 0.15),
+		inset 0 1px 0 rgba(255, 255, 255, 0.2),
+		inset 0 -1px 0 rgba(0, 0, 0, 0.1) !important;
+}
+
+#loginNav::before {
+	content: '';
+	position: absolute;
+	top: 0;
+	left: -100%;
+	width: 100%;
+	height: 100%;
+	background: linear-gradient(
+		90deg, 
+		transparent 0%, 
+		rgba(255, 255, 255, 0.1) 25%,
+		rgba(255, 255, 255, 0.2) 50%,
+		rgba(255, 255, 255, 0.1) 75%,
+		transparent 100%
+	);
+	pointer-events: none;
+	z-index: 1;
+	transition: left 0.6s ease;
+}
+
+#loginNav::after {
+	content: '';
+	position: absolute;
+	top: 2px;
+	left: 2px;
+	right: 2px;
+	bottom: 2px;
+	background: 
+		radial-gradient(ellipse at center, rgba(255, 255, 255, 0.08) 0%, transparent 60%);
+	border-radius: 10px;
+	pointer-events: none;
+	z-index: 0;
+	opacity: 0.8;
+}
+
+#loginNav span {
+	position: relative;
+	z-index: 2;
+}
+
+#loginNav:hover {
+	opacity: 1 !important;
+	background: linear-gradient(135deg, 
+		rgba(92, 63, 255, 0.95) 0%, 
+		rgba(109, 74, 255, 0.9) 50%, 
+		rgba(138, 96, 255, 0.95) 100%) !important;
+	transform: translateY(-3px) scale(1.03) !important;
+	box-shadow: 
+		0 12px 40px rgba(72, 47, 247, 0.35),
+		0 6px 20px rgba(72, 47, 247, 0.25),
+		0 0 30px rgba(92, 63, 255, 0.2),
+		inset 0 1px 0 rgba(255, 255, 255, 0.3),
+		inset 0 -1px 0 rgba(0, 0, 0, 0.15) !important;
+	border-color: rgba(255, 255, 255, 0.25) !important;
+}
+
+#loginNav:hover::before {
+	left: 100%;
+}
+
+#loginNav:hover::after {
+	opacity: 1;
+	background: 
+		radial-gradient(ellipse at center, rgba(255, 255, 255, 0.12) 0%, transparent 60%);
+}
+
+#loginNav:active {
+	transform: translateY(-1px) scale(1.01) !important;
+	box-shadow: 
+		0 6px 20px rgba(72, 47, 247, 0.4),
+		0 3px 10px rgba(72, 47, 247, 0.3),
+		inset 0 1px 0 rgba(255, 255, 255, 0.25),
+		inset 0 -1px 0 rgba(0, 0, 0, 0.2) !important;
+}
+
+/* Modern Cancel Button */
 .cancelbtn {
-	width: auto;
-	padding: 10px 18px;
-	background-color: #f44336;
+	width: auto !important;
+	padding: 12px 20px !important;
+	background: linear-gradient(135deg, 
+		rgba(244, 67, 54, 0.9) 0%, 
+		rgba(229, 57, 53, 0.85) 100%) !important;
+	backdrop-filter: blur(10px) !important;
+	-webkit-backdrop-filter: blur(10px) !important;
+	color: white !important;
+	border: 1px solid rgba(255, 255, 255, 0.15) !important;
+	border-radius: 10px !important;
+	cursor: pointer !important;
+	font-family: 'Inter', 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Roboto', sans-serif !important;
+	font-size: 14px !important;
+	font-weight: 500 !important;
+	transition: all 0.3s ease !important;
+	box-shadow: 
+		0 4px 12px rgba(244, 67, 54, 0.25),
+		0 2px 6px rgba(244, 67, 54, 0.15),
+		inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+}
+
+.cancelbtn:hover {
+	opacity: 1 !important;
+	background: linear-gradient(135deg, 
+		rgba(229, 57, 53, 0.95) 0%, 
+		rgba(211, 47, 47, 0.9) 100%) !important;
+	transform: translateY(-1px) !important;
+	box-shadow: 
+		0 6px 16px rgba(244, 67, 54, 0.3),
+		0 3px 8px rgba(244, 67, 54, 0.2),
+		inset 0 1px 0 rgba(255, 255, 255, 0.15) !important;
 }
 
 /* Center the image and position the close button */
@@ -362,6 +1064,21 @@ img.avatar {
 span.psw {
 	float: right;
 	padding-top: 16px;
+	font-family: 'Inter', 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Roboto', sans-serif !important;
+	font-size: 13px !important;
+	color: rgba(255, 255, 255, 0.7) !important;
+}
+
+span.psw a {
+	color: #482ff7 !important;
+	text-decoration: none !important;
+	font-weight: 500 !important;
+	transition: all 0.3s ease !important;
+}
+
+span.psw a:hover {
+	color: #5c3fff !important;
+	text-shadow: 0 0 8px rgba(72, 47, 247, 0.4) !important;
 }
 
 /* The Modal (background) */
@@ -387,14 +1104,23 @@ span.psw {
 	padding-top: 60px;
 }
 
-/* Modal Content/Box */
+/* Modal Content/Box - Modern Glass Morphism */
 .modal-content {
-	background-color: var(--darkest-color);
+	background: linear-gradient(145deg, 
+		rgba(43, 45, 59, 0.95) 0%, 
+		rgba(54, 57, 63, 0.9) 100%);
+	backdrop-filter: blur(20px);
+	-webkit-backdrop-filter: blur(20px);
 	margin: 5% auto 15% auto;
-	/* 5% from the top, 15% from the bottom and centered */
-	border: 1px solid #888;
+	border: 1px solid rgba(255, 255, 255, 0.1);
+	border-radius: 20px;
 	width: 80%;
-	/* Could be more or less, depending on screen size */
+	max-width: 450px;
+	box-shadow: 
+		0 20px 60px rgba(0, 0, 0, 0.3),
+		0 8px 32px rgba(0, 0, 0, 0.2),
+		inset 0 1px 0 rgba(255, 255, 255, 0.1);
+	overflow: hidden;
 }
 
 /* The Close Button (x) */
@@ -654,4 +1380,380 @@ span.psw {
 		width: 100px;
 		font-size: 14px;
 	}
+}
+
+/* Lock-in animations */
+@keyframes lockInPulse {
+	0% {
+		opacity: 0;
+		transform: translateY(-50%) scale(0.5);
+	}
+	50% {
+		opacity: 1;
+		transform: translateY(-50%) scale(1.3);
+	}
+	100% {
+		opacity: 1;
+		transform: translateY(-50%) scale(1);
+	}
+}
+
+/* Modern lock-in animations */
+@keyframes modernLockPulse {
+	0% {
+		opacity: 0;
+		transform: scale(0.5);
+		box-shadow: 
+			0 4px 12px rgba(88, 101, 242, 0),
+			0 0 0 0 rgba(88, 101, 242, 0.5);
+	}
+	50% {
+		opacity: 0.95;
+		transform: scale(1.15);
+		box-shadow: 
+			0 6px 18px rgba(88, 101, 242, 0.4),
+			0 0 0 6px rgba(88, 101, 242, 0.2);
+	}
+	100% {
+		opacity: 1;
+		transform: scale(1);
+		box-shadow: 
+			0 4px 12px rgba(88, 101, 242, 0.3),
+			0 0 0 0 rgba(88, 101, 242, 0.5);
+	}
+}
+
+@keyframes modernLockSlide {
+	0% {
+		opacity: 0;
+		transform: translateY(-50%) translateX(-15px) scale(0.85);
+		box-shadow: 
+			0 3px 12px rgba(88, 101, 242, 0),
+			inset 0 1px 0 rgba(255, 255, 255, 0);
+	}
+	60% {
+		opacity: 0.95;
+		transform: translateY(-50%) translateX(3px) scale(1.03);
+		box-shadow: 
+			0 4px 15px rgba(88, 101, 242, 0.3),
+			inset 0 1px 0 rgba(255, 255, 255, 0.2);
+	}
+	100% {
+		opacity: 1;
+		transform: translateY(-50%) translateX(0px) scale(1);
+		box-shadow: 
+			0 3px 12px rgba(88, 101, 242, 0.25),
+			inset 0 1px 0 rgba(255, 255, 255, 0.15);
+	}
+}
+
+@keyframes floatTowardCenter {
+	0% {
+		transform: scale(1.08) rotate(0deg);
+	}
+	50% {
+		transform: scale(1.12) rotate(1deg);
+	}
+	100% {
+		transform: scale(1.1) rotate(-1deg);
+	}
+}
+
+/* Side-specific floating animations - smoother with precise return */
+@keyframes floatLeftSide {
+	0% {
+		transform: scale(1.1) translateX(0px) translateY(0px) rotate(0deg);
+	}
+	25% {
+		transform: scale(1.15) translateX(2px) translateY(-1.5px) rotate(0.15deg);
+	}
+	50% {
+		transform: scale(1.18) translateX(4px) translateY(-3px) rotate(0.3deg);
+	}
+	75% {
+		transform: scale(1.15) translateX(2px) translateY(-1.5px) rotate(0.15deg);
+	}
+	100% {
+		transform: scale(1.1) translateX(0px) translateY(0px) rotate(0deg);
+	}
+}
+
+@keyframes floatRightSide {
+	0% {
+		transform: scale(1.1) translateX(0px) translateY(0px) rotate(0deg);
+	}
+	25% {
+		transform: scale(1.15) translateX(-2px) translateY(-1.5px) rotate(-0.15deg);
+	}
+	50% {
+		transform: scale(1.18) translateX(-4px) translateY(-3px) rotate(-0.3deg);
+	}
+	75% {
+		transform: scale(1.15) translateX(-2px) translateY(-1.5px) rotate(-0.15deg);
+	}
+	100% {
+		transform: scale(1.1) translateX(0px) translateY(0px) rotate(0deg);
+	}
+}
+
+@keyframes floatTopSide {
+	0% {
+		transform: scale(1.1) translateX(0px) translateY(0px) rotate(0deg);
+	}
+	25% {
+		transform: scale(1.15) translateX(-1.5px) translateY(2px) rotate(0.15deg);
+	}
+	50% {
+		transform: scale(1.18) translateX(-3px) translateY(4px) rotate(0.3deg);
+	}
+	75% {
+		transform: scale(1.15) translateX(-1.5px) translateY(2px) rotate(0.15deg);
+	}
+	100% {
+		transform: scale(1.1) translateX(0px) translateY(0px) rotate(0deg);
+	}
+}
+
+@keyframes floatBack {
+	0% {
+		transform: scale(1.1) translateX(0px) translateY(0px);
+	}
+	100% {
+		transform: scale(1) translateX(0px) translateY(0px);
+	}
+}
+
+@keyframes columnPulse {
+	0% {
+		opacity: 0;
+		transform: scale(0.8);
+		border-width: 0px;
+	}
+	50% {
+		opacity: 0.8;
+		transform: scale(1.05);
+		border-width: 3px;
+	}
+	100% {
+		opacity: 0.2;
+		transform: scale(1);
+		border-width: 2px;
+	}
+}
+
+.lock-indicator {
+	animation: lockInPulse 0.8s ease-out;
+}
+
+.player-lock-indicator {
+	animation: lockInPulse 0.8s ease-out;
+}
+
+/* Turn-based system styles */
+.disabled-turn {
+	cursor: not-allowed !important;
+	transition: opacity 0.3s ease;
+}
+
+.disabled-turn:hover {
+	background: rgba(255, 255, 255, 0.05) !important;
+	cursor: not-allowed !important;
+}
+
+.row-lock-indicator {
+	animation: lockInPulse 0.8s ease-out;
+}
+
+.floating-player {
+	animation: floatTowardCenter 3s ease-in-out infinite alternate;
+}
+
+/* Side-specific floating classes - smoother timing */
+.floating-left {
+	animation: floatLeftSide 3s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+}
+
+.floating-right {
+	animation: floatRightSide 3s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+}
+
+.floating-top {
+	animation: floatTopSide 3s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+}
+
+.floating-back {
+	animation: floatBack 2s ease-out forwards;
+}
+
+/* Simple background image - responsive sizing */
+#backgroundIMG {
+	position: fixed;
+	top: 120px;
+	left: 50%;
+	transform: translateX(-50%);
+	z-index: -1;
+	object-fit: cover;
+	/* Default size for large screens */
+	width: 100%;
+	max-width: 1800px;
+}
+
+/* Media queries for responsive sizing */
+@media screen and (max-width: 1400px) {
+	#backgroundIMG {
+		width: 100%;
+		max-width: 1400px;
+	}
+}
+
+@media screen and (max-width: 1200px) {
+	#backgroundIMG {
+		width: 95%;
+		max-width: 1100px;
+	}
+}
+
+@media screen and (max-width: 900px) {
+	#backgroundIMG {
+		width: 90%;
+		max-width: 800px;
+	}
+}
+
+@media screen and (max-width: 600px) {
+	#backgroundIMG {
+		width: 100vw;
+		height: 60vh;
+		max-width: none;
+		max-height: none;
+		top: 80px;
+		left: 50%;
+		transform: translateX(-50%);
+		object-fit: cover;
+		object-position: left top;
+	}
+}
+
+/* Twinkling stars animation - slower and more subtle */
+@keyframes twinkle {
+	0%, 100% {
+		opacity: 0.2;
+		transform: scale(0.8);
+	}
+	50% {
+		opacity: 1;
+		transform: scale(1.1);
+	}
+}
+
+/* Twinkling star elements - all white and slower */
+.twinkle-star {
+	position: fixed;
+	width: 2px;
+	height: 2px;
+	background: #ffffff;
+	border-radius: 50%;
+	box-shadow: 0 0 4px #ffffff, 0 0 8px #ffffff;
+	z-index: 1;
+	animation: twinkle 5s ease-in-out infinite;
+}
+
+/* Spacecraft element - now with more prominent white comet tail */
+.spacecraft {
+	position: fixed;
+	width: 4px;
+	height: 4px;
+	background: #ffffff;
+	border-radius: 50%;
+	box-shadow: 
+		0 0 6px #ffffff, 
+		0 0 10px #ffffff,
+		-15px 8px 20px rgba(255, 255, 255, 0.8),
+		-30px 15px 30px rgba(255, 255, 255, 0.6),
+		-45px 22px 40px rgba(255, 255, 255, 0.4);
+	z-index: 1;
+	animation: spacecraft 12s linear infinite;
+	animation-delay: 3s;
+}
+
+/* Updated comet tail effect - slower and more prominent white tail */
+@keyframes spacecraft {
+	0% {
+		opacity: 0;
+		transform: translateX(-80px) translateY(30px) scale(0.4);
+		box-shadow: 
+			0 0 6px #ffffff, 
+			0 0 10px #ffffff;
+	}
+	15% {
+		opacity: 1;
+		transform: translateX(-20px) translateY(10px) scale(0.8);
+		box-shadow: 
+			0 0 6px #ffffff, 
+			0 0 10px #ffffff,
+			-15px 8px 20px rgba(255, 255, 255, 0.8),
+			-30px 15px 30px rgba(255, 255, 255, 0.6),
+			-45px 22px 40px rgba(255, 255, 255, 0.4);
+	}
+	50% {
+		opacity: 1;
+		transform: translateX(100px) translateY(-50px) scale(1);
+		box-shadow: 
+			0 0 8px #ffffff, 
+			0 0 12px #ffffff,
+			-20px 10px 25px rgba(255, 255, 255, 0.9),
+			-40px 20px 35px rgba(255, 255, 255, 0.7),
+			-60px 30px 45px rgba(255, 255, 255, 0.5),
+			-80px 40px 55px rgba(255, 255, 255, 0.3);
+	}
+	85% {
+		opacity: 1;
+		transform: translateX(280px) translateY(-140px) scale(0.8);
+		box-shadow: 
+			0 0 6px #ffffff, 
+			0 0 10px #ffffff,
+			-25px 12px 30px rgba(255, 255, 255, 0.9),
+			-50px 25px 40px rgba(255, 255, 255, 0.7),
+			-75px 38px 50px rgba(255, 255, 255, 0.5),
+			-100px 50px 60px rgba(255, 255, 255, 0.3),
+			-125px 62px 70px rgba(255, 255, 255, 0.1);
+	}
+	100% {
+		opacity: 0;
+		transform: translateX(450px) translateY(-225px) scale(0.4);
+		box-shadow: 
+			0 0 4px #ffffff,
+			-15px 8px 15px rgba(255, 255, 255, 0.4);
+	}
+}
+
+/* Landing page container */
+#landingPage {
+	position: relative;
+	width: 100%;
+	height: 100vh;
+	overflow: hidden;
+}
+
+/* Token update animation */
+@keyframes tokenUpdate {
+	0% {
+		background-color: transparent;
+		transform: scale(1);
+	}
+	50% {
+		background-color: rgba(250, 166, 26, 0.3);
+		transform: scale(1.05);
+	}
+	100% {
+		background-color: transparent;
+		transform: scale(1);
+	}
+}
+
+/* Token pool drain animation */
+@keyframes poolDrain {
+	0% { opacity: 0.3; }
+	50% { opacity: 0.8; }
+	100% { opacity: 0.3; }
 }

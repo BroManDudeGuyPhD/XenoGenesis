@@ -8,16 +8,26 @@ const http = require("http");
 const app = express();
 const server = http.createServer(app);
 const socketio = require("socket.io");
-const io = socketio(server);
+const io = socketio(server, {
+    // Increase timeout settings to prevent disconnections during round processing
+    pingTimeout: 60000,  // 60 seconds (default is 5 seconds)
+    pingInterval: 25000  // 25 seconds (default is 25 seconds)
+});
 
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, '/client/views/pages'));
 
-// app.get('/',function(req, res){
-//     res.render(__dirname + '/client/login');
-// });
-
-app.use('/client',express.static(__dirname + '/client'));
+// Configure static file serving with proper MIME types
+app.use('/client', express.static(__dirname + '/client', {
+    setHeaders: (res, path) => {
+        if (path.endsWith('.css')) {
+            res.setHeader('Content-Type', 'text/css');
+        }
+        if (path.endsWith('.js')) {
+            res.setHeader('Content-Type', 'application/javascript');
+        }
+    }
+}));
 
 app.get('/', function(req, res) {
     res.render('login');
