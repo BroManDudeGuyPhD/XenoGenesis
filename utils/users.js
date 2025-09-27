@@ -8,6 +8,13 @@ function userJoin(id, username, room) {
     users.splice(existingIndex, 1);
   }
   
+  // Also remove any user with the same username in the same room (for reconnection)
+  const duplicateIndex = users.findIndex(user => user.username === username && user.room === room);
+  if (duplicateIndex !== -1) {
+    console.log(`🔄 Removing duplicate user ${username} from room ${room} during reconnection`);
+    users.splice(duplicateIndex, 1);
+  }
+  
   const user = { id, username, room };
   users.push(user);
   

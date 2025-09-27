@@ -7,6 +7,8 @@ let pendingTokenUpdates = null;
 // Baseline exit tracking
 let previousCondition = null;
 let currentRoundNumber = 0;
+let domLoaded = false;
+let pendingSessionRestore = null;
 
 // Socket connection monitoring
 socket.on('disconnect', function() {
@@ -15,6 +17,173 @@ socket.on('disconnect', function() {
 
 socket.on('reconnect', function() {
     console.log('Socket reconnected to server');
+});
+
+// Handle session restoration
+socket.on('sessionRestored', function(data) {
+    if (data.success) {
+        // If DOM isn't loaded yet, store the session data for later
+        if (!domLoaded) {
+            pendingSessionRestore = data;
+            return;
+        }
+        
+        performSessionRestore(data);
+    }
+});
+
+// Handle session invalid (expired/missing)
+socket.on('sessionInvalid', function(data) {
+    // Clear any cached session data
+    currentUsername = null;
+    currentRoom = null;
+    
+    // Only show alert and reset UI if we're not already on the login screen
+    if (domLoaded) {
+        const landingPage = document.getElementById('landingPage');
+        const chatContainer = document.getElementById('chatContainer');
+        const gameDiv = document.getElementById('gameDiv');
+        
+        // Check if user is already on login screen (landingPage visible)
+        const isOnLoginScreen = landingPage && landingPage.style.display !== 'none';
+        
+        if (!isOnLoginScreen) {
+            // User was trying to access game content, show alert and reset UI
+            if (landingPage) landingPage.style.display = 'block';
+            if (chatContainer) chatContainer.style.display = 'none';
+            if (gameDiv) gameDiv.style.display = 'none';
+            
+            // Show alert to user
+            alert('Your session has expired. Please log in again.');
+        }
+        // If user is already on login screen, don't show alert - they probably just refreshed
+    }
+});
+
+// Function to perform session restoration
+function performSessionRestore(data) {
+    // Update UI to reflect logged-in state
+    currentUsername = data.username;
+    
+    // Hide login elements and show logged-in state
+    const signDiv = document.getElementById('signDiv');
+    const loginButton = document.getElementById('loginNav');
+    const logoutButton = document.getElementById('logoutNav');
+    const modal = document.querySelector('.modal');
+    const landingPage = document.getElementById('landingPage');
+    const chatContainer = document.getElementById('chat-container');
+    
+    console.log('🔄 Setting UI elements for logged-in state...');
+    if (signDiv) signDiv.style.display = 'none';
+    if (loginButton) loginButton.style.display = 'none';
+    if (logoutButton) logoutButton.style.display = 'block';
+    if (modal) modal.style.display = 'none';
+    if (landingPage) landingPage.style.display = 'none';
+    if (chatContainer) {
+        chatContainer.style.display = '';
+    }
+    
+    // Check if user has an active game session - stay in the game room
+    if (data.room && data.room !== 'Global' && data.hasActiveGame) {
+        console.log('� User has active game in room:', data.room, '- staying in game room');
+        currentRoom = data.room;
+        
+        // Show game interface immediately for active games
+        const gameDiv = document.getElementById('gameDiv');
+        if (gameDiv) {
+            gameDiv.style.display = 'block';
+            console.log('� Game interface shown - staying in active game room');
+        }
+        
+        // Join the active game room directly
+        socket.emit('joinRoom', { room: data.room });
+        
+        // Show brief reconnection notification
+        const gameReconnectionNotice = document.createElement('div');
+        gameReconnectionNotice.innerHTML = `
+            <div style="position: fixed; top: 20px; left: 50%; transform: translateX(-50%); 
+                        background: linear-gradient(135deg, #43b581, #5bc0de); color: white; 
+                        padding: 12px 20px; border-radius: 8px; font-weight: bold; z-index: 9999;
+                        box-shadow: 0 4px 12px rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.2);
+                        font-size: 14px; text-align: center;">
+                🎮 Reconnected to active game in ${data.room}
+            </div>
+        `;
+        document.body.appendChild(gameReconnectionNotice);
+        
+        // Remove notification after brief display
+        setTimeout(() => {
+            if (gameReconnectionNotice && gameReconnectionNotice.parentNode) {
+                gameReconnectionNotice.style.transition = 'all 0.5s ease-out';
+                gameReconnectionNotice.style.opacity = '0';
+                gameReconnectionNotice.style.transform = 'translateX(-50%) translateY(-20px)';
+                setTimeout(() => {
+                    if (gameReconnectionNotice.parentNode) {
+                        gameReconnectionNotice.remove();
+                    }
+                }, 500);
+            }
+        }, 2000);
+        
+    } else {
+        // No active game or in Global - start in Global chat
+        console.log('🌐 No active game or already in Global - starting in Global chat');
+        currentRoom = 'Global';
+        
+        // Hide game interface for Global chat
+        const gameDiv = document.getElementById('gameDiv');
+        if (gameDiv) {
+            gameDiv.style.display = 'none';
+            console.log('🌐 Game UI hidden - starting in Global chat');
+        }
+        
+        // Join Global chat
+        socket.emit('joinRoom', { room: 'Global' });
+        
+        // Handle room restoration for non-active games
+        if (data.room && data.room !== 'Global') {
+            if (data.roomRestored === false) {
+                console.log('⚠️ Previous room no longer exists, staying in Global chat');
+            } else {
+                console.log('ℹ️ Previous room available but no active game, staying in Global chat');
+            }
+        } else {
+            console.log('🌐 No previous room or already in Global, staying in Global chat');
+        }
+    }
+    
+    // Stop space animations if function exists
+    if (typeof window.stopSpaceAnimationsOnLogin === 'function') {
+        window.stopSpaceAnimationsOnLogin();
+    }
+}
+
+// Handle logout response
+socket.on('logoutResponse', function(data) {
+    if (data.success) {
+        console.log('🔓 Logged out successfully');
+        
+        // Reset client state
+        currentUsername = null;
+        
+        // Show login elements
+        const signDiv = document.getElementById('signDiv');
+        const loginButton = document.getElementById('loginNav');
+        const logoutButton = document.getElementById('logoutNav');
+        
+        if (signDiv) signDiv.style.display = 'block';
+        if (loginButton) loginButton.style.display = 'block';
+        if (logoutButton) logoutButton.style.display = 'none';
+        
+        // Hide game interface
+        const gameDiv = document.getElementById('gameDiv');
+        if (gameDiv) {
+            gameDiv.style.display = 'none';
+        }
+        
+        // Refresh page to reset state
+        window.location.reload();
+    }
 });
 
 // Current room tracking
@@ -273,7 +442,7 @@ function updatePokerTable(gameSession, currentTurnPlayer = null) {
     const activePlayer = currentTurnPlayer || currentActivePlayer;
     console.log('🃏 Updating poker table - activePlayer:', activePlayer, 'currentTurnPlayer:', currentTurnPlayer, 'currentActivePlayer:', currentActivePlayer);
     
-    // Clear all seats first
+    // Clear all seats first but preserve lock indicators
     SEAT_IDS.forEach(seatId => {
         const seat = document.getElementById(seatId);
         if (seat) {
@@ -281,14 +450,33 @@ function updatePokerTable(gameSession, currentTurnPlayer = null) {
             const statusDiv = seat.querySelector('.player-status');
             const aiDiv = seat.querySelector('.ai-indicator');
             
+            // Preserve existing lock indicators
+            const existingLocks = seat.querySelectorAll('.player-lock-indicator');
+            const lockIndicators = Array.from(existingLocks).map(lock => lock.cloneNode(true));
+            
             if (nameDiv) nameDiv.textContent = '';
             if (statusDiv) statusDiv.textContent = 'Empty';
             if (aiDiv) aiDiv.style.display = 'none';
             seat.style.borderColor = '#72767d'; // Dim border for empty seats
+            
+            // Restore lock indicators after clearing
+            lockIndicators.forEach(lockIndicator => {
+                seat.appendChild(lockIndicator);
+            });
+            
+            if (lockIndicators.length > 0) {
+                console.log(`🔄 Preserved ${lockIndicators.length} lock indicators for seat ${seatId}`);
+            }
         } else {
             console.warn('🃏 Poker seat element not found:', seatId);
         }
     });
+    
+    // Safety check for gameSession
+    if (!gameSession) {
+        console.log('⚠️ gameSession is undefined, skipping player placement');
+        return;
+    }
     
     // Get players from gameSession or fallback to Player.list
     const players = gameSession.players || Object.values(Player.list || {});
@@ -372,7 +560,11 @@ let currentUsername = null;
 
 // Join chatroom
 socket.on('signInResponse', function (data) {
+    console.log('🔑 Received signInResponse:', data);
+    
     if (data.success) {
+        console.log('✅ Login successful!');
+        
         // Store the current username globally and in localStorage
         currentUsername = signDivUsername ? signDivUsername.value : null;
         if (currentUsername) {
@@ -385,17 +577,26 @@ socket.on('signInResponse', function (data) {
         loginButton.style.display = "none";
         chatDiv.style.display = '';
         
+        // Show logout button
+        const logoutButton = document.getElementById('logoutNav');
+        if (logoutButton) {
+            logoutButton.style.display = "block";
+        }
+        
         // Stop space animations when user successfully logs in
         if (typeof window.stopSpaceAnimationsOnLogin === 'function') {
             window.stopSpaceAnimationsOnLogin();
         }
         
-        socket.emit('joinRoom', 'Global');
-        currentRoom = 'Global'; // Update current room tracking
+        // Don't automatically join Global - let session restoration handle room joining
+        // This prevents overwriting the session room before restoration can check for active games
+        // Login successful - session restoration will handle room joining
     }
 
-    else
-        alert("Sign in unsuccessul.");
+    else {
+        console.error('❌ Login failed:', data);
+        alert("Sign in unsuccessful.");
+    }
 });
 
 socket.on('signUpResponse', function (data) {
@@ -438,29 +639,177 @@ socket.on('roomUsers', ({ room, users, usersCount }) => {
 socket.on('playersInRoom', function(data) {
     // Only update if this is for our current room
     if (data.room === currentRoom) {
+        // Check if the player list has actually changed to avoid unnecessary UI rebuilds
+        const currentPlayers = [];
+        SEAT_IDS.forEach(seatId => {
+            const seat = document.getElementById(seatId);
+            if (seat) {
+                const username = seat.getAttribute('data-player-username');
+                if (username) {
+                    currentPlayers.push(username);
+                }
+            }
+        });
+        
+        // Also check moderator
+        const moderatorDiv = document.getElementById('moderatorPosition');
+        const moderatorNameDiv = moderatorDiv?.querySelector('.moderator-name');
+        const currentModerator = moderatorNameDiv?.textContent;
+        
+        // Get new player list
+        const newModerator = data.players.find(p => p.isModerator) || data.players[0];
+        const newParticipants = data.players.filter(p => p !== newModerator).map(p => p.username);
+        
+        console.log('🔄 playersInRoom change detection:', {
+            currentRoom: currentRoom,
+            dataRoom: data.room,
+            currentModerator: currentModerator,
+            newModeratorName: newModerator?.username,
+            currentParticipants: currentPlayers,
+            newParticipants: newParticipants,
+            allPlayersInData: data.players.map(p => ({username: p.username, isModerator: p.isModerator, isAI: p.isAI}))
+        });
+        
+        // Compare lists to see if there's an actual change
+        const moderatorChanged = currentModerator !== newModerator?.username;
+        const participantsChanged = JSON.stringify(currentPlayers.sort()) !== JSON.stringify(newParticipants.sort());
+        
+        console.log('🔄 Change detection results:', {
+            moderatorChanged: moderatorChanged,
+            participantsChanged: participantsChanged,
+            shouldUpdate: moderatorChanged || participantsChanged
+        });
+        
+        // ALWAYS check moderator buttons regardless of whether UI needs rebuilding
+        // Check if current user is the moderator and show/hide buttons accordingly
+        const currentUser = data.players.find(p => p.isModerator);
+        const storedUsername = localStorage.getItem('username');
+        const effectiveUsername = currentUsername || storedUsername;
+        const isCurrentUserModerator = currentUser && currentUser.username === effectiveUsername;
+        
+        console.log('🔑 Moderator check:', {
+            currentUser: currentUser,
+            currentUsername: currentUsername,
+            storedUsername: storedUsername,
+            effectiveUsername: effectiveUsername,
+            isCurrentUserModerator: isCurrentUserModerator,
+            data: data
+        });
+        
+        // Show/hide "Start Experiment" button based on moderator status
+        const startExperimentBtn = document.getElementById('startExperimentBtn');
+        if (startExperimentBtn) {
+            if (newModerator && isCurrentUserModerator) {
+                startExperimentBtn.style.display = 'block';
+                console.log('✅ Showing Start Experiment button for moderator');
+            } else {
+                startExperimentBtn.style.display = 'none';
+                console.log('❌ Hiding Start Experiment button - not moderator');
+            }
+        }
+        
+        // Show/hide "Add AI Players" button based on moderator status
+        let addAIBtn = document.getElementById('addAIBtn');
+        if (newModerator && isCurrentUserModerator) {
+            // Create Add AI button if it doesn't exist and user is moderator
+            if (!addAIBtn && startExperimentBtn) {
+                addAIBtn = document.createElement('button');
+                addAIBtn.id = 'addAIBtn';
+                addAIBtn.textContent = 'Add AI Players for Testing';
+                addAIBtn.style.cssText = 'background-color: #7289da; color: white; padding: 10px 20px; font-size: 16px; border: none; border-radius: 5px; cursor: pointer; margin-left: 10px;';
+                startExperimentBtn.parentNode.appendChild(addAIBtn);
+                
+                // Add event listener for Add AI button
+                addAIBtn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    
+                    // Emit request to server to add AI players
+                    socket.emit('addAIPlayers', { 
+                        room: currentRoom || 'Global'
+                    });
+                    console.log('🤖 Requested AI players for room:', currentRoom || 'Global');
+                });
+                console.log('✅ Created Add AI Players button for moderator');
+            } else if (addAIBtn) {
+                addAIBtn.style.display = 'block';
+                console.log('✅ Showing Add AI Players button for moderator');
+            }
+        } else if (addAIBtn) {
+            addAIBtn.style.display = 'none';
+            console.log('❌ Hiding Add AI Players button - not moderator');
+        }
+        
+        if (!moderatorChanged && !participantsChanged && data.players.length <= 2) {
+            // Only skip updates if there are no significant changes AND we have minimal players
+            // Always update when AI players are added (length > 2) to ensure UI is properly populated
+            console.log('🔄 playersInRoom received but no changes detected - skipping UI rebuild to preserve game state');
+            return;
+        }
+        
+        console.log('🔄 Player list changed, updating UI:', {
+            moderatorChanged,
+            participantsChanged,
+            oldParticipants: currentPlayers,
+            newParticipants: newParticipants
+        });
+        
         // Find the moderator (room creator/first player)
         const moderator = data.players.find(p => p.isModerator) || data.players[0];
         
-        // Update moderator position
-        const moderatorDiv = document.getElementById('moderatorPosition');
+        console.log('👑 Moderator display update:', {
+            moderator: moderator,
+            moderatorDiv: !!moderatorDiv,
+            moderatorDivDisplay: moderatorDiv?.style.display,
+            allPlayers: data.players.map(p => ({username: p.username, isModerator: p.isModerator}))
+        });
         
-        if (moderatorDiv && moderator) {
-            const moderatorNameDiv = moderatorDiv.querySelector('.moderator-name');
-            
-            if (moderatorNameDiv) {
-                moderatorNameDiv.textContent = moderator.username;
+        // Update moderator position
+        if (moderator) {
+            // Ensure moderatorDiv exists (defensive programming)
+            if (!moderatorDiv) {
+                console.warn('👑 moderatorPosition element not found, searching again...');
+                // Try to find it again
+                const foundModeratorDiv = document.getElementById('moderatorPosition');
+                if (foundModeratorDiv) {
+                    console.log('👑 Found moderatorPosition on retry');
+                    // Update the reference for the rest of this function
+                    const moderatorNameDiv = foundModeratorDiv.querySelector('.moderator-name');
+                    if (moderatorNameDiv) {
+                        moderatorNameDiv.textContent = moderator.username;
+                        console.log('👑 Updated moderator name via retry to:', moderator.username);
+                    }
+                } else {
+                    console.error('👑 moderatorPosition element still not found after retry');
+                }
             } else {
-                // Add moderator name if div doesn't exist
-                const nameDiv = document.createElement('div');
-                nameDiv.className = 'moderator-name';
-                nameDiv.style.cssText = 'color: #9b59b6; font-size: 13px; font-weight: bold;';
-                nameDiv.textContent = moderator.username;
-                moderatorDiv.appendChild(nameDiv);
+                const moderatorNameDiv = moderatorDiv.querySelector('.moderator-name');
+                
+                if (moderatorNameDiv) {
+                    moderatorNameDiv.textContent = moderator.username;
+                    console.log('👑 Updated existing moderator name to:', moderator.username);
+                } else {
+                    // Add moderator name if div doesn't exist (should not happen given the HTML)
+                    const nameDiv = document.createElement('div');
+                    nameDiv.className = 'moderator-name';
+                    nameDiv.style.cssText = 'color: #9b59b6; font-size: 13px; font-weight: bold;';
+                    nameDiv.textContent = moderator.username;
+                    moderatorDiv.appendChild(nameDiv);
+                    console.log('👑 Created new moderator name div for:', moderator.username);
+                }
             }
+        } else {
+            console.warn('👑 No moderator found in player data:', data.players);
         }
         
         // Get non-moderator players for the poker seats
         const participantPlayers = data.players.filter(p => p !== moderator);
+        
+        console.log('🎯 Participant placement:', {
+            totalPlayers: data.players.length,
+            moderator: moderator?.username,
+            participants: participantPlayers.map(p => ({username: p.username, isAI: p.isAI})),
+            seatIds: SEAT_IDS
+        });
         
         // Clear all poker seats first
         SEAT_IDS.forEach(seatId => {
@@ -477,15 +826,45 @@ socket.on('playersInRoom', function(data) {
                 if (walletDiv) walletDiv.textContent = '';
                 seat.style.borderColor = '#72767d';
                 seat.removeAttribute('data-player-username');
+                
+                console.log('🧹 Cleared seat:', seatId);
+            } else {
+                console.warn('🧹 Seat not found for clearing:', seatId);
             }
         });
         
         // Place participant players in seats
         const seatIds = SEAT_IDS;
+        console.log('🎯 Available seat IDs:', seatIds);
+        
+        // Check if all required DOM elements exist before proceeding
+        const availableSeats = [];
+        seatIds.forEach(seatId => {
+            const seat = document.getElementById(seatId);
+            if (seat) {
+                const nameDiv = seat.querySelector('.player-name');
+                const statusDiv = seat.querySelector('.player-status');
+                if (nameDiv && statusDiv) {
+                    availableSeats.push(seatId);
+                } else {
+                    console.warn(`🎯 Seat ${seatId} is missing required child elements:`, {
+                        nameDiv: !!nameDiv,
+                        statusDiv: !!statusDiv
+                    });
+                }
+            } else {
+                console.warn(`🎯 Seat element ${seatId} not found in DOM`);
+            }
+        });
+        
+        console.log('🎯 Available seats for placement:', availableSeats);
+        
         participantPlayers.forEach((player, index) => {
-            if (index < 3) { // Only place up to 3 participants
-                const seatId = seatIds[index];
+            if (index < availableSeats.length) { // Only place if we have available seats
+                const seatId = availableSeats[index];
                 const seat = document.getElementById(seatId);
+                
+                console.log(`🎯 Placing ${player.username} (${player.isAI ? 'AI' : 'Human'}) in seat ${seatId} (index ${index})`);
                 
                 if (seat) {
                     const nameDiv = seat.querySelector('.player-name');
@@ -517,9 +896,27 @@ socket.on('playersInRoom', function(data) {
                     // Highlight active seat
                     seat.style.borderColor = '#7289da';
                     
+                    console.log(`✅ Successfully placed ${player.username} in ${seatId}`);
+                    
+                    // Process any pending lock indicators for this player
+                    if (pendingLockIndicators.has(player.username)) {
+                        const lockData = pendingLockIndicators.get(player.username);
+                        console.log(`🔄 Processing pending lock indicator for ${player.username}`);
+                        
+                        // Apply visual lock indicator
+                        applyLockIndicator(lockData);
+                        
+                        // IMPORTANT: Also trigger the full floating animation that was missed during initial lock-in
+                        console.log(`🎭 Triggering deferred floating animation for ${player.username}`);
+                        console.log(`🎭 Function params: seat=${!!seat}, lockData=${!!lockData}, username=${player.username}`);
+                        triggerPlayerSeatAnimation(seat, lockData, player.username);
+                    }
+                    
                 } else {
-                    console.warn('❌ Seat element not found:', seatId);
+                    console.error(`❌ Seat element ${seatId} not found during placement (should have been checked earlier)`);
                 }
+            } else {
+                console.log(`⚠️ Skipping ${player.username} - no available seats (index ${index}, available: ${availableSeats.length})`);
             }
         });
         
@@ -542,58 +939,6 @@ socket.on('playersInRoom', function(data) {
             playerCountSpan.textContent = participantCount >= 3 ? 
                 `Triad Complete! (${totalCount} total: 1 moderator + ${participantCount} participants)` : 
                 `Need ${3 - participantCount} more players... (${totalCount} total: 1 moderator + ${participantCount} participants)`;
-        }
-        
-        // Check if current user is the moderator and show/hide buttons accordingly
-        const currentUser = data.players.find(p => p.isModerator);
-        const isCurrentUserModerator = currentUser && currentUser.username === currentUsername; // Use global currentUsername
-        
-        // Show/hide "Start Experiment" button based on moderator status
-        const startExperimentBtn = document.getElementById('startExperimentBtn');
-        if (startExperimentBtn) {
-            if (moderator && isCurrentUserModerator) {
-                startExperimentBtn.style.display = 'block';
-            } else {
-                startExperimentBtn.style.display = 'none';
-            }
-        }
-        
-        // Show/hide "Add AI Players" button based on moderator status
-        let addAIBtn = document.getElementById('addAIBtn');
-        if (moderator && isCurrentUserModerator) {
-            // Create Add AI button if it doesn't exist and user is moderator
-            if (!addAIBtn && startExperimentBtn) {
-                addAIBtn = document.createElement('button');
-                addAIBtn.id = 'addAIBtn';
-                addAIBtn.textContent = 'Add AI Players for Testing';
-                addAIBtn.style.cssText = 'background-color: #7289da; color: white; padding: 10px 20px; font-size: 16px; border: none; border-radius: 5px; cursor: pointer; margin-left: 10px;';
-                startExperimentBtn.parentNode.appendChild(addAIBtn);
-                
-                // Add event listener for Add AI button
-                addAIBtn.addEventListener('click', (e) => {
-                    e.preventDefault();
-                    
-                    // Emit request to server to add AI players
-                    socket.emit('addAIPlayers', { 
-                        room: currentRoom || 'Global'
-                    });
-                    
-                    // Provide user feedback
-                    addAIBtn.textContent = 'Adding AI Players...';
-                    addAIBtn.disabled = true;
-                    
-                    // Re-enable after a short delay
-                    setTimeout(() => {
-                        addAIBtn.textContent = 'Add AI Players for Testing';
-                        addAIBtn.disabled = false;
-                    }, 2000);
-                });
-            } else if (addAIBtn) {
-                addAIBtn.style.display = 'inline-block';
-            }
-        } else if (addAIBtn) {
-            // Hide button if user is not moderator
-            addAIBtn.style.display = 'none';
         }
     } else {
         console.log(`🚫 Ignoring playersInRoom for ${data.room} - current room is ${currentRoom}`);
@@ -700,7 +1045,14 @@ socket.on('copyToClipboard', (data) => {
 
 // Function to show game interface inline
 function showGameInterface() {
-    console.log('🎮 showGameInterface() called');
+    console.log('🎮 showGameInterface() called for room:', currentRoom);
+    
+    // Only show game interface for non-Global rooms
+    if (currentRoom === 'Global' || !currentRoom) {
+        console.log('🚫 Not showing game interface - user is in Global chat or no room');
+        return;
+    }
+    
     const gameDiv = document.getElementById('gameDiv');
     const landingPage = document.getElementById('landingPage');
     
@@ -1032,6 +1384,7 @@ var selfId = null;
 //Initialize - MODIFIED FOR BEHAVIORAL EXPERIMENT
 socket.on('init', function(data) {
     console.log(`📡 RECEIVED INIT - Room: ${currentRoom}, Players: ${data.player ? data.player.length : 0}, SelfId: ${!!data.selfId}, Timestamp: ${new Date().toLocaleTimeString()}`);
+    console.log('📡 Full init data:', data);
     
     if(data.selfId){
         selfId = data.selfId;
@@ -1101,6 +1454,7 @@ socket.on('remove', function (data) {
 // Triad formation complete - experiment ready to begin
 socket.on('triadComplete', function(data) {
     console.log('🎯 Triad complete!', data);
+    console.log('🎯 Full triadComplete data:', data);
     
     // DEBUG: Check if poker table elements exist when triadComplete is received
     console.log('🔍 DOM Check at triadComplete:');
@@ -1165,10 +1519,14 @@ socket.on('triadComplete', function(data) {
         conditionInfoElement.textContent = `Condition: ${data.gameSession.condition}`;
     }
     
-    document.getElementById('maxRounds').textContent = data.gameSession.maxRounds;
-    
-    // Set up grid with random symbols
-    updateDecisionGrid(data.gameSession.grid);
+    // Safe access to gameSession properties
+    if (data.gameSession) {
+        document.getElementById('maxRounds').textContent = data.gameSession.maxRounds;
+        // Set up grid with random symbols
+        updateDecisionGrid(data.gameSession.grid);
+    } else {
+        console.warn('⚠️ gameSession is undefined in yourTurn event, skipping maxRounds and grid setup');
+    }
     
     gameActive = true;
     gameDiv.style.display = 'inline-block';
@@ -1204,21 +1562,40 @@ socket.on('aiPlayersAdded', function(data) {
 
 // Handle turn-based decision making
 socket.on('yourTurn', function(data) {
+    console.log('🎯 yourTurn event received:', data);
+    console.log('🎯 isYourTurn:', data.isYourTurn, 'isModerator:', data.isModerator, 'activePlayer:', data.activePlayer);
+    console.log('🎯 DOM state check - gameDiv exists:', !!document.getElementById('gameDiv'));
+    console.log('🎯 DOM state check - decisionPhase exists:', !!document.getElementById('decisionPhase'));
+    console.log('🎯 DOM state check - selectionSection exists:', !!document.getElementById('selectionSection'));
     
     // IMMEDIATE gameDiv protection at yourTurn start
     const gameDiv = document.getElementById('gameDiv');
     if (gameDiv) {
         if (gameDiv.style.display === 'none' || gameDiv.style.display === '') {
             gameDiv.style.display = 'inline-block';
+            console.log('🎯 Made gameDiv visible');
+        } else {
+            console.log('🎯 gameDiv already visible:', gameDiv.style.display);
         }
+    } else {
+        console.log('❌ gameDiv not found');
+        return; // Early return if critical element missing
     }
     
     // Restore any floating players from previous round
     restoreFloatingPlayers();
     
-    // Reset client-side lock-in state for new round
-    selectedChoice = null;
-    isLockedIn = false;
+    // Restore or reset client-side lock-in state
+    if (data.currentChoice !== undefined && data.isLockedIn !== undefined) {
+        // Restore previous choice and locked-in status for reconnecting players
+        // Restore previous choice if it exists
+        selectedChoice = data.currentChoice;
+        isLockedIn = data.isLockedIn;
+    } else {
+        // Reset for new round
+        selectedChoice = null;
+        isLockedIn = false;
+    }
     
     // Show decision interface
     const lobbyPhase = document.getElementById('lobbyPhase');
@@ -1247,29 +1624,62 @@ socket.on('yourTurn', function(data) {
         }
     }
     
-    // Reset selection UI elements
+    // Update selection UI elements based on restored or reset state
     const selectedChoiceDiv = document.getElementById('selectedChoice');
     const lockInBtn = document.getElementById('lockInBtn');
     const lockInText = document.getElementById('lockInText');
     
     if (selectedChoiceDiv) {
-        selectedChoiceDiv.textContent = 'No selection made';
-        selectedChoiceDiv.style.color = '#6c757d';
-    }
-    if (lockInBtn && lockInText) {
-        lockInBtn.disabled = true;
-        lockInText.textContent = '🔒 Lock In Choice';
-        lockInBtn.style.background = 'linear-gradient(135deg, #5865f2, #4752c4)';
-        lockInBtn.style.cursor = 'not-allowed';
+        if (selectedChoice !== null) {
+            selectedChoiceDiv.textContent = `Selected: Row ${selectedChoice}`;
+            selectedChoiceDiv.style.color = '#faa61a';
+            console.log(`🔄 Restored selected choice UI: Row ${selectedChoice}`);
+        } else {
+            selectedChoiceDiv.textContent = 'No selection made';
+            selectedChoiceDiv.style.color = '#6c757d';
+        }
     }
     
-    // Reset row styles
+    if (lockInBtn && lockInText) {
+        if (isLockedIn) {
+            lockInBtn.disabled = true;
+            lockInText.textContent = '✅ Choice Locked In';
+            lockInBtn.style.background = 'linear-gradient(135deg, #28a745, #218838)';
+            lockInBtn.style.cursor = 'not-allowed';
+            console.log(`🔄 Restored locked-in UI state`);
+        } else if (selectedChoice !== null) {
+            lockInBtn.disabled = false;
+            lockInText.textContent = '🔒 Lock In Choice';
+            lockInBtn.style.background = 'linear-gradient(135deg, #faa61a, #e8941a)';
+            lockInBtn.style.cursor = 'pointer';
+            console.log(`🔄 Restored enabled lock-in button`);
+        } else {
+            lockInBtn.disabled = true;
+            lockInText.textContent = '🔒 Lock In Choice';
+            lockInBtn.style.background = 'linear-gradient(135deg, #5865f2, #4752c4)';
+            lockInBtn.style.cursor = 'not-allowed';
+        }
+    }
+    
+    // Reset row styles and restore selected row if applicable
     document.querySelectorAll('.clickable-row').forEach(row => {
         row.style.opacity = '0.7';
         row.style.transform = 'scale(1)';
         row.style.boxShadow = 'none';
         row.style.backgroundColor = 'transparent';
     });
+    
+    // Restore selected row highlighting if choice was restored
+    if (selectedChoice !== null) {
+        const selectedRow = document.querySelector(`.clickable-row[data-row="${selectedChoice}"]`);
+        if (selectedRow) {
+            selectedRow.style.opacity = '1';
+            selectedRow.style.transform = 'scale(1.02)';
+            selectedRow.style.boxShadow = '0 4px 12px rgba(250, 166, 26, 0.3)';
+            selectedRow.style.backgroundColor = 'rgba(250, 166, 26, 0.1)';
+            console.log(`🔄 Restored row ${selectedChoice} highlighting`);
+        }
+    }
     
     // Update round info - both the big counter and table center
     const currentRound = document.getElementById('currentRound');
@@ -1509,6 +1919,12 @@ function updateAllWalletDisplays(playersData) {
 socket.on('roundResult', function(data) {
     console.log('📊 Round results:', data);
     
+    // Skip pendingTokenUpdates and animations for historical restoration rounds
+    if (data.showDetails === false) {
+        console.log('📚 Historical round result - skipping animations and token updates');
+        return;
+    }
+    
     // Detect if user is moderator (used throughout this handler)
     const moderatorColumnControl = document.getElementById('moderatorColumnControl');
     const isModerator = moderatorColumnControl && moderatorColumnControl.style.display === 'block';
@@ -1524,25 +1940,33 @@ socket.on('roundResult', function(data) {
     // Show results phase immediately - keep both results and selection section visible
     document.getElementById('resultsPhase').style.display = 'block';
     
-    // Store token update data to apply when the return animation triggers
-    pendingTokenUpdates = {
-        totalTokens: data.totalTokens,
-        totalEarnings: data.totalEarnings,
-        whiteTokensRemaining: data.whiteTokensRemaining,
-        isModerator: isModerator
-    };
-    console.log('🎯 Stored pending token updates for later application:', pendingTokenUpdates);
+    // Store token update data to apply when the return animation triggers (only for current round results)
+    if (data.totalTokens && data.totalEarnings !== undefined) {
+        pendingTokenUpdates = {
+            totalTokens: data.totalTokens,
+            totalEarnings: data.totalEarnings,
+            whiteTokensRemaining: data.whiteTokensRemaining,
+            isModerator: isModerator
+        };
+        console.log('🎯 Stored pending token updates for later application:', pendingTokenUpdates);
+    } else {
+        console.log('❌ Invalid token data in roundResult, skipping pendingTokenUpdates');
+    }
 
     // Trigger token updates when return animation starts (after a longer delay)
     setTimeout(() => {
-        if (pendingTokenUpdates) {
+        if (pendingTokenUpdates && pendingTokenUpdates.totalTokens) {
             console.log('🎯 Applying token updates as return animation begins');
             
             // Update personal token displays (don't update personal tokens for moderators)
             if (!pendingTokenUpdates.isModerator) {
-                document.getElementById('whiteTokens').textContent = pendingTokenUpdates.totalTokens.white;
-                document.getElementById('blackTokens').textContent = pendingTokenUpdates.totalTokens.black;
-                document.getElementById('totalEarnings').textContent = `$${pendingTokenUpdates.totalEarnings.toFixed(2)}`;
+                if (pendingTokenUpdates.totalTokens.white !== undefined && pendingTokenUpdates.totalTokens.black !== undefined) {
+                    document.getElementById('whiteTokens').textContent = pendingTokenUpdates.totalTokens.white;
+                    document.getElementById('blackTokens').textContent = pendingTokenUpdates.totalTokens.black;
+                }
+                if (pendingTokenUpdates.totalEarnings !== undefined) {
+                    document.getElementById('totalEarnings').textContent = `$${pendingTokenUpdates.totalEarnings.toFixed(2)}`;
+                }
             } else {
                 document.getElementById('whiteTokens').textContent = '0';
                 document.getElementById('blackTokens').textContent = '0';
@@ -1697,7 +2121,17 @@ socket.on('roundResult', function(data) {
         });
     }
     
-    document.getElementById('roundResults').innerHTML = resultsHTML;
+    // Check if we have restored round history that we should preserve
+    const roundResultsDiv = document.getElementById('roundResults');
+    const hasRestoredHistory = roundResultsDiv && roundResultsDiv.querySelector('#persistentRoundHistory');
+    
+    if (hasRestoredHistory && data.showDetails === false) {
+        // This is a historical round result sent during restoration - don't overwrite the history display
+        console.log('📚 Preserving restored round history, skipping roundResults update');
+    } else {
+        // This is a current round result, safe to update
+        document.getElementById('roundResults').innerHTML = resultsHTML;
+    }
     
     // Display token awards with earnings inline (hide for moderators)
     const tokenUpdateElement = document.getElementById('tokenUpdate');
@@ -2015,6 +2449,33 @@ function updateDecisionGrid(gridData) {
 
 // Set up event listeners for behavioral experiment
 document.addEventListener('DOMContentLoaded', function() {
+    console.log('🔄 DOM loaded, initializing...');
+    domLoaded = true;
+    
+    // Check if we have session data from server
+    if (window.sessionData) {
+        console.log('🔄 Session data available from server:', window.sessionData);
+        
+        if (window.sessionData.isLoggedIn && window.sessionData.username) {
+            console.log('🔄 Valid session found, restoring session for:', window.sessionData.username);
+            performSessionRestore({
+                success: true,
+                username: window.sessionData.username,
+                room: window.sessionData.room,
+                roomRestored: window.sessionData.roomRestored
+            });
+        } else {
+            console.log('🔄 No valid session data found');
+        }
+    }
+    
+    // If there's a pending session restore from socket, handle it now
+    if (pendingSessionRestore) {
+        // Process pending session restore from socket connect
+        performSessionRestore(pendingSessionRestore);
+        pendingSessionRestore = null;
+    }
+    
     // Initialize chat system elements
     chatForm = document.getElementById('chat-form');
     globalChatMessages = document.getElementById('globalChatDiv');
@@ -2077,15 +2538,34 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
+    // Set up logout button
+    const logoutButton = document.getElementById('logoutNav');
+    if (logoutButton) {
+        logoutButton.onclick = function(event) {
+            event.preventDefault();
+            socket.emit('logout');
+        }
+    }
+
     if (signDivSignIn) {
+        console.log('🔑 Login button found and setting up event listener');
         signDivSignIn.addEventListener('click', function (e) {
             e.preventDefault();
+            console.log('🔑 Login button clicked!');
+            console.log('🔑 Username field:', signDivUsername ? signDivUsername.value : 'NOT FOUND');
+            console.log('🔑 Password field:', signDivPassword ? signDivPassword.value : 'NOT FOUND');
+            
             if (signDivUsername && signDivPassword) {
+                console.log('🔑 Sending signIn socket event...');
                 socket.emit('signIn', { username: signDivUsername.value, password: signDivPassword.value });
                 if (modal) modal.style.display = "none";
                 if (typeof closeMenu === 'function') closeMenu();
+            } else {
+                console.error('❌ Username or password field not found!');
             }
         });
+    } else {
+        console.error('❌ Login button (signIn) not found in DOM!');
     }
 
     if (signDivSignUp) {
@@ -2296,8 +2776,11 @@ document.addEventListener('DOMContentLoaded', function() {
             const row = e.target.closest('.clickable-row');
             const rowNumber = row.getAttribute('data-row');
             
+            console.log('🎯 Row clicked! Row number:', rowNumber, 'Previous selectedChoice:', selectedChoice);
+            
             // Store selection but don't submit yet
             selectedChoice = rowNumber;
+            console.log('🎯 selectedChoice updated to:', selectedChoice);
             
             // Clear previous selections
             document.querySelectorAll('.clickable-row').forEach(r => {
@@ -2316,10 +2799,12 @@ document.addEventListener('DOMContentLoaded', function() {
             // Show selection status and enable lock-in button
             const selectedChoiceDiv = document.getElementById('selectedChoice');
             const lockInBtn = document.getElementById('lockInBtn');
+            console.log('🎯 UI elements found:', {selectedChoiceDiv: !!selectedChoiceDiv, lockInBtn: !!lockInBtn});
             
             if (selectedChoiceDiv) {
                 selectedChoiceDiv.textContent = `Selected: Row ${rowNumber}`;
                 selectedChoiceDiv.style.color = '#faa61a';
+                console.log('🎯 Updated selectedChoiceDiv text to:', selectedChoiceDiv.textContent);
             }
             
             if (lockInBtn && !isLockedIn) {
@@ -2330,6 +2815,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
                 lockInBtn.style.background = 'linear-gradient(135deg, #5865f2, #4752c4)';
                 lockInBtn.style.cursor = 'pointer';
+                console.log('🎯 Enabled lock-in button');
             }
         }
     });
@@ -2338,11 +2824,18 @@ document.addEventListener('DOMContentLoaded', function() {
     document.addEventListener('click', function(e) {
         if (e.target.id === 'lockInBtn' || e.target.closest('#lockInBtn')) {
             const lockInBtn = document.getElementById('lockInBtn');
+            console.log('🔒 Lock-in button clicked!', {
+                exists: !!lockInBtn, 
+                disabled: lockInBtn?.disabled,
+                selectedChoice: selectedChoice,
+                isLockedIn: isLockedIn
+            });
+            
             if (lockInBtn && !lockInBtn.disabled && selectedChoice && !isLockedIn) {
                 e.preventDefault();
                 e.stopPropagation();
                 
-                console.log('🔒 Lock-in button clicked - processing...');
+                console.log('🔒 Lock-in processing started - selectedChoice:', selectedChoice);
                 
                 // Mark as locked in
                 isLockedIn = true;
@@ -2364,6 +2857,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
                 
                 // Emit choice to server
+                console.log('🔒 Emitting makeChoice with:', {
+                    choice: selectedChoice,
+                    room: currentRoom,
+                    lockedIn: true
+                });
                 socket.emit('makeChoice', { 
                     choice: selectedChoice,
                     room: currentRoom,
@@ -2549,98 +3047,10 @@ function downloadCSV(data, filename) {
     document.body.removeChild(a);
 }
 
-//Draw Map
-var drawMap = function(){
-    var player = Player.list[selfId];
-    if (!player) return; // Safety check
-    ctx.drawImage(Img.map[player.map],0,0);
-}
-
-//Draw GAME
-
-var drawScore = function(){
-    if (!Player.list[selfId]) return; // Safety check
-    if(lastScore === Player.list[selfId].score)
-        return;
-    
-    lastScore = Player.list[selfId].score;
-    ctxUi.clearRect(0, 0, 500, 500);
-    ctxUi.fillStyle = 'white';
-    ctxUi.font = "20px Arial";
-    ctxUi.fillText("Score: "+Player.list[selfId].score,0,30);
-}
-
-var lastScore = -1;
-
-var drawFrameCount = 0;
-var lastDrawLog = 0;
-
-// DISABLED: Drawing loop for behavioral experiment
-console.log('🚫 Drawing loop disabled for behavioral experiment mode');
-/*
-setInterval(function () {
-    // Only draw if we have an active game (either as player or viewer)
-    if(!gameActive || Object.keys(Player.list).length === 0) {
-        return;
-    }
-
-    drawFrameCount++;
-    
-    ctx.clearRect(0, 0, 800, 1600);
-    
-    // Draw map - use any player's map if we don't have selfId
-    if (selfId && Player.list[selfId]) {
-        drawMap();
-        drawScore();
-    } else if (Object.keys(Player.list).length > 0) {
-        // For viewers, draw map from any available player
-        var anyPlayer = Object.values(Player.list)[0];
-        if (anyPlayer) {
-            ctx.drawImage(Img.map[anyPlayer.map],0,0);
-        }
-    }
-    
-    // Draw all players (works for both players and viewers)
-    for (var i in Player.list) {
-        Player.list[i].draw();
-    }
-}, 20);
-*/
-
-// DISABLED: Keyboard controls for behavioral experiment
-console.log('🚫 Keyboard controls disabled for behavioral experiment mode');
-/*
-document.onkeydown = function (event) {
-    if (event.keyCode === 68) //d
-        socket.emit('keyPress', { inputId: 'right', state: true });
-    else if (event.keyCode === 83) //s
-        socket.emit('keyPress', { inputId: 'down', state: true });
-    else if (event.keyCode === 65) //a
-        socket.emit('keyPress', { inputId: 'left', state: true });
-    else if (event.keyCode === 87) // w
-        socket.emit('keyPress', { inputId: 'up', state: true });
-}
-
-document.onkeyup = function (event) {
-    if (event.keyCode === 68) //d
-        socket.emit('keyPress', { inputId: 'right', state: false });
-    else if (event.keyCode === 83) //s
-        socket.emit('keyPress', { inputId: 'down', state: false });
-    else if (event.keyCode === 65) //a
-        socket.emit('keyPress', { inputId: 'left', state: false });
-    else if (event.keyCode === 87) // w
-        socket.emit('keyPress', { inputId: 'up', state: false });
-
-//Block right-click
-document.oncontextmenu = function(event){
-    event.preventDefault();
-}
-*/
 
 // ===============================================
 // TESTING PANEL FUNCTIONS (MODERATOR ONLY)
 // ===============================================
-
 function toggleTestingPanel() {
     const controls = document.getElementById('testingControls');
     const toggle = document.getElementById('testingPanelToggle');
@@ -2898,13 +3308,18 @@ socket.on('playerStatusUpdate', function(data) {
     
     display.innerHTML = statusHTML;
     
-    // Delay wallet displays on poker table to sync with return animation
-    setTimeout(() => {
-        console.log('💰 Updating poker table wallet displays after return animation starts');
-        if (data.players && data.players.length > 0) {
-            updateAllWalletDisplays(data.players);
-        }
-    }, 2000); // Same delay as personal wallet updates to sync timing
+    // Only update wallet displays immediately for moderators, avoid delayed updates during gameplay
+    // to prevent interference with animations
+    const moderatorColumnControl = document.getElementById('moderatorColumnControl');
+    const isModerator = moderatorColumnControl && moderatorColumnControl.style.display === 'block';
+    
+    if (isModerator && data.players && data.players.length > 0) {
+        // Update immediately for moderators, without delay to avoid animation conflicts
+        console.log('💰 Immediate wallet update for moderator during status update');
+        updateAllWalletDisplays(data.players);
+    }
+    // Note: Non-moderator wallet updates handled by specific game events (roundResult, etc.)
+    // to avoid interfering with ongoing animations
 });
 
 // Handle incentive changes
@@ -3035,30 +3450,44 @@ socket.on('turnUpdate', function(data) {
     console.log(`🎯 Turn update received:`, data);
     console.log(`🎯 Current player: ${data.currentTurnPlayer}, Turn order: ${data.turnOrder?.join(' → ')}`);
     console.log(`🎯 Turn based: ${data.turnBased}, Round: ${data.round}`);
+    console.log(`🎯 DOM check - gameDiv exists:`, !!document.getElementById('gameDiv'));
+    console.log(`🎯 DOM check - turnDisplay exists:`, !!document.getElementById('turnDisplay'));
     
     // CRITICAL: Check gameDiv BEFORE processing turn update
     const gameDiv = document.getElementById('gameDiv');
     if (gameDiv) {
         if (gameDiv.style.display === 'none' || gameDiv.style.display === '') {
             gameDiv.style.display = 'inline-block';
+            console.log('🎯 turnUpdate: Made gameDiv visible');
+        } else {
+            console.log('🎯 turnUpdate: gameDiv already visible');
         }
+    } else {
+        console.log('❌ turnUpdate: gameDiv not found');
+        return; // Early return if critical element missing
     }
     
     // Update global active player tracker
     currentActivePlayer = data.currentTurnPlayer;
+    console.log(`🎯 Set currentActivePlayer to: ${currentActivePlayer}`);
     
     // Update turn display
+    console.log('🎯 Calling updateTurnDisplay...');
     updateTurnDisplay(data);
     
     // Enable/disable row clicking based on whose turn it is
+    console.log('🎯 Calling updateRowInteractivity...');
     updateRowInteractivity(data);
     
     // Check gameDiv AFTER processing turn update
     if (gameDiv) {
         if (gameDiv.style.display === 'none' || gameDiv.style.display === '') {
             gameDiv.style.display = 'inline-block';
+            console.log('🎯 turnUpdate: Re-made gameDiv visible after processing');
         }
     }
+    
+    console.log('🎯 turnUpdate processing complete');
 });
 
 function updateTurnDisplay(turnData) {
@@ -3154,12 +3583,15 @@ function updateTurnDisplay(turnData) {
 }
 
 function updateActivePlayerHighlight(activePlayerName) {
+    console.log(`🟢 updateActivePlayerHighlight called for: ${activePlayerName}`);
+    
     // Reset all player seat styles to default
     SEAT_IDS.forEach(seatId => {
         const seat = document.getElementById(seatId);
         if (seat) {
             const nameDiv = seat.querySelector('.player-name');
-            if (nameDiv && nameDiv.textContent) {
+            // Only reset border if seat has a player (don't modify empty seats)
+            if (nameDiv && nameDiv.textContent.trim() !== '' && nameDiv.textContent !== 'Empty') {
                 // Reset to default blue border for occupied seats
                 seat.style.borderColor = '#7289da';
                 seat.style.boxShadow = 'none';
@@ -3187,6 +3619,8 @@ function updateActivePlayerHighlight(activePlayerName) {
 }
 
 function updateRowInteractivity(turnData) {
+    console.log('🎯 updateRowInteractivity called with:', turnData);
+    
     // Small delay to ensure this runs after any conflicting UI updates
     setTimeout(() => {
         const rows = document.querySelectorAll('.grid-row-8x8, .clickable-row');
@@ -3194,6 +3628,12 @@ function updateRowInteractivity(turnData) {
         const isMyTurn = turnData.currentTurnPlayer === currentUsername;
         
         console.log(`🎯 UpdateRowInteractivity: Current user: ${currentUsername}, Current turn: ${turnData.currentTurnPlayer}, Is my turn: ${isMyTurn}, Found ${rows.length} rows, turnBased: ${turnData.turnBased}`);
+        console.log(`🎯 Row selectors found: .grid-row-8x8 (${document.querySelectorAll('.grid-row-8x8').length}), .clickable-row (${document.querySelectorAll('.clickable-row').length})`);
+        
+        if (rows.length === 0) {
+            console.log('❌ No rows found for interactivity update!');
+            return;
+        }
         
         rows.forEach((row, index) => {
             if (turnData.turnBased) {
@@ -3215,50 +3655,286 @@ function updateRowInteractivity(turnData) {
                 row.style.pointerEvents = 'auto';
                 row.style.opacity = '1';
                 row.classList.remove('disabled-turn');
+                if (index === 0) console.log('🔓 Non-turn-based: all rows enabled');
             }
         });
         
         // Ensure lock-in button remains accessible when player has made a selection
         const lockInBtn = document.getElementById('lockInBtn');
+        console.log(`🎯 Lock-in button check: exists=${!!lockInBtn}, selectedChoice=${selectedChoice}, isLockedIn=${isLockedIn}, isMyTurn=${isMyTurn}`);
         if (lockInBtn && selectedChoice && !isLockedIn && isMyTurn) {
             lockInBtn.style.pointerEvents = 'auto';
             lockInBtn.disabled = false;
             console.log('🔒 Lock-in button ensured clickable');
+        } else if (lockInBtn) {
+            console.log(`🔒 Lock-in button NOT enabled - selectedChoice=${selectedChoice}, isLockedIn=${isLockedIn}, isMyTurn=${isMyTurn}`);
         }
+        
+        console.log('🎯 updateRowInteractivity complete');
     }, 100); // 100ms delay to ensure this runs after other UI updates
 }
 
-// Visual feedback when players lock in their choices
-socket.on('playerLockedIn', function(data) {
-    console.log(`🔒 Player locked in: ${data.username}, Row: ${data.row}, AI: ${data.isAI}, Column: ${data.column}`);
+// Function to trigger the floating animation for a player seat (used for deferred animations during reconnection)
+function triggerPlayerSeatAnimation(playerSeat, lockData, username) {
+    console.log(`🎭 triggerPlayerSeatAnimation called: seat=${!!playerSeat}, lockData=${!!lockData}, username=${username}`);
     
-    // Update turn display if provided
-    if (data.currentTurnPlayer && data.turnBased) {
-        updateTurnDisplay({
-            currentTurnPlayer: data.currentTurnPlayer,
-            turnOrder: data.turnOrder || [],
-            turnBased: data.turnBased
-        });
+    if (!playerSeat || !lockData) {
+        console.log(`🎭 Early return: missing playerSeat (${!!playerSeat}) or lockData (${!!lockData})`);
+        return;
+    }
+    
+    console.log(`🎭 Starting deferred floating animation for ${username}`);
+    
+    // IMPORTANT: Use a delay to ensure this runs AFTER any restoreFloatingPlayers() calls
+    setTimeout(() => {
+        console.log(`🎭 Executing deferred animation for ${username} (after restore delay)`);
         
-        // Update row interactivity for new current player
-        const currentUsername = localStorage.getItem('username');
-        const isMyTurn = data.currentTurnPlayer === currentUsername;
-        updateRowInteractivity({
-            currentTurnPlayer: data.currentTurnPlayer,
-            turnBased: data.turnBased
+        // Store original position and styles for restoration later
+        const originalStyles = {
+            position: playerSeat.style.position || 'absolute',
+            left: playerSeat.style.left,
+            top: playerSeat.style.top,
+            right: playerSeat.style.right,
+            transform: playerSeat.style.transform,
+            zIndex: playerSeat.style.zIndex || 'auto',
+            transition: playerSeat.style.transition
+        };
+    
+    // Store player info for round end restoration (if not already stored)
+    if (!lockedInPlayers.has(username)) {
+        lockedInPlayers.set(username, {
+            seat: playerSeat,
+            originalStyles: originalStyles,
+            isFloating: false,
+            cleanupTimeout: null
         });
     }
     
-    // 1. PLAYER SEAT VISUAL EFFECT WITH FLOATING ANIMATION (visible to everyone)
-    // Find which seat this player occupies and add lock-in effect around them
+    // Add glow effect to the player seat (if not already applied)
+    const glowColor = lockData.isAI ? '#faa61a' : '#5865f2';
+    playerSeat.style.border = `3px solid ${glowColor}`;
+    playerSeat.style.boxShadow = `
+        0 0 25px ${lockData.isAI ? 'rgba(250, 166, 26, 0.6)' : 'rgba(88, 101, 242, 0.6)'},
+        0 0 50px ${lockData.isAI ? 'rgba(250, 166, 26, 0.3)' : 'rgba(88, 101, 242, 0.3)'},
+        inset 0 1px 0 rgba(255, 255, 255, 0.1)
+    `;
+    playerSeat.style.background = `linear-gradient(145deg, rgba(${lockData.isAI ? '250, 166, 26' : '88, 101, 242'}, 0.05), rgba(${lockData.isAI ? '255, 140, 66' : '71, 82, 196'}, 0.1))`;
+    
+    // Phase 1: Brief initial scale effect (immediate for reconnection)
+    playerSeat.style.transition = 'all 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
+    playerSeat.style.transform = (originalStyles.transform || '') + ' scale(1.15)';
+    
+    // Phase 2: Move toward center (shorter delay for reconnection)
+    setTimeout(() => {
+        playerSeat.style.zIndex = '25'; // Float above other elements
+        
+        if (playerSeat.id === 'leftPlayer') {
+            // Left player moves right to just outside counter boundary
+            let moveDistance = 320;
+            playerSeat.style.transform = (originalStyles.transform || '') + ` scale(1.1) translateX(${moveDistance}px)`;
+        } else if (playerSeat.id === 'rightPlayer') {
+            // Right player moves left to just outside counter boundary
+            let moveDistance = 320;
+            playerSeat.style.transform = (originalStyles.transform || '') + ` scale(1.1) translateX(-${moveDistance}px)`;
+        } else if (playerSeat.id === 'topPlayer') {
+            // Top player moves down to just outside counter boundary
+            let moveDistance = 40;
+            playerSeat.style.transform = (originalStyles.transform || '') + ` scale(1.1) translateY(${moveDistance}px)`;
+        } else {
+            // Fallback: just scale
+            playerSeat.style.transform = (originalStyles.transform || '') + ' scale(1.1)';
+        }
+        
+        // Set transition for smooth movement
+        playerSeat.style.transition = 'all 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
+        
+        if (lockedInPlayers.has(username)) {
+            lockedInPlayers.get(username).isFloating = true;
+        }
+        
+        console.log(`✅ Applied floating animation to ${username}'s seat (${playerSeat.id})`);
+        
+    }, 1500); // Delay to ensure this runs after restoreFloatingPlayers() completes
+    }); // Close the first setTimeout that starts on line 3698
+}
+
+// Visual feedback when players lock in their choices
+// Store pending lock indicators for players whose seats aren't ready yet
+let pendingLockIndicators = new Map();
+
+// Function to apply lock indicator to a player's seat
+function applyLockIndicator(data, retryCount = 0) {
+    const maxRetries = 5; // Limit retries to prevent infinite loops
     const allSeats = SEAT_IDS;
     let playerSeat = null;
+    
+    console.log(`🔍 Looking for seat for ${data.username}, checking ${allSeats.length} seats (attempt ${retryCount + 1}/${maxRetries + 1})`);
     
     allSeats.forEach(seatId => {
         const seat = document.getElementById(seatId);
         if (seat) {
             const nameDiv = seat.querySelector('.player-name');
             if (nameDiv && nameDiv.textContent === data.username) {
+                console.log(`✅ Found ${data.username} in seat ${seatId}`);
+                playerSeat = seat;
+            } else {
+                console.log(`❌ Seat ${seatId} contains: ${nameDiv ? nameDiv.textContent : 'no name'}`);
+            }
+        } else {
+            console.log(`❌ Seat element ${seatId} not found`);
+        }
+    });
+    
+    if (playerSeat) {
+        // Store original position and styles for restoration later
+        const originalStyles = {
+            position: playerSeat.style.position || 'absolute',
+            left: playerSeat.style.left,
+            top: playerSeat.style.top,
+            right: playerSeat.style.right,
+            transform: playerSeat.style.transform,
+            zIndex: playerSeat.style.zIndex || 'auto',
+            transition: playerSeat.style.transition
+        };
+        
+        // Store player info for round end restoration
+        lockedInPlayers.set(data.username, {
+            seat: playerSeat,
+            originalStyles: originalStyles,
+            isFloating: false,
+            cleanupTimeout: null
+        });
+        
+        // Remove any existing lock indicators
+        const existingLocks = playerSeat.querySelectorAll('.player-lock-indicator');
+        existingLocks.forEach(lock => lock.remove());
+        
+        // Create lock-in indicator on the player seat
+        const lockIcon = document.createElement('div');
+        lockIcon.innerHTML = data.isAI ? '🤖🔒' : '🔒';
+        lockIcon.className = 'player-lock-indicator';
+        lockIcon.style.cssText = `
+            position: absolute;
+            top: -12px;
+            right: -12px;
+            font-size: 14px;
+            z-index: 30;
+            background: linear-gradient(135deg, ${data.isAI ? '#faa61a' : '#5865f2'}, ${data.isAI ? '#ff8c42' : '#4752c4'});
+            border-radius: 50%;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 
+                0 4px 12px rgba(${data.isAI ? '250, 166, 26' : '88, 101, 242'}, 0.3),
+                0 0 0 0 rgba(${data.isAI ? '250, 166, 26' : '88, 101, 242'}, 0.5);
+            border: 2px solid rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(8px);
+            color: white;
+            font-weight: 600;
+        `;
+        
+        // Ensure seat has relative positioning
+        playerSeat.style.position = 'absolute';
+        playerSeat.appendChild(lockIcon);
+        
+        console.log(`✅ Added lock indicator to ${data.username}'s seat (${playerSeat.id})`);
+        console.log(`🔍 Lock indicator element:`, lockIcon);
+        
+        // Add immediate glow effect to the player seat
+        const glowColor = data.isAI ? '#faa61a' : '#5865f2';
+        const glowColorSecondary = data.isAI ? '#ff8c42' : '#4752c4';
+        playerSeat.style.border = `3px solid ${glowColor}`;
+        playerSeat.style.boxShadow = `
+            0 0 25px ${data.isAI ? 'rgba(250, 166, 26, 0.6)' : 'rgba(88, 101, 242, 0.6)'},
+            0 0 50px ${data.isAI ? 'rgba(250, 166, 26, 0.3)' : 'rgba(88, 101, 242, 0.3)'},
+            inset 0 1px 0 rgba(255, 255, 255, 0.1)
+        `;
+        playerSeat.style.transition = 'all 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
+        playerSeat.style.background = `linear-gradient(145deg, rgba(${data.isAI ? '250, 166, 26' : '88, 101, 242'}, 0.05), rgba(${data.isAI ? '255, 140, 66' : '71, 82, 196'}, 0.1))`;
+        
+        console.log(`✅ Applied glow effects to ${data.username}'s seat`);
+        
+        // Phase 1: Brief initial scale effect (0.5s)
+        setTimeout(() => {
+            playerSeat.style.transform = (originalStyles.transform || '') + ' scale(1.15)';
+        }, 200);
+        
+        // Phase 2: Simple gentle movement toward center (stops at boundary)
+        setTimeout(() => {
+            playerSeat.style.zIndex = '25'; // Float above other elements
+            
+            // Calculate movement distance toward center (reduced for balance)
+            const rect = playerSeat.getBoundingClientRect();
+            const centerX = window.innerWidth / 2;
+            const centerY = window.innerHeight / 2;
+            const deltaX = (centerX - rect.left - rect.width / 2) * 0.1; // 10% toward center
+            const deltaY = (centerY - rect.top - rect.height / 2) * 0.1;
+            
+            // Apply gentle movement with scale
+            if (Math.abs(deltaY) > 5) { // Only apply if meaningful distance
+                const moveDistance = Math.sign(deltaY) * Math.min(Math.abs(deltaY), 30); // Limit movement
+                playerSeat.style.transform = (originalStyles.transform || '') + ` scale(1.1) translateY(${moveDistance}px)`;
+            } else {
+                // Fallback: just scale
+                playerSeat.style.transform = (originalStyles.transform || '') + ' scale(1.1)';
+            }
+            
+            // Set transition for smooth but faster movement
+            playerSeat.style.transition = 'all 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
+            
+            if (lockedInPlayers.has(data.username)) {
+                lockedInPlayers.get(data.username).isFloating = true;
+            }
+            
+        }, 1000);
+        
+        // Remove from pending list if successfully applied
+        pendingLockIndicators.delete(data.username);
+        console.log(`✅ Applied lock indicator for ${data.username}, remaining pending: ${pendingLockIndicators.size}`);
+        return true;
+    } else {
+        console.log(`❌ No seat found for ${data.username}, retry ${retryCount + 1}/${maxRetries + 1}`);
+        
+        if (retryCount < maxRetries) {
+            // Retry after a short delay to allow for DOM updates
+            setTimeout(() => {
+                console.log(`🔄 Retrying lock indicator for ${data.username} (attempt ${retryCount + 2})`);
+                if (pendingLockIndicators.has(data.username)) {
+                    applyLockIndicator(data, retryCount + 1);
+                }
+            }, 500);
+        } else {
+            console.log(`❌ Max retries reached for ${data.username}, removing from pending list`);
+            pendingLockIndicators.delete(data.username);
+        }
+        return false;
+    }
+}
+
+socket.on('playerLockedIn', function(data) {
+    console.log(`🔒 Player locked in: ${data.username}, Row: ${data.row}, AI: ${data.isAI}, Column: ${data.column}`);
+    
+    // Store the lock-in data for processing
+    pendingLockIndicators.set(data.username, data);
+    console.log(`📦 Stored lock indicator for ${data.username}, pending indicators: ${pendingLockIndicators.size}`);
+    
+    // Try to apply lock indicator immediately
+    applyLockIndicator(data);
+    
+    // 1. PLAYER SEAT VISUAL EFFECTS (seat animation and lock indicators)
+    // This section handles the floating animation and visual effects on player seats
+    const allSeats = SEAT_IDS;
+    let playerSeat = null;
+    
+    console.log(`🔍 Looking for player seat for ${data.username}`);
+    allSeats.forEach(seatId => {
+        const seat = document.getElementById(seatId);
+        if (seat) {
+            const nameDiv = seat.querySelector('.player-name');
+            if (nameDiv && nameDiv.textContent === data.username) {
+                console.log(`✅ Found ${data.username} in seat ${seatId}`);
                 playerSeat = seat;
             }
         }
@@ -3318,9 +3994,10 @@ socket.on('playerLockedIn', function(data) {
         playerSeat.style.position = 'absolute';
         playerSeat.appendChild(lockIcon);
         
+        console.log(`✅ Added lock indicator to ${data.username}'s seat (${playerSeat.id})`);
+        
         // Add immediate glow effect to the player seat
         const glowColor = data.isAI ? '#faa61a' : '#5865f2';
-        const glowColorSecondary = data.isAI ? '#ff8c42' : '#4752c4';
         playerSeat.style.border = `3px solid ${glowColor}`;
         playerSeat.style.boxShadow = `
             0 0 25px ${data.isAI ? 'rgba(250, 166, 26, 0.6)' : 'rgba(88, 101, 242, 0.6)'},
@@ -3330,17 +4007,16 @@ socket.on('playerLockedIn', function(data) {
         playerSeat.style.transition = 'all 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
         playerSeat.style.background = `linear-gradient(145deg, rgba(${data.isAI ? '250, 166, 26' : '88, 101, 242'}, 0.05), rgba(${data.isAI ? '255, 140, 66' : '71, 82, 196'}, 0.1))`;
         
+        console.log(`✅ Applied glow effects to ${data.username}'s seat`);
+        
         // Phase 1: Brief initial scale effect (0.5s)
         setTimeout(() => {
             playerSeat.style.transform = (originalStyles.transform || '') + ' scale(1.15)';
         }, 200);
         
-        // Phase 2: Simple gentle movement toward center (stops at boundary)
+        // Phase 2: Move all players to just outside the counter boundary in the middle
         setTimeout(() => {
             playerSeat.style.zIndex = '25'; // Float above other elements
-            
-            // Move all players to just outside the counter boundary in the middle
-            // All should end up at roughly the same distance from center
             
             if (playerSeat.id === 'leftPlayer') {
                 // Left player moves right to just outside counter boundary
@@ -3359,7 +4035,7 @@ socket.on('playerLockedIn', function(data) {
                 playerSeat.style.transform = (originalStyles.transform || '') + ' scale(1.1)';
             }
             
-            // Set transition for smooth but faster movement
+            // Set transition for smooth movement
             playerSeat.style.transition = 'all 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
             
             if (lockedInPlayers.has(data.username)) {
@@ -3368,10 +4044,29 @@ socket.on('playerLockedIn', function(data) {
             
         }, 1000);
         
-        // Lock icon will stay visible until next round (no timeout removal)
+        console.log(`🎭 Started floating animation for ${data.username}`);
+    } else {
+        console.log(`❌ No seat found for ${data.username}, cannot show player seat animation`);
     }
     
-    // 2. GRID ROW DETAILS (now visible to ALL players)
+    // Update turn display if provided
+    if (data.currentTurnPlayer && data.turnBased) {
+        updateTurnDisplay({
+            currentTurnPlayer: data.currentTurnPlayer,
+            turnOrder: data.turnOrder || [],
+            turnBased: data.turnBased
+        });
+        
+        // Update row interactivity for new current player
+        const currentUsername = localStorage.getItem('username');
+        const isMyTurn = data.currentTurnPlayer === currentUsername;
+        updateRowInteractivity({
+            currentTurnPlayer: data.currentTurnPlayer,
+            turnBased: data.turnBased
+        });
+    }
+    
+    // Process grid row details (visible to ALL players)
     if (data.row) {
         const rowElement = document.querySelector(`[data-row="${data.row}"]`);
         if (rowElement) {
@@ -3486,6 +4181,275 @@ socket.on('playerLockedIn', function(data) {
         }, 3500);
     }
 });
+
+// Handle comprehensive game state restoration on reconnection
+socket.on('gameStateRestore', function(data) {
+    console.log(`🎮 Comprehensive game state restore received:`, data);
+    
+    // Update global token pool display
+    if (data.globalTokenPool) {
+        const globalTokenPoolElement = document.getElementById('globalTokenPool');
+        const tokenPoolBar = document.getElementById('tokenPoolBar');
+        
+        if (globalTokenPoolElement) {
+            const oldValue = globalTokenPoolElement.textContent;
+            globalTokenPoolElement.textContent = data.globalTokenPool.whiteTokens;
+            console.log(`🎯 Token pool restored: ${oldValue} → ${data.globalTokenPool.whiteTokens}`);
+            
+            // Update token pool bar if it exists
+            if (tokenPoolBar) {
+                const percentage = (data.globalTokenPool.whiteTokens / 2500) * 100;
+                tokenPoolBar.style.width = `${percentage}%`;
+                tokenPoolBar.style.background = 'linear-gradient(90deg, #faa61a 0%, #ffcc4d 50%, #f1c40f 100%)';
+                console.log(`🎯 Token pool bar restored: ${percentage}%`);
+            }
+            
+            // Add brief highlight effect to show restoration
+            globalTokenPoolElement.style.backgroundColor = 'rgba(250, 166, 26, 0.2)';
+            globalTokenPoolElement.style.transition = 'background-color 0.5s ease';
+            setTimeout(() => {
+                globalTokenPoolElement.style.backgroundColor = '';
+            }, 1000);
+        }
+    }
+    
+    // Update current round display if it exists
+    if (data.gameSession && data.gameSession.currentRound) {
+        const roundDisplays = document.querySelectorAll('.round-display, .current-round, [class*="round"]');
+        roundDisplays.forEach(display => {
+            if (display.textContent.includes('Round') || display.id.includes('round')) {
+                console.log(`� Updating round display: Round ${data.gameSession.currentRound}`);
+                display.textContent = `Round ${data.gameSession.currentRound}`;
+            }
+        });
+    }
+    
+    // Update condition display if it exists
+    if (data.gameSession && data.gameSession.currentCondition) {
+        const conditionDisplays = document.querySelectorAll('.condition-display, #conditionInfo');
+        conditionDisplays.forEach(display => {
+            console.log(`🔄 Updating condition display: ${data.gameSession.currentCondition.name}`);
+            display.textContent = data.gameSession.currentCondition.name;
+        });
+    }
+    
+    // Update culturant count display
+    if (data.gameSession && typeof data.gameSession.culturantsProduced !== 'undefined') {
+        const culturantDisplays = document.querySelectorAll('.culturant-count, #culturantCount, [class*="culturant"]');
+        culturantDisplays.forEach(display => {
+            console.log(`🏆 Updating culturant count: ${data.gameSession.culturantsProduced}`);
+            display.textContent = `Culturants: ${data.gameSession.culturantsProduced}`;
+        });
+    }
+    
+    console.log(`✅ Comprehensive game state restoration complete`);
+});
+
+// Track wallet restoration to prevent duplicates
+let walletRestorationInProgress = false;
+
+// Handle all players wallet restoration on reconnection  
+socket.on('allPlayersWalletRestore', function(data) {
+    console.log(`💰 All players wallet restore received:`, data);
+    
+    if (!data.players || data.players.length === 0) {
+        console.log(`❌ No player wallet data to restore`);
+        return;
+    }
+
+    if (walletRestorationInProgress) {
+        console.log(`⏳ Wallet restoration already in progress, skipping duplicate`);
+        return;
+    }
+
+    walletRestorationInProgress = true;
+    
+    // Add a delay to ensure DOM elements are ready
+    setTimeout(() => {
+        // Update wallet displays for all players
+        console.log(`💰 Updating wallet displays for all players`);
+        console.log(`💰 Players data received:`, data.players);
+        
+        // Determine if current user is moderator
+        const currentUserData = data.players.find(p => p.username === currentUsername);
+        const isCurrentUserModerator = currentUserData ? currentUserData.isModerator : false;
+        console.log(`💰 Current user: ${currentUsername}, is moderator: ${isCurrentUserModerator}`);
+        
+        // Update personal wallet first if not moderator
+        if (!isCurrentUserModerator && currentUserData) {
+            const whiteTokensElement = document.getElementById('whiteTokens');
+            const blackTokensElement = document.getElementById('blackTokens');
+            const totalEarningsElement = document.getElementById('totalEarnings');
+            
+            if (whiteTokensElement) {
+                whiteTokensElement.textContent = currentUserData.whiteTokens || 0;
+                console.log(`💰 Updated personal white tokens: ${currentUserData.whiteTokens || 0}`);
+            }
+            if (blackTokensElement) {
+                blackTokensElement.textContent = currentUserData.blackTokens || 0;
+                console.log(`💰 Updated personal black tokens: ${currentUserData.blackTokens || 0}`);
+            }
+            if (totalEarningsElement) {
+                totalEarningsElement.textContent = `$${(currentUserData.totalEarnings || 0).toFixed(2)}`;
+                console.log(`💰 Updated personal earnings: $${(currentUserData.totalEarnings || 0).toFixed(2)}`);
+            }
+        }
+        
+        // Update each seat's wallet display
+        const allSeats = SEAT_IDS;
+        allSeats.forEach(seatId => {
+            const seat = document.getElementById(seatId);
+            if (seat) {
+                const nameDiv = seat.querySelector('.player-name');
+                const walletDiv = seat.querySelector('.player-wallet');
+                
+                if (nameDiv && walletDiv) {
+                    const playerName = nameDiv.textContent;
+                    const playerData = data.players.find(p => p.username === playerName);
+                    
+                    if (playerData) {
+                        console.log(`💰 Processing seat ${seatId}: username=${playerName}, walletDiv=${!!walletDiv}`);
+                        console.log(`💰 Player data for ${playerName}:`, playerData);
+                        
+                        walletDiv.textContent = `$${playerData.totalEarnings.toFixed(2)}`;
+                        console.log(`💰 Updated wallet for ${playerName}: $${playerData.totalEarnings.toFixed(2)}`);
+                        
+                        // Add brief highlight effect to show restoration
+                        walletDiv.style.backgroundColor = 'rgba(40, 167, 69, 0.2)';
+                        walletDiv.style.transition = 'background-color 0.5s ease';
+                        setTimeout(() => {
+                            walletDiv.style.backgroundColor = '';
+                        }, 1000);
+                    }
+                }
+            }
+        });
+        
+        console.log(`✅ All players wallet restoration complete`);
+        walletRestorationInProgress = false; // Reset flag after completion
+    }, 500); // 500ms delay to ensure DOM is ready
+});
+
+// UNIFIED COMPREHENSIVE GAME STATE RESTORATION
+socket.on('unifiedGameStateRestore', function(data) {
+    console.log(`🎮 UNIFIED: Comprehensive game state restoration received:`, data);
+    
+    // 1. Game Session Restoration
+    if (data.gameSession) {
+        // Update token pool
+        if (data.globalTokenPool) {
+            const globalTokenPoolElement = document.getElementById('globalTokenPool');
+            if (globalTokenPoolElement) {
+                globalTokenPoolElement.textContent = data.globalTokenPool.whiteTokens;
+                console.log(`🎯 UNIFIED: Token pool restored: ${data.globalTokenPool.whiteTokens}`);
+            }
+        }
+        
+        // Update culturant count
+        const culturantDisplays = document.querySelectorAll('.culturant-count, #culturantCount, [class*="culturant"]');
+        culturantDisplays.forEach(display => {
+            display.textContent = data.gameSession.culturantsProduced || 0;
+        });
+        console.log(`🏆 UNIFIED: Culturant count: ${data.gameSession.culturantsProduced || 0}`);
+    }
+    
+    // 2. Wallet Restoration
+    if (data.playersWalletData && data.playersWalletData.length > 0) {
+        console.log(`💰 UNIFIED: Restoring wallet data for ${data.playersWalletData.length} players`);
+        
+        const currentUserData = data.playersWalletData.find(p => p.username === currentUsername);
+        
+        // Update personal wallet (if not moderator)
+        if (currentUserData && !currentUserData.isModerator) {
+            const whiteTokensElement = document.getElementById('whiteTokens');
+            const blackTokensElement = document.getElementById('blackTokens');
+            const totalEarningsElement = document.getElementById('totalEarnings');
+            
+            if (whiteTokensElement) whiteTokensElement.textContent = currentUserData.whiteTokens || 0;
+            if (blackTokensElement) blackTokensElement.textContent = currentUserData.blackTokens || 0;
+            if (totalEarningsElement) totalEarningsElement.textContent = `$${(currentUserData.totalEarnings || 0).toFixed(2)}`;
+            
+            console.log(`💰 UNIFIED: Personal wallet - White: ${currentUserData.whiteTokens}, Black: ${currentUserData.blackTokens}, Earnings: $${(currentUserData.totalEarnings || 0).toFixed(2)}`);
+        }
+        
+        // Update seat wallets
+        const seatIds = ['leftPlayer', 'topPlayer', 'rightPlayer'];
+        seatIds.forEach(seatId => {
+            const seat = document.getElementById(seatId);
+            if (seat) {
+                const nameDiv = seat.querySelector('.player-name');
+                const walletDiv = seat.querySelector('.player-wallet');
+                
+                if (nameDiv && walletDiv) {
+                    const playerName = nameDiv.textContent;
+                    const playerData = data.playersWalletData.find(p => p.username === playerName);
+                    
+                    if (playerData) {
+                        walletDiv.textContent = `$${(playerData.totalEarnings || 0).toFixed(2)}`;
+                        console.log(`💰 UNIFIED: Seat ${seatId} wallet updated: ${playerData.username} = $${(playerData.totalEarnings || 0).toFixed(2)}`);
+                    }
+                }
+            }
+        });
+    }
+    
+    // 3. Last Round Result Restoration
+    if (data.lastRoundResult) {
+        console.log(`📚 UNIFIED: Restoring last round result:`, data.lastRoundResult);
+        
+        // Simulate the normal round result display that Tom would have seen
+        const roundResultsDiv = document.getElementById('roundResults');
+        if (roundResultsDiv) {
+            // Create the same HTML structure as a normal round result
+            let resultsHTML = `<h4>Round ${data.lastRoundResult.round} Results</h4>`;
+            resultsHTML += '<h4>Choices Made:</h4>';
+            
+            // Show player choices (same format as normal round results)
+            data.lastRoundResult.choices.forEach(choice => {
+                if (!choice.isAI && !choice.isModerator) {
+                    resultsHTML += `<div>${choice.username}: Row ${choice.choice} (${choice.rowType})</div>`;
+                }
+            });
+            
+            
+            // Show column selection
+            resultsHTML += `<div style="margin-top: 8px;"><strong>Selected Column:</strong> ${data.lastRoundResult.selectedColumn}</div>`;
+            
+            roundResultsDiv.innerHTML = resultsHTML;
+            
+            // Show results phase
+            const resultsPhase = document.getElementById('resultsPhase');
+            if (resultsPhase) {
+                resultsPhase.style.display = 'block';
+                console.log(`📚 UNIFIED: Last round result displayed`);
+            }
+        }
+    } else {
+        console.log(`📚 UNIFIED: No previous round to restore`);
+    }
+    
+    // 4. Turn System Restoration
+    if (data.turnData) {
+        console.log(`🔄 UNIFIED: Restoring turn system`);
+        
+        if (data.turnData.currentTurnPlayer) {
+            // Update turn display
+            const turnDisplayElement = document.querySelector('.turn-display, #turnDisplay');
+            if (turnDisplayElement) {
+                turnDisplayElement.textContent = `Current Turn: ${data.turnData.currentTurnPlayer}`;
+            }
+            
+            // Update row interactivity
+            if (data.turnData.isYourTurn) {
+                console.log(`🎯 UNIFIED: It's ${currentUsername}'s turn, enabling interactions`);
+                // Enable row interactions will be handled by existing yourTurn handler
+            }
+        }
+    }
+    
+    console.log(`✅ UNIFIED: Comprehensive restoration complete`);
+});
+
 
 // Function to restore all floating players to original positions (call on new round)
 function restoreFloatingPlayers() {

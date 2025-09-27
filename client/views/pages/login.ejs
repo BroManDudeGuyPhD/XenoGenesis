@@ -35,6 +35,9 @@
                 <li class="nav-item">
                     <button id="loginNav"><span>Login</span></button>
                 </li>
+                <li class="nav-item">
+                    <button id="logoutNav" style="display: none;"><span>Logout</span></button>
+                </li>
             </ul>
             <div class="hamburger">
                 <span class="bar"></span>
@@ -609,6 +612,11 @@
         integrity="sha256-TDxXjkAUay70ae/QJBEpGKkpVslXaHHayklIVglFRT4=" crossorigin="anonymous"></script>
     <script src="/socket.io/socket.io.js"></script>
     <script src="/client/Inventory.js"></script>
+    <script>
+        // Pass session data to client
+        window.sessionData = <%- sessionData %>;
+        console.log('Session data passed to client:', window.sessionData);
+    </script>
     <script type="text/javascript" src="/client/client.js"></script>
 
     <script>

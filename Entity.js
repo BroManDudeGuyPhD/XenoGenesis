@@ -318,8 +318,47 @@ var AIPlayer = {
                 }
             }
             
-            // Immediately broadcast player status update after AI decision
-            broadcastPlayerStatusUpdate(room);
+            // Send targeted player status update only to moderator after AI decision
+            // to avoid disrupting other players' UI during AI gameplay
+            const session = GameSessions[room];
+            if (session) {
+                const currentRoom = roomList.find(r => r.name === room);
+                if (currentRoom) {
+                    const moderatorPlayer = Object.values(Player.list)
+                        .find(p => p.room === room && p.username === currentRoom.creator);
+                    
+                    if (moderatorPlayer && moderatorPlayer.socket) {
+                        const roomPlayersForUpdate = Object.values(Player.list).filter(p => p.room === room);
+                        const playerData = roomPlayersForUpdate.map(p => ({
+                            name: p.username,
+                            isAI: p.isAI || false,
+                            selectedRow: p.currentChoice || null,
+                            lockedIn: p.isLockedIn || false,
+                            whiteTokens: p.whiteTokens || 0,
+                            blackTokens: p.blackTokens || 0,
+                            totalEarnings: p.totalEarnings || 0,
+                            activeIncentive: p.activeIncentive || null,
+                            incentiveBonusTokens: p.incentiveBonusTokens || 0
+                        }));
+                        
+                        const lockedCount = playerData.filter(p => p.lockedIn).length;
+                        
+                        const updateData = {
+                            room: room,
+                            round: session.currentRound,
+                            players: playerData,
+                            lockedCount: lockedCount,
+                            totalCount: playerData.length,
+                            condition: session.currentCondition.name,
+                            whiteTokensRemaining: GlobalTokenPool.whiteTokens,
+                            culturantsProduced: session.culturantsProduced || 0
+                        };
+                        
+                        moderatorPlayer.socket.emit('playerStatusUpdate', updateData);
+                        console.log(`📊 Targeted AI player status update sent to moderator ${currentRoom.creator} only`);
+                    }
+                }
+            }
             
             // Check if all voting players (exclude moderator) have locked in after this AI decision
             const allPlayers = Object.values(Player.list).filter(p => p.room === room);
@@ -433,6 +472,7 @@ Player = function (param) {
     self.blackTokens = 0;           // Group reinforcement tokens  
     self.totalEarnings = 0;         // Money earned so far
     self.currentChoice = null;      // 'impulsive' or 'self-control' 
+    self.isLockedIn = false;        // Whether player has locked in their choice
     self.roundsPlayed = 0;
     self.culturantsProduced = 0;    // Times all 3 chose self-control
     self.triadPosition = 0;         // 1, 2, or 3 for turn order
@@ -542,6 +582,7 @@ GameSession = {
             culturantsProduced: 0,
             sessionStartTime: new Date(),
             dataLog: [], // For CSV export
+            roundHistory: [], // Store completed round results for reconnection restoration
             grid: GameSession.generateRandomGrid(), // Random + and - placement
             columnMode: 'auto', // 'auto' or 'manual'
             manualColumn: null, // Column selected by moderator
@@ -881,13 +922,18 @@ Player.onConnect = function(socket,username,admin,io){
             }));
         }
         
-        // Remove player from game if they're in one
+        // Handle player in game sessions - PRESERVE player state for potential reconnection
         if (room !== mainChat && room !== "Global") {
-            // Find and remove the player from Player.list
             const leavingPlayer = Object.values(Player.list).find(p => p.socket && p.socket.id === socket.id && p.room === room);
             if (leavingPlayer) {
-                console.log(`🎮 Removing ${leavingPlayer.username} from game in room: ${room}`);
-                delete Player.list[leavingPlayer.id];
+                console.log(`🔌 ${leavingPlayer.username} disconnected from active game in room: ${room} - preserving player state for reconnection`);
+                
+                // Instead of deleting, just mark socket as disconnected and set to null
+                leavingPlayer.socket = null;  // Clear socket but keep player data
+                console.log(`🔄 Player ${leavingPlayer.username} state preserved: isLockedIn=${leavingPlayer.isLockedIn}, currentChoice=${leavingPlayer.currentChoice}`);
+                
+                // Don't delete the player - they can reconnect and resume their game state
+                // delete Player.list[leavingPlayer.id]; // ❌ REMOVED - this was causing state loss
                 
                 // Update game session - reassign positions for remaining players
                 const gameSession = GameSession.get(room);
@@ -962,7 +1008,15 @@ Player.onConnect = function(socket,username,admin,io){
 
     });
 
-    socket.on("joinRoom", (room) => {
+    socket.on("joinRoom", (roomData) => {
+        // Handle both string format ("roomName") and object format ({ room: "roomName" })
+        let room = typeof roomData === 'string' ? roomData : roomData.room;
+        
+        if (!room || typeof room !== 'string') {
+            console.log('❌ Invalid room data received:', roomData);
+            return;
+        }
+
         //console.log(io.sockets.adapter.rooms);
 
         //Search roomList array values represnted as lowercase to check if entered room name is valid regardless of case
@@ -1028,19 +1082,25 @@ Player.onConnect = function(socket,username,admin,io){
                 });
             });
             
-            console.log(`📡 Emitting playersInRoom for ${room}:`, playersWithModerator);
-            io.to(room).emit('playersInRoom', {
-                room: room,
-                players: playersWithModerator
-            });
-            
-            // Also emit specifically to the joining player to ensure they get current state
+            console.log(`📡 Emitting playersInRoom to individual socket for ${playerData.username} in ${room}:`, playersWithModerator);
+            // Only send playersInRoom to the specific joining/reconnecting player
+            // Don't disrupt other players' UIs who are already in the room
             socket.emit('playersInRoom', {
                 room: room,
                 players: playersWithModerator
             });
             
             console.log(`📡 Also sent playersInRoom directly to ${playerData.username}`);
+            
+            // If this is a new player joining (not reconnecting), broadcast to room so moderator sees the new player
+            const isReconnection = allRoomUsers.some(user => user.username === playerData.username && user.id !== socket.id);
+            if (!isReconnection && room !== "Global") {
+                console.log(`📡 Broadcasting new player join to room ${room} (not a reconnection)`);
+                io.to(room).emit('playersInRoom', {
+                    room: room,
+                    players: playersWithModerator
+                });
+            }
 
             // Send another playersInRoom event with a slight delay to ensure client is ready
             setTimeout(() => {
@@ -1062,7 +1122,40 @@ Player.onConnect = function(socket,username,admin,io){
                     
                     // Auto-start the game for the joining player (they become a player immediately)
                     Database.getPlayerProgress(playerData.username, function(progress) {
-                        Player.onGameStart(playerData.socket, playerData.username, progress, io, room, playerData.admin);
+                        try {
+                            Player.onGameStart(playerData.socket, playerData.username, progress, io, room, playerData.admin);
+                            
+                            // After successful reconnection, broadcast updated player list to everyone in room
+                            // This ensures all players see the updated socket ID for the reconnecting player
+                            const reconnectionRoomUsers = getRoomUsers(room);
+                            const allReconnectionPlayersData = reconnectionRoomUsers.map(user => ({
+                                username: user.username,
+                                id: user.id,
+                                isAI: false,
+                                isModerator: user.admin || false
+                            }));
+                            
+                            // Add AI players to the list
+                            const roomAIPlayers = Object.values(Player.list).filter(p => p.room === room && p.isAI);
+                            roomAIPlayers.forEach(aiPlayer => {
+                                allReconnectionPlayersData.push({
+                                    username: aiPlayer.username,
+                                    id: aiPlayer.id,
+                                    isAI: true,
+                                    isModerator: false
+                                });
+                            });
+                            
+                            console.log(`📡 Broadcasting playersInRoom after ${playerData.username} reconnected to ${room}:`, allReconnectionPlayersData);
+                            io.to(room).emit('playersInRoom', {
+                                room: room,
+                                players: allReconnectionPlayersData
+                            });
+                            
+                        } catch (error) {
+                            console.error(`❌ Error reconnecting ${playerData.username} to game in ${room}:`, error);
+                            // Still allow the user to join the room even if game join fails
+                        }
                     });
                 } else {
                     console.log(`❌ No active game in room ${room} for ${playerData.username} to join`);
@@ -1228,11 +1321,17 @@ Player.onConnect = function(socket,username,admin,io){
                 })
             );
             
-            // Remove player from game if they're in one
+            // Handle player in game sessions - PRESERVE player state for potential reconnection  
             const leavingPlayer = Object.values(Player.list).find(p => p.socket && p.socket.id === socket.id && p.room === user.room);
             if (leavingPlayer) {
-                console.log(`🎮 Removing disconnected ${leavingPlayer.username} from game in room: ${user.room}`);
-                delete Player.list[leavingPlayer.id];
+                console.log(`🔌 ${leavingPlayer.username} disconnected from active game in room: ${user.room} - preserving player state for reconnection`);
+                
+                // Instead of deleting, just mark socket as disconnected  
+                leavingPlayer.socket = null;  // Clear socket but keep player data
+                console.log(`🔄 Player ${leavingPlayer.username} state preserved: isLockedIn=${leavingPlayer.isLockedIn}, currentChoice=${leavingPlayer.currentChoice}`);
+                
+                // Don't delete the player - they can reconnect and resume their game state
+                // delete Player.list[leavingPlayer.id]; // ❌ REMOVED - this was causing state loss
                 
                 // Update game session - reassign positions for remaining players
                 const gameSession = GameSession.get(user.room);
@@ -1421,6 +1520,31 @@ Player.onConnect = function(socket,username,admin,io){
             io.to(room).emit("gameStarted");
             console.log(`🎮 Game started successfully in ${room} with ${roomPlayers.length} players`);
             
+            // Send updated playersInRoom to all players so they see the complete player list
+            const gameStartRoomUsers = getRoomUsers(room);
+            const allPlayersData = gameStartRoomUsers.map(user => ({
+                username: user.username,
+                id: user.id,
+                isAI: false,
+                isModerator: user.admin || false
+            }));
+            
+            // Add AI players to the list
+            roomPlayers.filter(p => p.isAI).forEach(aiPlayer => {
+                allPlayersData.push({
+                    username: aiPlayer.username,
+                    id: aiPlayer.id,
+                    isAI: true,
+                    isModerator: false
+                });
+            });
+            
+            console.log(`📡 Emitting playersInRoom after game start for ${room}:`, allPlayersData);
+            io.to(room).emit('playersInRoom', {
+                room: room,
+                players: allPlayersData
+            });
+            
             // Start the behavioral experiment rounds
             if (gameSession) {
                 gameSession.gameState = 'playing';
@@ -1488,8 +1612,36 @@ Player.onConnect = function(socket,username,admin,io){
                 }
             }
             
-            // Update poker table positions
-            updateRoomPlayersDisplay(room);
+            // Update poker table positions for reconnecting player only
+            // Don't broadcast to everyone to avoid disrupting existing players' UI
+            const currentRoom = roomList.find(r => r.name === room);
+            const playersInRoom = Object.values(Player.list).filter(p => p.room === room);
+            const allRoomUsers = getRoomUsers(room);
+            
+            // Create player list with moderator info
+            const playersWithModerator = allRoomUsers.map(user => ({
+                username: user.username,
+                id: user.id,
+                isAI: false, // Users from getRoomUsers are human players
+                isModerator: currentRoom && user.username === currentRoom.creator
+            }));
+            
+            // Add any AI players that might be in the room
+            const aiPlayersInRoom = playersInRoom.filter(p => p.isAI);
+            aiPlayersInRoom.forEach(aiPlayer => {
+                playersWithModerator.push({
+                    username: aiPlayer.username,
+                    id: aiPlayer.id,
+                    isAI: true,
+                    isModerator: false
+                });
+            });
+            
+            console.log(`🎮 Emitting playersInRoom for ${room} to reconnecting player only:`, playersWithModerator);
+            initiatingSocket.emit('playersInRoom', {
+                room: room,
+                players: playersWithModerator
+            });
             
         } catch (error) {
             console.error('❌ Error in startGameForExistingPlayers:', error);
@@ -1497,8 +1649,9 @@ Player.onConnect = function(socket,username,admin,io){
         }
     }
     
-    // Helper function to update room players display
-    function updateRoomPlayersDisplay(room) {
+    // Helper function to update room players display - NEVER BROADCAST
+    // This function should only be used for targeted individual socket updates
+    function updateRoomPlayersDisplay(room, targetSocket = null) {
         try {
             const currentRoom = roomList.find(r => r.name === room);
             const playersInRoom = Object.values(Player.list).filter(p => p.room === room);
@@ -1523,11 +1676,16 @@ Player.onConnect = function(socket,username,admin,io){
                 });
             });
             
-            console.log(`🎮 Emitting playersInRoom for ${room}:`, playersWithModerator);
-            io.to(room).emit('playersInRoom', {
-                room: room,
-                players: playersWithModerator
-            });
+            // ONLY emit to specific target socket, NEVER broadcast to room
+            if (targetSocket && typeof targetSocket.emit === 'function') {
+                console.log(`� Targeted playersInRoom emission for ${room}:`, playersWithModerator);
+                targetSocket.emit('playersInRoom', {
+                    room: room,
+                    players: playersWithModerator
+                });
+            } else {
+                console.log(`⚠️ updateRoomPlayersDisplay called without valid target socket - skipping emission to prevent UI disruption`);
+            }
         } catch (error) {
             console.error('❌ Error updating room players display:', error);
         }
@@ -1729,11 +1887,323 @@ Player.onGameStart = function(socket,username, progress, io, room, admin){
     try {
         console.log(`🎯 Player.onGameStart called for ${username} in room ${room}`);
         
+        // Debug: Show all players in Player.list
+        const allPlayers = Object.values(Player.list);
+        console.log(`🔍 All players in Player.list (${allPlayers.length}):`, allPlayers.map(p => `${p.username} (room: ${p.room}, id: ${p.id})`));
+        
         // Check if this player already exists in this room
         const existingPlayer = Object.values(Player.list).find(p => p.room === room && p.username === username);
+        console.log(`🔍 Looking for existing player: ${username} in room ${room}, found: ${!!existingPlayer}`);
+        
         if (existingPlayer) {
-            console.log(`⚠️ Player ${username} already exists in room ${room}, skipping creation`);
-            return existingPlayer; // Return existing player instead of creating new one
+            console.log(`🔄 Player ${username} already exists in room ${room}, updating socket reference`);
+            console.log(`🔍 Before socket update - ${username}: isLockedIn=${existingPlayer.isLockedIn}, currentChoice=${existingPlayer.currentChoice}`);
+            
+            // Update the existing player with the new socket
+            existingPlayer.socket = socket;
+            existingPlayer.id = socket.id;
+            
+            console.log(`🔍 After socket update - ${username}: isLockedIn=${existingPlayer.isLockedIn}, currentChoice=${existingPlayer.currentChoice}`);
+            console.log(`✅ Updated socket reference for ${username} in room ${room}`);
+            
+            // RE-REGISTER ESSENTIAL SOCKET HANDLERS for reconnected player
+            console.log(`🔗 Re-registering essential socket handlers for ${username}`);
+            
+            // Re-register makeChoice handler using the same logic as the original
+            socket.on('makeChoice', function(data) {
+                const gameSession = GameSession.get(room);
+                if (!gameSession || (gameSession.gameState !== 'playing' && gameSession.gameState !== 'ready')) {
+                    socket.emit('error', { message: 'Game not in progress' });
+                    return;
+                }
+                
+                // Check if this player is the moderator (moderators can't vote)
+                const currentRoom = roomList.find(r => r.name === room);
+                const isModerator = currentRoom && existingPlayer.username === currentRoom.creator;
+                
+                if (isModerator) {
+                    socket.emit('error', { message: 'Moderators cannot vote in the experiment' });
+                    return;
+                }
+                
+                // Check if it's this player's turn (if turn-based is enabled)
+                if (gameSession.turnBased && !GameSession.isPlayerTurn(room, existingPlayer.username)) {
+                    const currentTurnPlayer = GameSession.getCurrentTurnPlayer(room);
+                    socket.emit('error', { message: `It's ${currentTurnPlayer}'s turn. Please wait.` });
+                    return;
+                }
+                
+                // Only process if this is a lock-in
+                if (data.lockedIn) {
+                    // Validate that player has made a choice
+                    if (!data.choice || data.choice === null || data.choice === undefined) {
+                        console.log(`🚫 ${existingPlayer.username} tried to lock in without making a choice`);
+                        socket.emit('error', { message: 'You must select a row before locking in your choice' });
+                        return;
+                    }
+                    
+                    existingPlayer.currentChoice = data.choice; // Row number 1-8
+                    existingPlayer.isLockedIn = true;
+                    console.log(`🔒 ${existingPlayer.username} locked in choice: ${data.choice} - AFTER SETTING: currentChoice=${existingPlayer.currentChoice}, isLockedIn=${existingPlayer.isLockedIn}`);
+                    
+                    // Check if all non-moderator players have locked in their choices BEFORE advancing turn
+                    const currentRoomPlayers = Object.values(Player.list).filter(p => p.room === room);
+                    const currentVotingPlayers = currentRoomPlayers.filter(p => {
+                        const playerRoom = roomList.find(r => r.name === room);
+                        return !(playerRoom && p.username === playerRoom.creator); // Exclude moderator
+                    });
+                    
+                    const allLockedInBeforeAI = currentVotingPlayers.every(p => p.isLockedIn && p.currentChoice !== null);
+                    
+                    // Only advance turn in turn-based mode if not all players have locked in yet
+                    if (gameSession.turnBased && !allLockedInBeforeAI) {
+                        console.log(`🔄 Not all players locked in yet, advancing turn...`);
+                        GameSession.advanceTurn(room);
+                    } else if (gameSession.turnBased && allLockedInBeforeAI) {
+                        console.log(`🏁 All players have locked in, pausing turn advancement until round processes`);
+                    }
+                    
+                    // Broadcast lock-in event to all players in the room for visual feedback
+                    const allRoomPlayers = Object.values(Player.list).filter(p => p.room === room);
+                    const currentRoom = roomList.find(r => r.name === room);
+                    
+                    allRoomPlayers.forEach(p => {
+                        if (p.socket) {
+                            const isModerator = currentRoom && p.username === currentRoom.creator;
+                            
+                            p.socket.emit('playerLockedIn', {
+                                username: existingPlayer.username,
+                                row: data.choice,
+                                isAI: existingPlayer.isAI || false,
+                                showRowDetails: true,
+                                currentTurnPlayer: gameSession.turnBased ? GameSession.getCurrentTurnPlayer(room) : null,
+                                turnOrder: gameSession.turnOrder || [],
+                                turnBased: gameSession.turnBased,
+                                column: gameSession.selectedColumn
+                            });
+                        }
+                    });
+                    
+                    // Auto-notify moderator about player lock-ins with details
+                    if (currentRoom && currentRoom.creator) {
+                        const moderatorPlayer = allRoomPlayers.find(p => p.username === currentRoom.creator && p.socket);
+                        
+                        if (moderatorPlayer) {
+                            // Send status to moderator showing all player choices and earnable tokens
+                            const updateData = {
+                                players: currentVotingPlayers.map(p => ({
+                                    username: p.username,
+                                    currentChoice: p.currentChoice,
+                                    isLockedIn: p.isLockedIn,
+                                    isAI: p.isAI || false,
+                                    tokens: p.whiteTokens || 0,
+                                    totalEarnings: p.totalEarnings || 0
+                                })),
+                                allLockedIn: allLockedInBeforeAI
+                            };
+                            
+                            moderatorPlayer.socket.emit('playerStatusUpdate', updateData);
+                            console.log(`📊 Targeted player status update sent to moderator ${currentRoom.creator} only`);
+                        }
+                    }
+                    
+                    // Use the same logic as the original handler for checking lock-in status
+                    const roomPlayers = Object.values(Player.list).filter(p => p.room === room);
+                    const votingPlayers = roomPlayers.filter(p => {
+                        const playerRoom = roomList.find(r => r.name === room);
+                        return !(playerRoom && p.username === playerRoom.creator); // Exclude moderator
+                    });
+                    const allLockedIn = votingPlayers.every(p => p.isLockedIn && p.currentChoice !== null);
+                    console.log(`🎯 Lock-in status: ${votingPlayers.filter(p => p.isLockedIn).length}/${votingPlayers.length} players locked in, allLockedIn=${allLockedIn}`);
+                    
+                    // AI players auto-lock-in when they make decisions
+                    if (!allLockedIn) {
+                        // Trigger AI players to make their decisions and auto-lock-in
+                        AIPlayer.processAIDecisions(room, gameSession);
+                    }
+                    
+                    const allFinallyLockedIn = votingPlayers.every(p => p.isLockedIn && p.currentChoice !== null);
+
+                    if (allFinallyLockedIn) {
+                        console.log(`🎯 All players locked in! Processing round...`);
+                        // Small delay to ensure all UI updates are complete
+                        setTimeout(() => {
+                            processRound(room, gameSession);
+                        }, 500);
+                    } else {
+                        console.log(`🚫 DEBUG: Not all players locked in, cannot process round`);
+                    }
+                } else {
+                    // Just a selection, not a lock-in yet
+                    console.log(`🎯 ${existingPlayer.username} selected (not locked): ${data.choice}`);
+                    existingPlayer.currentChoice = data.choice; // Update selection immediately
+                }
+            });
+            
+            // Re-register disconnect handler  
+            socket.removeAllListeners('disconnect');
+            console.log(`🧹 Cleared existing disconnect handlers for ${username}`);
+            socket.on('disconnect', () => {
+                console.log(`🔌 Preserving player ${existingPlayer.username} state in room ${room} for potential reconnection`);
+                existingPlayer.socket = null;
+                console.log(`🔄 Preserved state: isLockedIn=${existingPlayer.isLockedIn}, currentChoice=${existingPlayer.currentChoice}, totalEarnings=${existingPlayer.totalEarnings}`);
+            });
+            
+            console.log(`🔗 Essential socket handlers re-registered for ${username}`);
+            // TRIGGER COMPREHENSIVE GAME STATE RESTORATION
+            console.log(`🎮 Triggering comprehensive game state restoration for reconnecting ${username}`);
+            Player.sendCompleteGameState(existingPlayer, room);
+            const gameSession = GameSessions[room];
+            if (gameSession) {
+                // Send game state restoration events
+                console.log(`🔄 Restoring game state for reconnecting player: ${existingPlayer.username} in room ${room}`);
+                
+                // Send init event to restore game UI
+                existingPlayer.socket.emit('init', { 
+                    selfId: existingPlayer.id 
+                });
+                
+                // Send triad complete to restore game state
+                existingPlayer.socket.emit('triadComplete', {
+                    roomName: room,
+                    players: Object.values(Player.list).filter(p => p.room === room).map(p => ({
+                        username: p.username,
+                        isAI: p.isAI || false,
+                        isModerator: false // Will be corrected in playersInRoom
+                    }))
+                });
+                
+                // Send comprehensive game state restoration
+                console.log(`🎮 Sending comprehensive game state restoration to reconnecting ${existingPlayer.username}`);
+                
+                // Get all players in the room for wallet and state restoration
+                const currentPlayersInRoom = Object.values(Player.list).filter(p => p.room === room);
+                const currentRoom = roomList.find(r => r.name === room);
+                
+                // 1. Send complete game session info
+                existingPlayer.socket.emit('gameStateRestore', {
+                    gameSession: {
+                        roomName: room,
+                        currentRound: gameSession.currentRound,
+                        maxRounds: gameSession.maxRounds,
+                        currentCondition: gameSession.currentCondition,
+                        gameState: gameSession.gameState,
+                        culturantsProduced: gameSession.culturantsProduced || 0,
+                        selectedColumn: gameSession.selectedColumn,
+                        turnBased: gameSession.turnBased,
+                        turnOrder: gameSession.turnOrder,
+                        roundChoices: gameSession.roundChoices || []
+                    },
+                    globalTokenPool: {
+                        whiteTokens: GlobalTokenPool.whiteTokens,
+                        blackTokens: GlobalTokenPool.blackTokens
+                    }
+                });
+                
+                // 2. Send all player wallets (for complete UI restoration)
+                const allPlayersWalletData = currentPlayersInRoom.map(roomPlayer => ({
+                    username: roomPlayer.username,
+                    whiteTokens: roomPlayer.whiteTokens || 0,
+                    blackTokens: roomPlayer.blackTokens || 0,
+                    totalEarnings: roomPlayer.totalEarnings || 0,
+                    isAI: roomPlayer.isAI || false,
+                    isModerator: currentRoom && roomPlayer.username === currentRoom.creator
+                }));
+                
+                console.log(`� Sending complete wallet data for all ${allPlayersWalletData.length} players to ${existingPlayer.username}`);
+                existingPlayer.socket.emit('allPlayersWalletRestore', {
+                    players: allPlayersWalletData
+                });
+                
+                // 3. Send locked-in states for all players
+                console.log(`�🔍 Checking ${currentPlayersInRoom.length} players for locked-in status:`);
+                currentPlayersInRoom.forEach(roomPlayer => {
+                    console.log(`🔍 Player ${roomPlayer.username}: isLockedIn=${roomPlayer.isLockedIn}, currentChoice=${roomPlayer.currentChoice}`);
+                    
+                    if (roomPlayer.isLockedIn && roomPlayer.currentChoice !== null) {
+                        console.log(`📡 Sending playerLockedIn for ${roomPlayer.username} to reconnecting ${existingPlayer.username}`);
+                        existingPlayer.socket.emit('playerLockedIn', {
+                            username: roomPlayer.username,
+                            row: roomPlayer.currentChoice,
+                            isAI: roomPlayer.isAI,
+                            showRowDetails: true,
+                            currentTurnPlayer: gameSession.turnBased ? GameSession.getCurrentTurnPlayer(room) : null,
+                            turnOrder: gameSession.turnOrder || [],
+                            turnBased: gameSession.turnBased,
+                            column: gameSession.selectedColumn
+                        });
+                    } else {
+                        console.log(`❌ ${roomPlayer.username} not locked in or has no choice`);
+                    }
+                });
+                
+                // 4. Send turn update to sync current turn state
+                if (gameSession.turnBased) {
+                    const currentTurnPlayer = GameSession.getCurrentTurnPlayer(room);
+                    console.log(`📡 Sending turnUpdate to reconnecting ${existingPlayer.username}: currentTurnPlayer=${currentTurnPlayer}`);
+                    existingPlayer.socket.emit('turnUpdate', {
+                        currentTurnPlayer: currentTurnPlayer,
+                        turnOrder: gameSession.turnOrder,
+                        round: gameSession.currentRound,
+                        turnBased: gameSession.turnBased
+                    });
+                } else {
+                    console.log(`❌ No turnUpdate sent - game not turn-based`);
+                }
+                
+                // 5. Send previous round results for history display
+                if (gameSession.roundHistory && gameSession.roundHistory.length > 0) {
+                    console.log(`📚 Sending ${gameSession.roundHistory.length} previous round results to ${existingPlayer.username}`);
+                    existingPlayer.socket.emit('roundHistoryRestore', {
+                        username: existingPlayer.username,
+                        roundHistory: gameSession.roundHistory,
+                        currentRound: gameSession.currentRound
+                    });
+                } else {
+                    console.log(`📚 No previous round results to send to ${existingPlayer.username}`);
+                }
+                
+                // Send yourTurn event to restore game controls
+                const isPlayerTurn = gameSession.turnBased ? GameSession.getCurrentTurnPlayer(room) === existingPlayer.username : true;
+                // Safe fallback for moderator status to avoid crashes
+                let isModerator = false;
+                try {
+                    const currentRoom = roomList?.find(r => r.name === room);
+                    isModerator = currentRoom && existingPlayer.username === currentRoom.creator;
+                } catch (error) {
+                    console.log(`⚠️ Could not determine moderator status for ${existingPlayer.username}, defaulting to false`);
+                    isModerator = false;
+                }
+                console.log(`📡 Sending yourTurn to reconnecting ${existingPlayer.username}: isPlayerTurn=${isPlayerTurn}, isModerator=${isModerator}`);
+                console.log(`🔄 Player ${existingPlayer.username} restoration: currentChoice=${existingPlayer.currentChoice}, isLockedIn=${existingPlayer.isLockedIn}`);
+                existingPlayer.socket.emit('yourTurn', {
+                    isYourTurn: isPlayerTurn,
+                    isModerator: isModerator,
+                    activePlayer: gameSession.turnBased ? GameSession.getCurrentTurnPlayer(room) : 'All participants',
+                    round: gameSession.currentRound,
+                    turnBased: gameSession.turnBased,
+                    turnOrder: gameSession.turnOrder,
+                    condition: {
+                        name: gameSession.currentCondition.name,
+                        whiteValue: gameSession.currentCondition.whiteTokenValue,
+                        blackValue: gameSession.currentCondition.blackTokenValue
+                    },
+                    grid: gameSession.grid,
+                    playerPosition: existingPlayer.triadPosition,
+                    totalPlayers: currentPlayersInRoom.length,
+                    whiteTokensRemaining: GlobalTokenPool.whiteTokens,
+                    culturantsProduced: gameSession.culturantsProduced,
+                    // Restore player's current choice and locked-in status
+                    currentChoice: existingPlayer.currentChoice,
+                    isLockedIn: existingPlayer.isLockedIn
+                });
+                
+                console.log(`✅ Game state restoration complete for ${existingPlayer.username}`);
+            } else {
+                console.log(`❌ No game session found for room ${room}`);
+            }
+            
+            return existingPlayer; // Return existing player with updated socket
         }
         
         // Allow flexible player count - count current players in room more intelligently
@@ -1862,7 +2332,7 @@ Player.onGameStart = function(socket,username, progress, io, room, admin){
     socket.on('makeChoice', function(data) {
         // Player makes impulsive (odd row) or self-control (even row) choice
         const gameSession = GameSession.get(room);
-        if (!gameSession || gameSession.gameState !== 'playing') {
+        if (!gameSession || (gameSession.gameState !== 'playing' && gameSession.gameState !== 'ready')) {
             socket.emit('error', { message: 'Game not in progress' });
             return;
         }
@@ -1884,7 +2354,7 @@ Player.onGameStart = function(socket,username, progress, io, room, admin){
         }
         
         // Only process if this is a lock-in
-        if (data.lockedIn) {
+        if (data.lockedIn) {            
             // Validate that player has made a choice
             if (!data.choice || data.choice === null || data.choice === undefined) {
                 console.log(`🚫 ${player.username} tried to lock in without making a choice`);
@@ -1894,7 +2364,7 @@ Player.onGameStart = function(socket,username, progress, io, room, admin){
             
             player.currentChoice = data.choice; // Row number 1-8
             player.isLockedIn = true;
-            console.log(`🔒 ${player.username} locked in choice: ${data.choice}`);
+            console.log(`🔒 ${player.username} locked in choice: ${data.choice} - AFTER SETTING: currentChoice=${player.currentChoice}, isLockedIn=${player.isLockedIn}`);
             
             // Check if all non-moderator players have locked in their choices BEFORE advancing turn
             const currentRoomPlayers = Object.values(Player.list).filter(p => p.room === room);
@@ -1934,8 +2404,47 @@ Player.onGameStart = function(socket,username, progress, io, room, admin){
                 }
             });
             
-            // Immediately broadcast player status update to all players
-            broadcastPlayerStatusUpdate(room);
+            // Send targeted player status update only to moderators in room (not all players)
+            // to avoid disrupting other players' UI during gameplay
+            const session = GameSessions[room];
+            if (session) {
+                const currentRoom = roomList.find(r => r.name === room);
+                if (currentRoom) {
+                    const moderatorPlayer = Object.values(Player.list)
+                        .find(p => p.room === room && p.username === currentRoom.creator);
+                    
+                    if (moderatorPlayer && moderatorPlayer.socket) {
+                        const roomPlayersForUpdate = Object.values(Player.list).filter(p => p.room === room);
+                        const playerData = roomPlayersForUpdate.map(p => ({
+                            name: p.username,
+                            isAI: p.isAI || false,
+                            selectedRow: p.currentChoice || null,
+                            lockedIn: p.isLockedIn || false,
+                            whiteTokens: p.whiteTokens || 0,
+                            blackTokens: p.blackTokens || 0,
+                            totalEarnings: p.totalEarnings || 0,
+                            activeIncentive: p.activeIncentive || null,
+                            incentiveBonusTokens: p.incentiveBonusTokens || 0
+                        }));
+                        
+                        const lockedCount = playerData.filter(p => p.lockedIn).length;
+                        
+                        const updateData = {
+                            room: room,
+                            round: session.currentRound,
+                            players: playerData,
+                            lockedCount: lockedCount,
+                            totalCount: playerData.length,
+                            condition: session.currentCondition.name,
+                            whiteTokensRemaining: GlobalTokenPool.whiteTokens,
+                            culturantsProduced: session.culturantsProduced || 0
+                        };
+                        
+                        moderatorPlayer.socket.emit('playerStatusUpdate', updateData);
+                        console.log(`📊 Targeted player status update sent to moderator ${currentRoom.creator} only`);
+                    }
+                }
+            }
             
             // Check if all non-moderator players have locked in their choices
             const roomPlayers = Object.values(Player.list).filter(p => p.room === room);
@@ -1946,7 +2455,7 @@ Player.onGameStart = function(socket,username, progress, io, room, admin){
             
             const allLockedIn = votingPlayers.every(p => p.isLockedIn && p.currentChoice !== null);
             
-            console.log(`🎯 Lock-in status: ${votingPlayers.filter(p => p.isLockedIn).length}/${votingPlayers.length} players locked in`);
+            console.log(`🎯 Lock-in status: ${votingPlayers.filter(p => p.isLockedIn).length}/${votingPlayers.length} players locked in, allLockedIn=${allLockedIn}`);
             
             // AI players auto-lock-in when they make decisions
             if (!allLockedIn) {
@@ -1963,6 +2472,8 @@ Player.onGameStart = function(socket,username, progress, io, room, admin){
                 setTimeout(() => {
                     processRound(room, gameSession);
                 }, 500);
+            } else {
+                console.log(`🚫 DEBUG: Not all players locked in, cannot process round`);
             }
         } else {
             // Just a selection, not a lock-in yet - still update moderator display
@@ -2101,11 +2612,173 @@ Player.onGameStart = function(socket,username, progress, io, room, admin){
     // Only send init events if io is provided (for coordinated multi-user start, io will be null)
     if (io) {
         // Send personalized init data to each player in the room
-        playersInRoom.forEach(player => {
-            player.socket.emit('init', {
-                selfId: player.socket.id,
-                player: roomPlayerData,
-            });
+        playersInRoom.forEach(existingPlayer => {
+            // Check if player has a valid socket before emitting
+            if (existingPlayer.socket && existingPlayer.socket.connected) {
+                existingPlayer.socket.emit('init', {
+                    selfId: existingPlayer.socket.id,
+                    player: roomPlayerData,
+                });
+                
+                // Only restore game state for the CURRENT player who is joining/reconnecting
+                // Don't mess up other players' states who are already in the game
+                console.log(`🔍 Checking restoration condition for ${existingPlayer.username}: existingPlayer.socket.id=${existingPlayer.socket.id}, socket.id=${socket.id}`);
+                if (existingPlayer.socket.id === socket.id) {
+                    console.log(`✅ Restoration condition passed for ${existingPlayer.username}`);
+                    // Check if there's an active game session and restore game state for reconnecting player
+                    const gameSession = GameSession.get(room);
+                    if (gameSession && (gameSession.gameState === 'playing' || gameSession.gameState === 'ready')) {
+                        console.log(`🔄 Restoring game state for reconnecting player: ${existingPlayer.username} in room ${room}`);
+                        
+                        // Determine if player is moderator
+                        const currentRoom = roomList.find(r => r.name === room);
+                        const isModerator = currentRoom && existingPlayer.username === currentRoom.creator;
+                        
+                        // Send triadComplete to show the proper game board
+                        existingPlayer.socket.emit('triadComplete', {
+                            message: gameSession.gameState === 'playing' ? 'Game in progress - you have rejoined!' : 'Game ready to continue!',
+                            playerPosition: existingPlayer.triadPosition,
+                            gameSession: {
+                                currentRound: gameSession.currentRound,
+                                maxRounds: gameSession.maxRounds,
+                                condition: gameSession.currentCondition.name,
+                                grid: gameSession.grid,
+                                totalPlayers: playersInRoom.length,
+                                gameState: gameSession.gameState,
+                                turnBased: gameSession.turnBased,
+                                turnOrder: gameSession.turnOrder,
+                                currentTurnPlayer: gameSession.turnBased ? GameSession.getCurrentTurnPlayer(room) : null
+                            }
+                        });
+                        
+                        // Send yourTurn to set up the proper UI state
+                        const canVote = !isModerator && !existingPlayer.isAI && (gameSession.gameState === 'playing' || gameSession.gameState === 'ready');
+                        const isPlayerTurn = gameSession.turnBased ? GameSession.isPlayerTurn(room, existingPlayer.username) : canVote;
+                        
+                        existingPlayer.socket.emit('yourTurn', {
+                            isYourTurn: isPlayerTurn,
+                            isModerator: isModerator,
+                            activePlayer: gameSession.turnBased ? GameSession.getCurrentTurnPlayer(room) : 'All participants',
+                            round: gameSession.currentRound,
+                            turnBased: gameSession.turnBased,
+                            turnOrder: gameSession.turnOrder,
+                            condition: {
+                                name: gameSession.currentCondition.name,
+                                whiteValue: gameSession.currentCondition.whiteTokenValue,
+                                blackValue: gameSession.currentCondition.blackTokenValue
+                            },
+                            grid: gameSession.grid,
+                            playerPosition: existingPlayer.triadPosition,
+                            totalPlayers: playersInRoom.length,
+                            whiteTokensRemaining: GlobalTokenPool.whiteTokens,
+                            culturantsProduced: gameSession.culturantsProduced
+                        });
+                        
+                        // Send current player status and lock-in information
+                        const currentPlayersInRoom = Object.values(Player.list).filter(p => p.room === room);
+                        console.log(`🔍 Checking ${currentPlayersInRoom.length} players for locked-in status:`);
+                        
+                        currentPlayersInRoom.forEach(roomPlayer => {
+                            console.log(`🔍 Player ${roomPlayer.username}: isLockedIn=${roomPlayer.isLockedIn}, currentChoice=${roomPlayer.currentChoice}`);
+                            
+                            if (roomPlayer.isLockedIn && roomPlayer.currentChoice !== null) {
+                                // Show locked in players to moderator or to all players if game rules allow
+                                const showChoice = isModerator || !gameSession.turnBased; // Show details to moderator or in simultaneous mode
+                                
+                                console.log(`📡 Sending playerLockedIn for ${roomPlayer.username} to reconnecting ${existingPlayer.username}`);
+                                existingPlayer.socket.emit('playerLockedIn', {
+                                    username: roomPlayer.username,
+                                    row: showChoice ? roomPlayer.currentChoice : null, // Only show choice if allowed
+                                    isAI: roomPlayer.isAI,
+                                    showRowDetails: showChoice,
+                                    currentTurnPlayer: gameSession.turnBased ? GameSession.getCurrentTurnPlayer(room) : null,
+                                    turnOrder: gameSession.turnOrder || [],
+                                    turnBased: gameSession.turnBased,
+                                    column: gameSession.selectedColumn
+                                });
+                            } else {
+                                console.log(`❌ ${roomPlayer.username} not locked in or has no choice`);
+                            }
+                        });
+                        
+                        // Send turn update to sync current turn state
+                        if (gameSession.turnBased) {
+                            const currentTurnPlayer = GameSession.getCurrentTurnPlayer(room);
+                            console.log(`📡 Sending turnUpdate to reconnecting ${existingPlayer.username}: currentTurnPlayer=${currentTurnPlayer}`);
+                            existingPlayer.socket.emit('turnUpdate', {
+                                currentTurnPlayer: currentTurnPlayer,
+                                turnOrder: gameSession.turnOrder,
+                                round: gameSession.currentRound,
+                                turnBased: gameSession.turnBased
+                            });
+                        } else {
+                            console.log(`❌ No turnUpdate sent - game not turn-based`);
+                        }
+                        
+                        // Send wallet restoration specifically for the reconnecting player
+                        console.log(`💰 Sending wallet restoration to ${existingPlayer.username}: earnings=${existingPlayer.totalEarnings}, white=${existingPlayer.whiteTokens}, black=${existingPlayer.blackTokens}`);
+                        existingPlayer.socket.emit('walletRestore', {
+                            username: existingPlayer.username,
+                            whiteTokens: existingPlayer.whiteTokens || 0,
+                            blackTokens: existingPlayer.blackTokens || 0,
+                            totalEarnings: existingPlayer.totalEarnings || 0
+                        });
+                        
+                        // Send previous round results for reconnection restoration
+                        if (gameSession.roundHistory && gameSession.roundHistory.length > 0) {
+                            console.log(`📚 Sending ${gameSession.roundHistory.length} previous round results to ${existingPlayer.username}`);
+                            existingPlayer.socket.emit('roundHistoryRestore', {
+                                username: existingPlayer.username,
+                                roundHistory: gameSession.roundHistory,
+                                currentRound: gameSession.currentRound
+                            });
+                        } else {
+                            console.log(`📚 No previous round results to send to ${existingPlayer.username}`);
+                        }
+                        
+                        // Send targeted player status update to only the reconnecting player
+                        // (not to all moderators) to avoid disrupting other players' UI
+                        const session = GameSessions[room];
+                        if (session) {
+                            const playersInRoom = Object.values(Player.list).filter(p => p.room === room);
+                            const playerData = playersInRoom.map(p => ({
+                                name: p.username,
+                                isAI: p.isAI || false,
+                                selectedRow: p.currentChoice || null,
+                                lockedIn: p.isLockedIn || false,
+                                whiteTokens: p.whiteTokens || 0,
+                                blackTokens: p.blackTokens || 0,
+                                totalEarnings: p.totalEarnings || 0,
+                                activeIncentive: p.activeIncentive || null,
+                                incentiveBonusTokens: p.incentiveBonusTokens || 0
+                            }));
+                            
+                            const lockedCount = playerData.filter(p => p.lockedIn).length;
+                            
+                            const updateData = {
+                                room: room,
+                                round: session.currentRound,
+                                players: playerData,
+                                lockedCount: lockedCount,
+                                totalCount: playerData.length,
+                                condition: session.currentCondition.name,
+                                whiteTokensRemaining: GlobalTokenPool.whiteTokens,
+                                culturantsProduced: session.culturantsProduced || 0
+                            };
+                            
+                            // Send update only to the reconnecting player (not room-wide broadcast)
+                            existingPlayer.socket.emit('playerStatusUpdate', updateData);
+                            console.log(`📊 Targeted player status update sent to reconnecting player ${existingPlayer.username}`);
+                        }
+                        
+                        console.log(`✅ Restored game state for ${existingPlayer.username} - moderator: ${isModerator}, canVote: ${canVote}, turn: ${gameSession.turnBased ? GameSession.getCurrentTurnPlayer(room) : 'simultaneous'}`);
+                    }
+                } else {
+                    console.log(`❌ Restoration condition failed for ${existingPlayer.username}: not the reconnecting player`);
+                }
+            } else {
+                console.log(`⚠️ Skipping init emit for ${existingPlayer.username} - socket not available`);
+            }
         });
     }
 
@@ -2440,6 +3113,16 @@ Player.onDisconnect = function(socket, io){
     let player = Player.list[socket.id];
     if(!player)
         return;
+    
+    // For game sessions, preserve player state instead of deleting
+    if (player.room !== 'Global' && player.room !== mainChat) {
+        console.log(`🔌 Preserving player ${player.username} state in room ${player.room} for potential reconnection`);
+        player.socket = null; // Clear socket but keep all game data
+        console.log(`🔄 Preserved state: isLockedIn=${player.isLockedIn}, currentChoice=${player.currentChoice}, totalEarnings=${player.totalEarnings}`);
+        return; // Don't delete player or add to removePack
+    }
+    
+    // Only delete players from non-game rooms (Global chat, etc.)
     delete Player.list[socket.id];
     removePack.player.push(socket.id);
 
@@ -2847,6 +3530,32 @@ function processRound(roomName, gameSession) {
         whiteTokensRemaining: GlobalTokenPool.whiteTokens
     });
     
+    // Store round result for reconnection restoration
+    const roundResult = {
+        round: gameSession.currentRound,
+        selectedColumn: selectedColumn,
+        condition: {
+            name: gameSession.currentCondition.name,
+            whiteValue: gameSession.currentCondition.whiteTokenValue,
+            blackValue: gameSession.currentCondition.blackTokenValue,
+            maxPayout: gameSession.currentCondition.maxPayout
+        },
+        choices: roomPlayers.map(p => {
+            const pRow = parseInt(p.currentChoice);
+            return {
+                username: p.username,
+                choice: p.currentChoice,
+                rowType: pRow % 2 === 1 ? 'odd' : 'even',
+                isAI: p.isAI || false
+            };
+        }),
+        culturantProduced: culturantProduced,
+        whiteTokensRemaining: GlobalTokenPool.whiteTokens,
+        timestamp: new Date().toISOString()
+    };
+    gameSession.roundHistory.push(roundResult);
+    console.log(`📚 Saved round ${gameSession.currentRound} result to history`);
+    
     // Send round results to all human players
     roomPlayers.forEach(player => {
         if (player.socket) { // Only notify human players
@@ -2981,3 +3690,259 @@ function exportGameData(roomName) {
         dataLog: gameSession.dataLog
     };
 }
+
+/**
+ * Comprehensive Game State Restoration Function
+ * Sends all game elements to reconnecting players in an organized, extensible way.
+ * Add new game elements here to automatically include them in reconnection restoration.
+ */
+Player.sendCompleteGameState = function(player, roomName) {
+    console.log(`🎮 Starting comprehensive game state restoration for ${player.username} in room ${roomName}`);
+    
+    const gameSession = GameSessions[roomName];
+    if (!gameSession) {
+        console.log(`❌ No game session found for room ${roomName}`);
+        return;
+    }
+
+    // Get room data for restoration
+    const currentPlayersInRoom = Object.values(Player.list).filter(p => p.room === roomName);
+    const currentRoom = roomList.find(r => r.name === roomName);
+    const isPlayerTurn = gameSession.turnBased ? GameSession.getCurrentTurnPlayer(roomName) === player.username : true;
+    const currentTurnPlayer = gameSession.turnBased ? GameSession.getCurrentTurnPlayer(roomName) : null;
+    
+    // Determine moderator status safely
+    let isModerator = false;
+    try {
+        isModerator = currentRoom && player.username === currentRoom.creator;
+    } catch (error) {
+        console.log(`⚠️ Could not determine moderator status for ${player.username}, defaulting to false`);
+    }
+
+    console.log(`🔄 Restoring complete game state for: ${player.username} in room: ${roomName}`);
+    
+    // 1. BASIC GAME UI INITIALIZATION
+    console.log(`🎮 Step 1: Basic UI initialization`);
+    player.socket.emit('init', { 
+        selfId: player.id 
+    });
+    
+    player.socket.emit('triadComplete', {
+        roomName: roomName,
+        players: currentPlayersInRoom.map(p => ({
+            username: p.username,
+            isAI: p.isAI || false,
+            isModerator: false // Will be corrected in playersInRoom
+        }))
+    });
+
+    // 2. CORE GAME SESSION STATE
+    console.log(`🎯 Step 2: Core game session restoration`);
+    player.socket.emit('gameStateRestore', {
+        gameSession: {
+            roomName: roomName,
+            currentRound: gameSession.currentRound,
+            maxRounds: gameSession.maxRounds,
+            currentCondition: gameSession.currentCondition,
+            gameState: gameSession.gameState,
+            culturantsProduced: gameSession.culturantsProduced || 0,
+            selectedColumn: gameSession.selectedColumn,
+            turnBased: gameSession.turnBased,
+            turnOrder: gameSession.turnOrder,
+            roundChoices: gameSession.roundChoices || [],
+            sessionStartTime: gameSession.sessionStartTime
+        },
+        globalTokenPool: {
+            whiteTokens: GlobalTokenPool.whiteTokens,
+            blackTokens: GlobalTokenPool.blackTokens,
+            totalTokens: GlobalTokenPool.whiteTokens + GlobalTokenPool.blackTokens,
+            remainingPercentage: ((GlobalTokenPool.whiteTokens + GlobalTokenPool.blackTokens) / 2500) * 100
+        }
+    });
+
+    // 3. ALL PLAYER WALLETS AND STATUS (with slight delay)
+    console.log(`💰 Step 3: All player wallets restoration`);
+    setTimeout(() => {
+        const allPlayersWalletData = currentPlayersInRoom.map(roomPlayer => ({
+            username: roomPlayer.username,
+            whiteTokens: roomPlayer.whiteTokens || 0,
+            blackTokens: roomPlayer.blackTokens || 0,
+            totalEarnings: roomPlayer.totalEarnings || 0,
+            isAI: roomPlayer.isAI || false,
+            isModerator: currentRoom && roomPlayer.username === currentRoom.creator,
+            isLockedIn: roomPlayer.isLockedIn || false,
+            currentChoice: roomPlayer.currentChoice
+        }));
+        
+        player.socket.emit('allPlayersWalletRestore', {
+            players: allPlayersWalletData
+        });
+        console.log(`💰 Sent wallet data for ${allPlayersWalletData.length} players to ${player.username}`);
+    }, 100);
+
+    // 4. PLAYER LOCKED-IN STATES
+    console.log(`🔒 Step 4: Player lock-in states restoration`);
+    currentPlayersInRoom.forEach(roomPlayer => {
+        if (roomPlayer.isLockedIn && roomPlayer.currentChoice !== null) {
+            console.log(`📡 Restoring locked-in state for ${roomPlayer.username} (choice: ${roomPlayer.currentChoice})`);
+            player.socket.emit('playerLockedIn', {
+                username: roomPlayer.username,
+                row: roomPlayer.currentChoice,
+                isAI: roomPlayer.isAI,
+                showRowDetails: true,
+                currentTurnPlayer: currentTurnPlayer,
+                turnOrder: gameSession.turnOrder || [],
+                turnBased: gameSession.turnBased,
+                column: gameSession.selectedColumn
+            });
+        }
+    });
+
+    // 5. TURN SYSTEM STATE
+    console.log(`🔄 Step 5: Turn system restoration`);
+    if (gameSession.turnBased && currentTurnPlayer) {
+        player.socket.emit('turnUpdate', {
+            currentTurnPlayer: currentTurnPlayer,
+            turnOrder: gameSession.turnOrder,
+            round: gameSession.currentRound,
+            turnBased: gameSession.turnBased
+        });
+    }
+
+    // 6. ROUND HISTORY AND RESULTS - REMOVED (now handled by unified restoration)
+    console.log(`📚 Step 6: Round history restoration (handled by unified event)`);
+    // Round history is now included in the unified comprehensive data
+
+    // 7. CURRENT PLAYER CONTROLS AND STATUS
+    console.log(`🎮 Step 7: Player controls restoration`);
+    player.socket.emit('yourTurn', {
+        isYourTurn: isPlayerTurn,
+        isModerator: isModerator,
+        activePlayer: gameSession.turnBased ? currentTurnPlayer : 'All participants',
+        round: gameSession.currentRound,
+        turnBased: gameSession.turnBased,
+        turnOrder: gameSession.turnOrder,
+        condition: {
+            name: gameSession.currentCondition.name,
+            whiteValue: gameSession.currentCondition.whiteTokenValue,
+            blackValue: gameSession.currentCondition.blackTokenValue
+        },
+        grid: gameSession.grid,
+        playerPosition: player.triadPosition,
+        totalPlayers: currentPlayersInRoom.length,
+        whiteTokensRemaining: GlobalTokenPool.whiteTokens,
+        culturantsProduced: gameSession.culturantsProduced,
+        currentChoice: player.currentChoice,
+        isLockedIn: player.isLockedIn
+    });
+
+    // 8. FUTURE EXTENSIBILITY SECTION
+    // Add new game state elements here as they are implemented:
+    
+    // TODO: Achievement system restoration
+    // TODO: Player statistics restoration  
+    // TODO: Bonus conditions restoration
+    // TODO: Special events restoration
+    // TODO: Custom status trackers restoration
+    
+    // 9. UNIFIED COMPREHENSIVE RESTORATION (New approach)
+    console.log(`🔄 Step 9: Sending unified comprehensive restoration event`);
+    setTimeout(() => {
+        const comprehensiveData = {
+            // Game session data
+            gameSession: {
+                roomName: gameSession.roomName,
+                currentRound: gameSession.currentRound,
+                maxRounds: gameSession.maxRounds,
+                gameState: gameSession.gameState,
+                turnBased: gameSession.turnBased,
+                turnOrder: gameSession.turnOrder,
+                activePlayerIndex: gameSession.activePlayerIndex,
+                currentCondition: gameSession.currentCondition,
+                culturantsProduced: gameSession.culturantsProduced
+            },
+            
+            // Global token pool
+            globalTokenPool: {
+                whiteTokens: GlobalTokenPool.whiteTokens,
+                blackTokens: GlobalTokenPool.blackTokens
+            },
+            
+            // All players wallet data
+            playersWalletData: currentPlayersInRoom.map(p => ({
+                username: p.username,
+                whiteTokens: p.whiteTokens || 0,
+                blackTokens: p.blackTokens || 0,
+                totalEarnings: p.totalEarnings || 0,
+                isAI: p.isAI || false,
+                isModerator: p.isModerator || false
+            })),
+            
+            // Round history data - just the last completed round
+            lastRoundResult: gameSession.roundHistory && gameSession.roundHistory.length > 0 
+                ? gameSession.roundHistory[gameSession.roundHistory.length - 1] 
+                : null,
+            
+            // Turn system data
+            turnData: gameSession.turnBased ? {
+                currentTurnPlayer: currentTurnPlayer,
+                turnOrder: gameSession.turnOrder,
+                round: gameSession.currentRound,
+                turnBased: gameSession.turnBased,
+                isYourTurn: isPlayerTurn
+            } : null,
+            
+            // Player-specific data
+            playerData: {
+                username: player.username,
+                isYourTurn: isPlayerTurn,
+                isModerator: isModerator,
+                activePlayer: currentTurnPlayer,
+                round: gameSession.currentRound
+            }
+        };
+        
+        player.socket.emit('unifiedGameStateRestore', comprehensiveData);
+        console.log(`✅ Unified comprehensive restoration sent to ${player.username}`);
+    }, 300); // Delay to ensure it comes after other events
+    
+    console.log(`✅ Comprehensive game state restoration completed for ${player.username}`);
+    console.log(`📊 Restoration summary: ${currentPlayersInRoom.length} players, round ${gameSession.currentRound}/${gameSession.maxRounds}, ${gameSession.roundHistory?.length || 0} historical rounds`);
+};
+
+// Helper function to check if a room has an active game session
+Player.hasActiveGameSession = function(roomName) {
+    if (!roomName || roomName === 'Global') {
+        return false;
+    }
+    
+    const gameSession = GameSessions[roomName];
+    if (!gameSession) {
+        console.log(`🔍 No game session found for room "${roomName}"`);
+        return false;
+    }
+    
+    // Consider a game session active if:
+    // 1. It exists
+    // 2. Game state is not 'finished'  
+    // 3. Game has been started (currentRound > 0 or has players)
+    const isActive = gameSession.gameState !== 'finished' && 
+                    (gameSession.currentRound > 0 || 
+                     (gameSession.players && Object.keys(gameSession.players).length > 0));
+                    
+    console.log(`🔍 Checking active game session for room "${roomName}": ${isActive ? 'ACTIVE' : 'INACTIVE'}`);
+    console.log(`🔍 Game session details - State: ${gameSession.gameState}, Round: ${gameSession.currentRound || 0}, Players: ${gameSession.players ? Object.keys(gameSession.players).length : 0}`);
+    
+    if (isActive) {
+        console.log(`🎮 Active game details - State: ${gameSession.gameState}, Round: ${gameSession.currentRound}, Players: ${gameSession.players ? Object.keys(gameSession.players).length : 0}`);
+    }
+    
+    return isActive;
+};
+
+// Export the Player object so it can be used in other modules
+module.exports = {
+    Player: Player,
+    GameSession: GameSession,
+    hasActiveGameSession: Player.hasActiveGameSession
+};
