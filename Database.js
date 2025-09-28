@@ -1,4 +1,4 @@
-var USE_DB = false;
+var USE_DB = true;
 var mongojs = USE_DB ? require("mongojs") : null;
 
 // Smart connection with fallback: try ironman first, then localhost
@@ -44,11 +44,27 @@ Database.isValidPassword = function(data,cb){
 Database.isAdmin = function(data,cb){
     if(!USE_DB)
         return cb(false);
-    db.account.findOne({username:data.username,admin:"true"}, function(err,res){
-        if(res)
+    
+    // First, let's see what's actually in the database for this user
+    console.log(`🔍 Checking admin status for user: ${data.username}`);
+    db.account.findOne({username:data.username}, function(err,user){
+        if(user) {
+            console.log(`🔍 User found:`, user);
+            console.log(`🔍 Admin field value:`, user.admin, `(type: ${typeof user.admin})`);
+        } else {
+            console.log(`❌ User not found in database: ${data.username}`);
+        }
+    });
+    
+    // Check for admin status - try both string and boolean values
+    db.account.findOne({username:data.username}, function(err,res){
+        if(res && (res.admin === "true" || res.admin === true)) {
+            console.log(`✅ ${data.username} is confirmed admin`);
             cb(true);
-        else
+        } else {
+            console.log(`❌ ${data.username} is not admin`);
             cb(false);
+        }
     });
     
 }

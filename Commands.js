@@ -1,6 +1,7 @@
 // All chat commands are defined and maintained here
 
 const formatMessage = require("./utils/messages.js");
+const { getCurrentUser, getRoomUsers } = require("./utils/users.js");
 require('./Database.js');
 const botName = "Server"
 
@@ -33,7 +34,26 @@ class Commands {
             }
         },
         commands: {
-            desc: "Display NORMAL commands"
+            desc: "Display NORMAL commands",
+            execute(data) {
+                var socket = data.socket, param = data.param, io = data.io, player = data.player;
+                
+                // Build the commands list dynamically from the normal commands object
+                var commandList = "Available commands:\n";
+                
+                // Create a temporary Commands instance to access the objects
+                var tempCommands = new Commands("", "", null, null, null);
+                
+                for (let cmd in tempCommands.normal) {
+                    commandList += `/${cmd} - ${tempCommands.normal[cmd].desc}\n`;
+                }
+                
+                socket.emit("message", formatMessage({
+                    username: botName,
+                    text: commandList.trim(),
+                    type: "status",
+                }));
+            }
         }
     }
 
@@ -44,18 +64,72 @@ class Commands {
             desc: "Sends a server message to all players",
             execute(data) {
                 var socket = data.socket, param = data.param, io = data.io, player = data.player;
-                var time = process.uptime();
+                
+                if (!param || param.trim() === '') {
+                    socket.emit("message", formatMessage({
+                        username: botName,
+                        text: "Usage: /broadcast <message>",
+                        type: "status",
+                    }));
+                    return;
+                }
 
-                io.emit("message", formatMessage({
+                console.log(`📢 Broadcasting message from ${player.username}: "${param}"`);
+                console.log(`📢 Connected sockets count: ${io.sockets.sockets.size}`);
+                
+                const broadcastMessage = formatMessage({
                     username: botName,
-                    text: data.param,
+                    text: param,
                     type: "broadcast",
+                    admin: false,
+                    room: "Global"
+                });
+                
+                console.log(`📢 Broadcast message object:`, broadcastMessage);
+                
+                io.emit("message", broadcastMessage);
+                
+                console.log(`📢 io.emit() called successfully`);
+                
+                // Confirm to admin that broadcast was sent
+                socket.emit("message", formatMessage({
+                    username: botName,
+                    text: `✅ Broadcast sent to ${io.sockets.sockets.size} connected clients`,
+                    type: "status",
+                    admin: false
                 }));
             }
         },
 
         commands: {
-            desc: "Display ADMIN commands"
+            desc: "Display ADMIN commands",
+            execute(data) {
+                var socket = data.socket, param = data.param, io = data.io, player = data.player;
+                
+                // Build combined commands list dynamically for admins
+                var commandList = "Available commands:\n\n";
+                
+                // Create a temporary Commands instance to access the objects
+                var tempCommands = new Commands("", "", null, null, null);
+                
+                // First show normal commands
+                commandList += "NORMAL COMMANDS:\n";
+                for (let cmd in tempCommands.normal) {
+                    commandList += `/${cmd} - ${tempCommands.normal[cmd].desc}\n`;
+                }
+                
+                // Then show admin commands
+                commandList += "\nADMIN COMMANDS:\n";
+                for (let cmd in tempCommands.admin) {
+                    commandList += `/${cmd} - ${tempCommands.admin[cmd].desc}\n`;
+                }
+                
+                socket.emit("message", formatMessage({
+                    username: botName,
+                    text: commandList.trim(),
+                    type: "status",
+                }));
+            }
         },
 
         op: {
@@ -74,17 +148,24 @@ class Commands {
                                     type: "status",
                                 }));
 
-                                var opSocket = null;
-                                for (var i in Player.list)
-                                    if (Player.list[i].username === param)
-                                        opSocket = Player.list[i].socket;
-                                if (opSocket !== null) {
-                                    // If player is online, notify them that they are now an Admin
-                                    opSocket.emit("message", formatMessage({
-                                        username: botName,
-                                        text: '' + player.username + '' + ' made you an Admin! Use it wisely... ',
-                                        type: "status",
-                                    }));
+                                // Find and notify the target player if they're online
+                                // Use the users utility to find the correct socket
+                                let targetNotified = false;
+                                io.sockets.sockets.forEach((clientSocket) => {
+                                    const user = getCurrentUser(clientSocket.id);
+                                    if (user && user.username === param) {
+                                        clientSocket.emit("message", formatMessage({
+                                            username: botName,
+                                            text: '' + player.username + ' made you an Admin! Use it wisely... ',
+                                            type: "status",
+                                        }));
+                                        targetNotified = true;
+                                        console.log(`👑 Notified ${param} (socket: ${clientSocket.id}) that they were made admin by ${player.username}`);
+                                    }
+                                });
+                                
+                                if (!targetNotified) {
+                                    console.log(`👑 Made ${param} admin, but they are not currently online`);
                                 }
                             }
                             else {
@@ -124,17 +205,23 @@ class Commands {
                                     type: "status",
                                 }));
 
-                                var opSocket = null;
-                                for (var i in Player.list)
-                                    if (Player.list[i].username === param)
-                                        opSocket = Player.list[i].socket;
-                                if (opSocket !== null) {
-                                    // If player is online, notify them that they are now an Admin
-                                    opSocket.emit('message', formatMessage({
-                                        username: botName,
-                                        text: 'You are no longer an Admin',
-                                        type: 'status'
-                                    }));
+                                // Find and notify the target player if they're online
+                                let targetNotified = false;
+                                io.sockets.sockets.forEach((clientSocket) => {
+                                    const user = getCurrentUser(clientSocket.id);
+                                    if (user && user.username === param) {
+                                        clientSocket.emit('message', formatMessage({
+                                            username: botName,
+                                            text: 'You are no longer an Admin',
+                                            type: 'status'
+                                        }));
+                                        targetNotified = true;
+                                        console.log(`👑 Notified ${param} (socket: ${clientSocket.id}) that admin privileges were removed`);
+                                    }
+                                });
+                                
+                                if (!targetNotified) {
+                                    console.log(`👑 Removed admin from ${param}, but they are not currently online`);
                                 }
                             }
                             else {

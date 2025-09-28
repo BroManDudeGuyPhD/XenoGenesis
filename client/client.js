@@ -1036,9 +1036,39 @@ socket.on('signInResponse', function (data) {
             window.stopSpaceAnimationsOnLogin();
         }
         
-        // Don't automatically join Global - let session restoration handle room joining
-        // This prevents overwriting the session room before restoration can check for active games
-        // Login successful - session restoration will handle room joining
+        // Set a timeout to join Global chat if no session restoration occurs
+        let sessionRestorationHandled = false;
+        
+        const originalSessionHandler = socket._callbacks && socket._callbacks['sessionRestored'] && socket._callbacks['sessionRestored'][0];
+        if (originalSessionHandler) {
+            // Wrap the original handler to track if session restoration occurred
+            socket.off('sessionRestored');
+            socket.on('sessionRestored', function(sessionData) {
+                sessionRestorationHandled = true;
+                originalSessionHandler(sessionData);
+            });
+        }
+        
+        // Shorter timeout for faster login experience
+        setTimeout(() => {
+            if (!sessionRestorationHandled && !currentRoom) {
+                console.log('🌐 No session restoration - joining Global chat');
+                currentRoom = 'Global';
+                
+                // Update leave button visibility (hide for Global)
+                updateLeaveButtonVisibility();
+                
+                // Hide game interface for Global chat
+                const gameDiv = document.getElementById('gameDiv');
+                if (gameDiv) {
+                    gameDiv.style.display = 'none';
+                    console.log('🌐 Game UI hidden - joining Global chat');
+                }
+                
+                // Join Global chat
+                socket.emit('joinRoom', { room: 'Global' });
+            }
+        }, 100); // Reduced from 500ms to 100ms for faster login
     }
 
     else {
@@ -1391,12 +1421,19 @@ socket.on('playersInRoom', function(data) {
         const userIsModerator = moderatorPlayer && moderatorPlayer.username === currentUsername;
         const moderatorText = userIsModerator ? `You are the moderator` : '';
         
-        // Only show the triad formation popup if no game is in progress
-        // This prevents the popup from showing when players rejoin after refresh/logout
-        if (currentRoundNumber === 0) {
+        // Only show the triad formation popup if no game is in progress AND user is on game screen
+        // This prevents the popup from showing when players rejoin after refresh/logout or when on chat screen
+        const gameDiv = document.getElementById('gameDiv');
+        const isOnGameScreen = gameDiv && gameDiv.style.display !== 'none';
+        
+        if (currentRoundNumber === 0 && isOnGameScreen) {
             showTriadFormationPopup(playerCountText, moderatorText, data.players);
         } else {
-            console.log('🎮 Game in progress (round ' + currentRoundNumber + '), skipping triad formation popup');
+            if (currentRoundNumber > 0) {
+                console.log('🎮 Game in progress (round ' + currentRoundNumber + '), skipping triad formation popup');
+            } else if (!isOnGameScreen) {
+                console.log('📺 Not on game screen, skipping triad formation popup');
+            }
         }
     } else {
         console.log(`🚫 Ignoring playersInRoom for ${data.room} - current room is ${currentRoom}`);
@@ -1555,40 +1592,86 @@ function showGameInterface() {
 function outputMessage(message) {
 
 if(message.type == "broadcast"){
-    console.log("Broadcast")
-    //If message is a broadcast, send to ALL rooms
+    console.log("📢 Processing broadcast message:", message);
+    //If message is a broadcast, send to ALL rooms with special styling
     const div = document.createElement('div');
     div.id = message.username;
-    div.classList.add('message');
+    div.classList.add('message', 'broadcast-message');
+    
+    // Special broadcast styling
+    div.style.cssText = `
+        border: 2px solid #ff6b35;
+        border-radius: 8px;
+        background: linear-gradient(135deg, rgba(255, 107, 53, 0.1), rgba(255, 140, 0, 0.1));
+        margin: 8px 0;
+        padding: 12px;
+        box-shadow: 0 2px 8px rgba(255, 107, 53, 0.3);
+        position: relative;
+    `;
+    
+    // Add broadcast icon/indicator
+    const broadcastIcon = document.createElement('span');
+    broadcastIcon.innerHTML = '📢';
+    broadcastIcon.style.cssText = `
+        position: absolute;
+        top: -2px;
+        right: 8px;
+        font-size: 16px;
+        opacity: 0.7;
+    `;
+    div.appendChild(broadcastIcon);
+    
     const p = document.createElement('p');
     p.classList.add('meta');
-    p.innerText = message.username;
-    switch (message.admin) {
-        case true:
-            p.style.color = "magenta";
-            p.innerText = message.username + "  (admin)";
-            break;
-    }
-    p.innerHTML += `<span>  ${message.time}</span>`;
-    p.style.fontSize = "12px"
+    p.innerText = "Server Broadcast";
+    p.style.cssText = `
+        color: #ff6b35;
+        font-weight: bold;
+        font-size: 13px;
+        margin: 0 0 6px 0;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    `;
     div.appendChild(p);
+    
     const para = document.createElement('p');
     para.classList.add('text');
     para.innerText = message.text;
-    switch (message.type) {
-        case "status":
-            para.style.color = "green";
-            break;
-        case "broadcast":
-            para.style.color = "yellow";
-            break;
-        case "pm":
-            para.style.color = "magenta";
-            break;
+    para.style.cssText = `
+        color: #ff6b35;
+        font-weight: 600;
+        font-size: 14px;
+        margin: 0;
+        text-shadow: 0 1px 2px rgba(0,0,0,0.1);
+    `;
+    div.appendChild(para);
+    
+    // Add to both global and room chat with error checking
+    try {
+        if (globalChatMessages) {
+            const globalDiv = div.cloneNode(true);
+            globalChatMessages.appendChild(globalDiv);
+            console.log("📢 Broadcast added to global chat");
+        } else {
+            console.error("❌ globalChatMessages element not found");
+        }
+        
+        if (roomChatMessages) {
+            const roomDiv = div.cloneNode(true);
+            roomChatMessages.appendChild(roomDiv);
+            console.log("📢 Broadcast added to room chat");
+        } else {
+            console.error("❌ roomChatMessages element not found");
+        }
+        
+        // Auto-scroll both chat areas
+        if (globalChatMessages) globalChatMessages.scrollTop = globalChatMessages.scrollHeight;
+        if (roomChatMessages) roomChatMessages.scrollTop = roomChatMessages.scrollHeight;
+        
+    } catch (error) {
+        console.error("❌ Error displaying broadcast message:", error);
     }
-    div.appendChild(para)
-    document.getElementById("globalChatDiv").appendChild(div);
-    document.getElementById("roomChatDiv").appendChild(div);
+    
     return;
 }
 
@@ -1692,6 +1775,9 @@ function outputUsers(users) {
 socket.on("joinRoom", (room) => {
     currentRoom = room; // Ensure currentRoom is updated when server confirms room join
     
+    // Update leave button visibility based on room
+    updateLeaveButtonVisibility();
+    
     // Update room name display if elements are available
     if (roomNameText) {
         roomNameText.innerText = room;
@@ -1750,6 +1836,9 @@ socket.on('leftRoom', function(data) {
     // Reset game state
     gameActive = false;
     currentRoom = 'Global';
+    
+    // Update leave button visibility (hide for Global)
+    updateLeaveButtonVisibility();
     
     // Switch back to global chat
     if (globalChatMessages) globalChatMessages.style.display = "";
@@ -2907,6 +2996,20 @@ function updateDecisionGrid(gridData) {
     });
 }
 
+// Function to control leave button visibility
+function updateLeaveButtonVisibility() {
+    const leaveBtn = document.getElementById('leave-btn');
+    if (leaveBtn) {
+        if (currentRoom && currentRoom !== 'Global') {
+            leaveBtn.style.display = 'inline-block';
+            console.log(`👁️ Leave button shown for room: ${currentRoom}`);
+        } else {
+            leaveBtn.style.display = 'none';
+            console.log('👁️ Leave button hidden (in Global chat)');
+        }
+    }
+}
+
 // Set up event listeners for behavioral experiment
 document.addEventListener('DOMContentLoaded', function() {
     console.log('🔄 DOM loaded, initializing...');
@@ -2962,6 +3065,9 @@ document.addEventListener('DOMContentLoaded', function() {
     landingPage = document.getElementById('landingPage');
     backgroundIMG = document.getElementById('backgroundIMG');
 
+    // Initialize leave button visibility (hidden by default for Global)
+    updateLeaveButtonVisibility();
+    
     // Debug chat elements
     console.log('💬 Chat system initialization:');
     console.log('chatForm:', !!chatForm);
@@ -3392,6 +3498,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (gameDiv) gameDiv.style.display = 'none';
                 gameActive = false;
                 currentRoom = "Global";
+                
+                // Update leave button visibility (hide for Global)
+                updateLeaveButtonVisibility();
             }
             else {
                 console.log("🌍 Leaving global chat");

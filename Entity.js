@@ -16,6 +16,9 @@ const {
 const botName = "Server";
 const mainChat = "Global";
 
+// Track recent disconnections to suppress refresh spam notifications
+const recentDisconnections = new Map(); // username -> { timestamp, room, timeout }
+
 // Behavioral Economics Experiment State
 var GameSessions = {}; // Key: room name, Value: session data
 
@@ -1030,6 +1033,32 @@ Player.onConnect = function(socket,username,admin,io){
             socket.join(room);
             playerData.room = room;
 
+            // Check for quick reconnection (page refresh detection)
+            if (recentDisconnections.has(playerData.username)) {
+                const disconnectionData = recentDisconnections.get(playerData.username);
+                const timeSinceDisconnect = Date.now() - disconnectionData.timestamp;
+                
+                if (timeSinceDisconnect < 5000) { // 5 second window for reconnection
+                    console.log(`🔄 Quick reconnection detected for ${playerData.username} (${timeSinceDisconnect}ms) - suppressing leave/join messages`);
+                    
+                    // Cancel the delayed leave message
+                    if (disconnectionData.timeout) {
+                        clearTimeout(disconnectionData.timeout);
+                    }
+                    
+                    // Clean up tracking
+                    recentDisconnections.delete(playerData.username);
+                    
+                    // Skip join message for quick reconnections
+                    var skipJoinMessage = true;
+                } else {
+                    console.log(`🔄 Reconnection detected for ${playerData.username} but too slow (${timeSinceDisconnect}ms) - showing join message`);
+                    var skipJoinMessage = false;
+                }
+            } else {
+                var skipJoinMessage = false;
+            }
+
             // Welcome current user
             socket.emit("message", formatMessage({
                 username: botName,
@@ -1039,17 +1068,31 @@ Player.onConnect = function(socket,username,admin,io){
                 room: room
             }));
 
-            // Broadcast when a user connects
-            // io.emit() sends to EVERYONE, this omits the user who joined
-            socket.broadcast
-                .to(user.room)
-                .emit(
-                    "message", formatMessage({
-                        username: botName,
-                        text: `${playerData.username} has joined the chat`,
-                        type: "status",
-                        admin: "admin"
-                    }));
+            // Send detailed player info for poker table updates
+            const currentRoom = roomList.find(r => r.name === room);
+            const playersInRoom = Object.values(Player.list).filter(p => p.room === room);
+            const allRoomUsers = getRoomUsers(room);
+            
+            // Check if this is a reconnection (same username, different socket ID) for join message suppression
+            const isReconnectingUser = allRoomUsers.some(user => user.username === playerData.username && user.id !== socket.id);
+            
+            // Only broadcast join message if this is NOT a reconnection AND not a quick refresh
+            if (!isReconnectingUser && !skipJoinMessage) {
+                console.log(`📡 Broadcasting join message for ${playerData.username} (new join, not reconnection or refresh)`);
+                // Broadcast when a user connects
+                // io.emit() sends to EVERYONE, this omits the user who joined
+                socket.broadcast
+                    .to(user.room)
+                    .emit(
+                        "message", formatMessage({
+                            username: botName,
+                            text: `${playerData.username} has joined the chat`,
+                            type: "status",
+                            admin: "admin"
+                        }));
+            } else {
+                console.log(`🔄 Suppressing join message for ${playerData.username} (reconnection: ${isReconnectingUser}, refresh: ${skipJoinMessage})`);
+            }
 
             // Send users and room info
             io.to(user.room).emit("roomUsers", {
@@ -1058,11 +1101,6 @@ Player.onConnect = function(socket,username,admin,io){
                 usersCount: Player.getLength() 
             });
 
-            // Send detailed player info for poker table updates
-            const currentRoom = roomList.find(r => r.name === room);
-            const playersInRoom = Object.values(Player.list).filter(p => p.room === room);
-            const allRoomUsers = getRoomUsers(room);
-            
             // Create player list with moderator info
             const playersWithModerator = allRoomUsers.map(user => ({
                 username: user.username,
@@ -1264,21 +1302,24 @@ Player.onConnect = function(socket,username,admin,io){
 
         let commands = new Commands(command,param,io,playerData,socket);
 
-        //Logic to execute commands
-        if (command in commands.normal) {
-            commands.runNormalCommand();
-        }
-
-        else if (command in commands.admin) {
+        //Logic to execute commands - check admin status first for commands that exist in both
+        if (command in commands.admin) {
             //Check if user is admin
             Database.isAdmin({ username: playerData.username }, function (res) {
-                if (res !== true) {
+                if (res === true) {
+                    //Execute admin command if they are admin
+                    commands.runAdminCommand();
+                } else if (command in commands.normal) {
+                    //Fall back to normal command if they're not admin but command exists in normal
+                    commands.runNormalCommand();
+                } else {
                     console.log("NOT Admin " + playerData.username);
-                    return;
                 }
-                //Execute command if they are
-                commands.runAdminCommand();
             });
+        }
+
+        else if (command in commands.normal) {
+            commands.runNormalCommand();
         }
 
         else{
@@ -1310,16 +1351,43 @@ Player.onConnect = function(socket,username,admin,io){
         if (user) {
             console.log(`🔌 ${user.username} disconnected from room: ${user.room}`);
             
-            // Send leave message to the room the user was actually in
-            io.to(user.room).emit(
-                "message",
-                formatMessage({
-                    username: botName,
-                    text: `${user.username} has left the chat`,
-                    type: "status",
-                    room: user.room
-                })
-            );
+            // Store disconnection info and delay the leave message
+            const disconnectionData = {
+                timestamp: Date.now(),
+                room: user.room,
+                timeout: null
+            };
+            
+            // Cancel any existing timeout for this user
+            if (recentDisconnections.has(user.username)) {
+                const existingData = recentDisconnections.get(user.username);
+                if (existingData.timeout) {
+                    clearTimeout(existingData.timeout);
+                }
+            }
+            
+            // Set a delay before showing the leave message
+            disconnectionData.timeout = setTimeout(() => {
+                // Check if user is still disconnected (not reconnected)
+                if (recentDisconnections.has(user.username)) {
+                    console.log(`📤 Showing delayed leave message for ${user.username} (no quick reconnect detected)`);
+                    // Send leave message to the room the user was in
+                    io.to(user.room).emit(
+                        "message",
+                        formatMessage({
+                            username: botName,
+                            text: `${user.username} has left the chat`,
+                            type: "status",
+                            room: user.room
+                        })
+                    );
+                    
+                    // Clean up tracking
+                    recentDisconnections.delete(user.username);
+                }
+            }, 3000); // 3 second delay to detect quick reconnections (page refresh)
+            
+            recentDisconnections.set(user.username, disconnectionData);
             
             // Handle player in game sessions - PRESERVE player state for potential reconnection  
             const leavingPlayer = Object.values(Player.list).find(p => p.socket && p.socket.id === socket.id && p.room === user.room);
