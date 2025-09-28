@@ -53,12 +53,464 @@ socket.on('sessionInvalid', function(data) {
             if (chatContainer) chatContainer.style.display = 'none';
             if (gameDiv) gameDiv.style.display = 'none';
             
-            // Show alert to user
-            alert('Your session has expired. Please log in again.');
+            // Show custom session expired modal to user
+            showSessionExpiredModal();
         }
         // If user is already on login screen, don't show alert - they probably just refreshed
     }
 });
+
+// Function to create and show a glassmorphism session expired modal
+function showSessionExpiredModal() {
+    const modalHTML = `
+        <div id="sessionExpiredModal" class="modal" style="
+            background: rgba(0, 0, 0, 0.75);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            display: block;
+            z-index: 10000;
+        ">
+            <div class="modal-content animate" style="
+                max-width: 420px;
+                background: linear-gradient(145deg, 
+                    rgba(43, 45, 59, 0.98) 0%, 
+                    rgba(54, 57, 63, 0.95) 100%);
+                backdrop-filter: blur(20px);
+                -webkit-backdrop-filter: blur(20px);
+                border: 1px solid rgba(255, 255, 255, 0.15);
+                box-shadow: 
+                    0 20px 60px rgba(0, 0, 0, 0.5),
+                    0 8px 32px rgba(0, 0, 0, 0.3),
+                    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+                margin: 10% auto;
+                position: relative;
+            ">
+                <div class="imgcontainer" style="text-align: center; padding: 20px 20px 0 20px;">
+                    <span onclick="closeSessionExpiredModal()" 
+                          class="close"
+                          title="Close Modal"
+                          style="
+                              position: absolute;
+                              top: 15px;
+                              right: 20px;
+                              color: #b9bbbe;
+                              font-size: 28px;
+                              font-weight: bold;
+                              cursor: pointer;
+                              transition: all 0.2s ease;
+                          "
+                          onmouseover="this.style.color='#ffffff'; this.style.transform='scale(1.1)'"
+                          onmouseout="this.style.color='#b9bbbe'; this.style.transform='scale(1)'">&times;</span>
+                </div>
+
+                <div class="container" style="text-align: center; padding: 30px;">
+                    <div style="
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        gap: 10px;
+                        margin-bottom: 8px;
+                    ">
+                        <div style="
+                            width: 3px;
+                            height: 3px;
+                            background: linear-gradient(135deg, #f39c12, #e67e22);
+                            border-radius: 50%;
+                            animation: subtlePulse 2s infinite;
+                        "></div>
+                        <h3 style="
+                            color: #dcddde; 
+                            font-weight: 600; 
+                            font-size: 20px;
+                            margin: 0;
+                            background: linear-gradient(135deg, #e74c3c, #f39c12);
+                            -webkit-background-clip: text;
+                            -webkit-text-fill-color: transparent;
+                            background-clip: text;
+                        ">Session Expired</h3>
+                        <div style="
+                            width: 3px;
+                            height: 3px;
+                            background: linear-gradient(135deg, #f39c12, #e67e22);
+                            border-radius: 50%;
+                            animation: subtlePulse 2s infinite;
+                        "></div>
+                    </div>
+                    
+                    <div style="
+                        font-size: 48px;
+                        margin-bottom: 16px;
+                        opacity: 0.8;
+                    ">🔒</div>
+                    
+                    <p style="
+                        color: #b9bbbe; 
+                        margin-bottom: 24px; 
+                        font-size: 14px;
+                        opacity: 0.9;
+                        line-height: 1.5;
+                    ">Your session has expired for security purposes.<br>Please log in again to continue.</p>
+                    
+                    <div style="display: flex; gap: 12px; justify-content: center;">
+                        <button type="button" 
+                                onclick="closeSessionExpiredModal(); document.getElementById('id01').style.display='block';"
+                                style="
+                                    background: linear-gradient(135deg, rgba(67, 181, 129, 0.9) 0%, rgba(52, 168, 107, 0.9) 100%);
+                                    color: white;
+                                    padding: 12px 20px;
+                                    border: none;
+                                    border-radius: 7px;
+                                    cursor: pointer;
+                                    font-weight: 500;
+                                    font-size: 14px;
+                                    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+                                    box-shadow: 0 3px 8px rgba(67, 181, 129, 0.3);
+                                    display: flex;
+                                    align-items: center;
+                                    gap: 6px;
+                                "
+                                onmouseover="
+                                    this.style.background='linear-gradient(135deg, rgba(52, 168, 107, 0.95) 0%, rgba(39, 174, 96, 0.95) 100%)';
+                                    this.style.transform='translateY(-1px)';
+                                    this.style.boxShadow='0 4px 12px rgba(67, 181, 129, 0.4)';
+                                "
+                                onmouseout="
+                                    this.style.background='linear-gradient(135deg, rgba(67, 181, 129, 0.9) 0%, rgba(52, 168, 107, 0.9) 100%)';
+                                    this.style.transform='translateY(0)';
+                                    this.style.boxShadow='0 3px 8px rgba(67, 181, 129, 0.3)';
+                                ">
+                            <span style="font-size: 12px;">🔑</span>
+                            Log In Again
+                        </button>
+                        <button type="button" 
+                                onclick="closeSessionExpiredModal()"
+                                style="
+                                    background: rgba(114, 118, 125, 0.15);
+                                    color: #b9bbbe;
+                                    padding: 12px 20px;
+                                    border: 1px solid rgba(114, 118, 125, 0.4);
+                                    border-radius: 7px;
+                                    cursor: pointer;
+                                    font-size: 14px;
+                                    font-weight: 500;
+                                    transition: all 0.2s ease;
+                                    backdrop-filter: blur(10px);
+                                    display: flex;
+                                    align-items: center;
+                                    gap: 6px;
+                                "
+                                onmouseover="
+                                    this.style.background='rgba(114, 118, 125, 0.25)';
+                                    this.style.color='#dcddde';
+                                    this.style.borderColor='rgba(114, 118, 125, 0.6)';
+                                    this.style.transform='translateY(-1px)';
+                                "
+                                onmouseout="
+                                    this.style.background='rgba(114, 118, 125, 0.15)';
+                                    this.style.color='#b9bbbe';
+                                    this.style.borderColor='rgba(114, 118, 125, 0.4)';
+                                    this.style.transform='translateY(0)';
+                                ">
+                            <span style="font-size: 12px;">✖️</span>
+                            Dismiss
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
+}
+
+// Function to close the session expired modal
+function closeSessionExpiredModal() {
+    const modal = document.getElementById('sessionExpiredModal');
+    if (modal) {
+        modal.remove();
+    }
+}
+
+// Function to create and show a glassmorphism alert modal
+function showGlassmorphismAlert(title, message, type = 'info', onConfirm = null) {
+    // Remove any existing alert modal
+    const existingModal = document.getElementById('glassmorphismAlertModal');
+    if (existingModal) {
+        existingModal.remove();
+    }
+
+    // Set colors and icons based on type
+    let gradient, icon;
+    switch(type) {
+        case 'success':
+            gradient = 'linear-gradient(135deg, #27ae60, #2ecc71)';
+            icon = '✅';
+            break;
+        case 'error':
+            gradient = 'linear-gradient(135deg, #e74c3c, #c0392b)';
+            icon = '❌';
+            break;
+        case 'warning':
+            gradient = 'linear-gradient(135deg, #f39c12, #e67e22)';
+            icon = '⚠️';
+            break;
+        default:
+            gradient = 'linear-gradient(135deg, #667aff, #7386ff)';
+            icon = 'ℹ️';
+            break;
+    }
+
+    const modalHTML = `
+        <div id="glassmorphismAlertModal" class="modal" style="
+            background: rgba(0, 0, 0, 0.75);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            display: block;
+            z-index: 10001;
+        ">
+            <div class="modal-content animate" style="
+                max-width: 400px;
+                background: linear-gradient(145deg, 
+                    rgba(43, 45, 59, 0.98) 0%, 
+                    rgba(54, 57, 63, 0.95) 100%);
+                backdrop-filter: blur(20px);
+                -webkit-backdrop-filter: blur(20px);
+                border: 1px solid rgba(255, 255, 255, 0.15);
+                box-shadow: 
+                    0 20px 60px rgba(0, 0, 0, 0.5),
+                    0 8px 32px rgba(0, 0, 0, 0.3),
+                    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+                margin: 15% auto;
+                position: relative;
+            ">
+                <div class="container" style="text-align: center; padding: 30px;">
+                    <div style="
+                        font-size: 36px;
+                        margin-bottom: 12px;
+                        opacity: 0.9;
+                    ">${icon}</div>
+                    
+                    <h3 style="
+                        color: #dcddde; 
+                        font-weight: 600; 
+                        font-size: 18px;
+                        margin: 0 0 12px 0;
+                        background: ${gradient};
+                        -webkit-background-clip: text;
+                        -webkit-text-fill-color: transparent;
+                        background-clip: text;
+                    ">${title}</h3>
+                    
+                    <p style="
+                        color: #b9bbbe; 
+                        margin-bottom: 24px; 
+                        font-size: 14px;
+                        opacity: 0.9;
+                        line-height: 1.4;
+                    ">${message}</p>
+                    
+                    <button type="button" 
+                            onclick="closeGlassmorphismAlert(); ${onConfirm ? onConfirm : ''}"
+                            style="
+                                background: ${gradient};
+                                color: white;
+                                padding: 10px 20px;
+                                border: none;
+                                border-radius: 7px;
+                                cursor: pointer;
+                                font-weight: 500;
+                                font-size: 14px;
+                                transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+                                box-shadow: 0 3px 8px rgba(0, 0, 0, 0.3);
+                                display: flex;
+                                align-items: center;
+                                gap: 6px;
+                                margin: 0 auto;
+                            "
+                            onmouseover="
+                                this.style.transform='translateY(-1px)';
+                                this.style.boxShadow='0 4px 12px rgba(0, 0, 0, 0.4)';
+                            "
+                            onmouseout="
+                                this.style.transform='translateY(0)';
+                                this.style.boxShadow='0 3px 8px rgba(0, 0, 0, 0.3)';
+                            ">
+                        OK
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
+}
+
+// Function to close the glassmorphism alert modal
+function closeGlassmorphismAlert() {
+    const modal = document.getElementById('glassmorphismAlertModal');
+    if (modal) {
+        modal.remove();
+    }
+}
+
+// Function to create and show the triad formation status popup
+function showTriadFormationPopup(playerCount, playerPosition, playersInRoom) {
+    // Remove any existing triad popup
+    const existingPopup = document.getElementById('triadFormationPopup');
+    if (existingPopup) {
+        existingPopup.remove();
+    }
+
+    // Create player list HTML
+    let playerListHTML = '';
+    if (playersInRoom && playersInRoom.length > 0) {
+        playerListHTML = playersInRoom.map(player => {
+            const aiIndicator = player.isAI ? ' 🤖' : '';
+            const moderatorIndicator = player.isModerator ? ' 👑' : '';
+            return `<div style="
+                color: ${player.isModerator ? '#9b59b6' : (player.isAI ? '#faa61a' : '#7289da')};
+                font-size: 14px;
+                margin: 4px 0;
+                padding: 4px 8px;
+                background: rgba(54, 57, 63, 0.3);
+                border-radius: 4px;
+                backdrop-filter: blur(5px);
+            ">${player.username}${aiIndicator}${moderatorIndicator}</div>`;
+        }).join('');
+    } else {
+        playerListHTML = '<div style="color: #b9bbbe; font-size: 14px; opacity: 0.7;">No players in room</div>';
+    }
+
+    const popupHTML = `
+        <div id="triadFormationPopup" style="
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            width: 300px;
+            background: linear-gradient(145deg, 
+                rgba(43, 45, 59, 0.95) 0%, 
+                rgba(54, 57, 63, 0.92) 100%);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 10px;
+            padding: 16px;
+            box-shadow: 
+                0 10px 30px rgba(0, 0, 0, 0.4),
+                0 4px 16px rgba(0, 0, 0, 0.2),
+                inset 0 1px 0 rgba(255, 255, 255, 0.1);
+            z-index: 1000;
+            animation: slideInRight 0.3s ease-out;
+        ">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                <div style="
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                ">
+                    <div style="
+                        width: 3px;
+                        height: 3px;
+                        background: linear-gradient(135deg, #667aff, #7386ff);
+                        border-radius: 50%;
+                        animation: subtlePulse 2s infinite;
+                    "></div>
+                    <h4 style="
+                        color: #dcddde;
+                        margin: 0;
+                        font-size: 16px;
+                        font-weight: 600;
+                        background: linear-gradient(135deg, #dcddde, #ffffff);
+                        -webkit-background-clip: text;
+                        -webkit-text-fill-color: transparent;
+                        background-clip: text;
+                    ">Triad Formation</h4>
+                    <div style="
+                        width: 3px;
+                        height: 3px;
+                        background: linear-gradient(135deg, #667aff, #7386ff);
+                        border-radius: 50%;
+                        animation: subtlePulse 2s infinite;
+                    "></div>
+                </div>
+                <button onclick="closeTriadFormationPopup()" style="
+                    background: none;
+                    border: none;
+                    color: #b9bbbe;
+                    font-size: 18px;
+                    cursor: pointer;
+                    padding: 2px 6px;
+                    border-radius: 4px;
+                    transition: all 0.2s ease;
+                " onmouseover="this.style.color='#ffffff'; this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.color='#b9bbbe'; this.style.background='none'">×</button>
+            </div>
+            
+            <div style="
+                color: #b9bbbe;
+                font-size: 13px;
+                margin-bottom: 12px;
+                text-align: center;
+                opacity: 0.8;
+            ">${playerCount}</div>
+            
+            ${playerPosition ? `<div style="
+                color: #7289da;
+                font-size: 12px;
+                margin-bottom: 12px;
+                text-align: center;
+                font-weight: 500;
+            ">${playerPosition}</div>` : ''}
+            
+            <div style="
+                max-height: 150px;
+                overflow-y: auto;
+                padding-right: 4px;
+            ">
+                <div style="color: #ffffff; font-size: 13px; font-weight: 500; margin-bottom: 8px;">Players:</div>
+                ${playerListHTML}
+            </div>
+        </div>
+        
+        <style>
+            @keyframes slideInRight {
+                from {
+                    transform: translateX(100%);
+                    opacity: 0;
+                }
+                to {
+                    transform: translateX(0);
+                    opacity: 1;
+                }
+            }
+            
+            @keyframes slideOutRight {
+                from {
+                    transform: translateX(0);
+                    opacity: 1;
+                }
+                to {
+                    transform: translateX(100%);
+                    opacity: 0;
+                }
+            }
+        </style>
+    `;
+    
+    document.body.insertAdjacentHTML('beforeend', popupHTML);
+}
+
+// Function to close the triad formation popup
+function closeTriadFormationPopup() {
+    const popup = document.getElementById('triadFormationPopup');
+    if (popup) {
+        popup.style.animation = 'slideOutRight 0.3s ease-in';
+        setTimeout(() => {
+            if (popup.parentNode) {
+                popup.remove();
+            }
+        }, 300);
+    }
+}
 
 // Function to perform session restoration
 function performSessionRestore(data) {
@@ -431,10 +883,6 @@ function clearPokerTable() {
     // Clear player list
     const playerListDiv = document.getElementById('playerList');
     if (playerListDiv) playerListDiv.innerHTML = '<strong>Players in room:</strong><br>None';
-    
-    // Clear player count
-    const playerCountSpan = document.getElementById('playerCount');
-    if (playerCountSpan) playerCountSpan.textContent = 'No players';
 }
 
 function updatePokerTable(gameSession, currentTurnPlayer = null) {
@@ -595,16 +1043,16 @@ socket.on('signInResponse', function (data) {
 
     else {
         console.error('❌ Login failed:', data);
-        alert("Sign in unsuccessful.");
+        showGlassmorphismAlert('Login Failed', 'Sign in unsuccessful. Please check your credentials and try again.', 'error');
     }
 });
 
 socket.on('signUpResponse', function (data) {
     if (data.success) {
-        alert("Sign up successul.");
+        showGlassmorphismAlert('Account Created!', 'Sign up successful. You can now log in with your new account.', 'success');
     }
     else
-        alert("Sign up unsuccessul.");
+        showGlassmorphismAlert('Sign Up Failed', 'Sign up unsuccessful. This username may already be taken.', 'error');
 });
 
 // Get room and users
@@ -931,14 +1379,24 @@ socket.on('playersInRoom', function(data) {
             playerListDiv.innerHTML = `<strong>Players in room:</strong><br>${usernames.join('<br>')}`;
         }
         
-        // Update player count - moderator + 3 participants needed
-        const playerCountSpan = document.getElementById('playerCount');
-        if (playerCountSpan) {
-            const participantCount = participantPlayers.length;
-            const totalCount = data.players.length;
-            playerCountSpan.textContent = participantCount >= 3 ? 
-                `Triad Complete! (${totalCount} total: 1 moderator + ${participantCount} participants)` : 
-                `Need ${3 - participantCount} more players... (${totalCount} total: 1 moderator + ${participantCount} participants)`;
+        // Show triad formation popup with current status
+        const participantCount = participantPlayers.length;
+        const totalCount = data.players.length;
+        const playerCountText = participantCount >= 3 ? 
+            `Triad Complete! (${totalCount} total: 1 moderator + ${participantCount} participants)` : 
+            `Need ${3 - participantCount} more players... (${totalCount} total: 1 moderator + ${participantCount} participants)`;
+        
+        // Find moderator for position info
+        const moderatorPlayer = data.players.find(p => p.isModerator);
+        const userIsModerator = moderatorPlayer && moderatorPlayer.username === currentUsername;
+        const moderatorText = userIsModerator ? `You are the moderator` : '';
+        
+        // Only show the triad formation popup if no game is in progress
+        // This prevents the popup from showing when players rejoin after refresh/logout
+        if (currentRoundNumber === 0) {
+            showTriadFormationPopup(playerCountText, moderatorText, data.players);
+        } else {
+            console.log('🎮 Game in progress (round ' + currentRoundNumber + '), skipping triad formation popup');
         }
     } else {
         console.log(`🚫 Ignoring playersInRoom for ${data.room} - current room is ${currentRoom}`);
@@ -1456,6 +1914,9 @@ socket.on('triadComplete', function(data) {
     console.log('🎯 Triad complete!', data);
     console.log('🎯 Full triadComplete data:', data);
     
+    // Close the triad formation popup immediately when triad is complete
+    closeTriadFormationPopup();
+    
     // DEBUG: Check if poker table elements exist when triadComplete is received
     console.log('🔍 DOM Check at triadComplete:');
     console.log('  - leftPlayer exists:', !!document.getElementById('leftPlayer'));
@@ -1465,10 +1926,6 @@ socket.on('triadComplete', function(data) {
     
     // Update player position and status
     document.getElementById('playerPosition').textContent = `You are Player ${data.playerPosition}`;
-    
-    // Update player count text based on data
-    const totalPlayers = data.gameSession ? data.gameSession.totalPlayers || 3 : 3;
-    document.getElementById('playerCount').textContent = `Players ready: ${totalPlayers}/3`;
     
     // Update poker table with player positions (preserve active player highlighting)
     console.log('🎯 About to call updatePokerTable with:', data.gameSession);
@@ -1535,9 +1992,6 @@ socket.on('triadComplete', function(data) {
 // AI players added
 socket.on('aiPlayersAdded', function(data) {
     console.log('🤖 AI players added:', data);
-    
-    // Update the player count display
-    document.getElementById('playerCount').textContent = `Players: ${data.totalPlayers}/3 (${data.totalPlayers - data.aiCount} human, ${data.aiCount} AI)`;
     
     // Hide the Add AI button since we're now at capacity
     const addAIBtn = document.getElementById('addAIBtn');
@@ -1791,6 +2245,9 @@ socket.on('yourTurn', function(data) {
 // New round started
 socket.on('newRound', function(data) {
     console.log('🔄 New round started:', data);
+    
+    // Close the triad formation popup when game starts
+    closeTriadFormationPopup();
     
     // Update current round tracking
     currentRoundNumber = data.round;
@@ -2242,19 +2699,22 @@ socket.on('experimentEnd', function(data) {
     
     document.getElementById('finalStats').innerHTML = statsHTML;
     
+    // Reset round number so triad popup can show again for next game
+    currentRoundNumber = 0;
+    
     // Store export data for later use
     window.experimentData = data.exportData;
 });
 
 // Room full error
 socket.on('roomFull', function(data) {
-    alert(data.message);
+    showGlassmorphismAlert('Room Full', data.message || 'This room has reached its maximum capacity.', 'warning');
     console.log('❌ Room full:', data.message);
 });
 
 // Generic error handler
 socket.on('error', function(data) {
-    alert(`Error: ${data.message}`);
+    showGlassmorphismAlert('Server Error', data.message || 'An unexpected error occurred.', 'error');
     console.log('❌ Server error:', data);
 });
 
@@ -2579,6 +3039,259 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
+    // Custom Join Room Modal Function
+    function showJoinRoomModal() {
+        // Create modal if it doesn't exist
+        let joinModal = document.getElementById('joinRoomModal');
+        if (!joinModal) {
+            createJoinRoomModal();
+            joinModal = document.getElementById('joinRoomModal');
+        }
+        
+        // Clear any existing input value
+        const roomInput = document.getElementById('joinRoomInput');
+        if (roomInput) {
+            roomInput.value = '';
+            roomInput.focus();
+        }
+        
+        // Show modal
+        joinModal.style.display = 'block';
+    }
+
+    function createJoinRoomModal() {
+        const modalHTML = `
+            <div id="joinRoomModal" class="modal" style="
+                background: rgba(0, 0, 0, 0.75);
+                backdrop-filter: blur(8px);
+                -webkit-backdrop-filter: blur(8px);
+            ">
+                <div class="modal-content animate" style="
+                    max-width: 400px;
+                    background: linear-gradient(145deg, 
+                        rgba(43, 45, 59, 0.98) 0%, 
+                        rgba(54, 57, 63, 0.95) 100%);
+                    backdrop-filter: blur(20px);
+                    -webkit-backdrop-filter: blur(20px);
+                    border: 1px solid rgba(255, 255, 255, 0.15);
+                    box-shadow: 
+                        0 20px 60px rgba(0, 0, 0, 0.5),
+                        0 8px 32px rgba(0, 0, 0, 0.3),
+                        inset 0 1px 0 rgba(255, 255, 255, 0.1);
+                ">
+                    <div class="imgcontainer">
+                        <span onclick="document.getElementById('joinRoomModal').style.display='none'" 
+                              class="close" 
+                              title="Close Modal"
+                              style="
+                                  color: #b9bbbe;
+                                  font-size: 28px;
+                                  transition: all 0.2s ease;
+                              "
+                              onmouseover="this.style.color='#ffffff'; this.style.transform='scale(1.1)'"
+                              onmouseout="this.style.color='#b9bbbe'; this.style.transform='scale(1)'">&times;</span>
+                    </div>
+
+                    <div class="container" style="text-align: center; padding: 30px;">
+                        <div style="
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            gap: 10px;
+                            margin-bottom: 8px;
+                        ">
+                            <div style="
+                                width: 3px;
+                                height: 3px;
+                                background: linear-gradient(135deg, #667aff, #7386ff);
+                                border-radius: 50%;
+                                animation: subtlePulse 2s infinite;
+                            "></div>
+                            <h3 style="
+                                color: #dcddde; 
+                                font-weight: 600; 
+                                font-size: 18px;
+                                margin: 0;
+                                background: linear-gradient(135deg, #dcddde, #ffffff);
+                                -webkit-background-clip: text;
+                                -webkit-text-fill-color: transparent;
+                                background-clip: text;
+                            ">Join Room</h3>
+                            <div style="
+                                width: 3px;
+                                height: 3px;
+                                background: linear-gradient(135deg, #667aff, #7386ff);
+                                border-radius: 50%;
+                                animation: subtlePulse 2s infinite;
+                            "></div>
+                        </div>
+                        
+                        <p style="
+                            color: #b9bbbe; 
+                            margin-bottom: 24px; 
+                            font-size: 13px;
+                            opacity: 0.8;
+                            line-height: 1.4;
+                        ">Enter the name of the room you'd like to join</p>
+                        
+                        <div style="position: relative; margin-bottom: 24px;">
+                            <input type="text" 
+                                   id="joinRoomInput" 
+                                   placeholder="Room name..." 
+                                   style="
+                                       width: 100%;
+                                       padding: 14px 16px;
+                                       background: rgba(32, 34, 37, 0.8);
+                                       border: 1px solid rgba(114, 118, 125, 0.4);
+                                       border-radius: 8px;
+                                       color: #dcddde;
+                                       font-size: 14px;
+                                       font-weight: 400;
+                                       transition: all 0.3s ease;
+                                       box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.2);
+                                       backdrop-filter: blur(10px);
+                                   "
+                                   onfocus="
+                                       this.style.borderColor='rgba(102, 122, 255, 0.6)';
+                                       this.style.boxShadow='inset 0 1px 3px rgba(0, 0, 0, 0.2), 0 0 0 3px rgba(102, 122, 255, 0.15)';
+                                   "
+                                   onblur="
+                                       this.style.borderColor='rgba(114, 118, 125, 0.4)';
+                                       this.style.boxShadow='inset 0 1px 3px rgba(0, 0, 0, 0.2)';
+                                   "
+                                   onkeypress="if(event.key === 'Enter') document.getElementById('joinRoomConfirm').click()"
+                            >
+                        </div>
+                        
+                        <div style="display: flex; gap: 12px; justify-content: center;">
+                            <button type="button" 
+                                    id="joinRoomConfirm"
+                                    style="
+                                        background: linear-gradient(135deg, rgba(67, 181, 129, 0.9) 0%, rgba(52, 168, 107, 0.9) 100%);
+                                        color: white;
+                                        padding: 11px 18px;
+                                        border: none;
+                                        border-radius: 7px;
+                                        cursor: pointer;
+                                        font-weight: 500;
+                                        font-size: 13px;
+                                        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+                                        box-shadow: 0 3px 8px rgba(67, 181, 129, 0.3);
+                                        display: flex;
+                                        align-items: center;
+                                        gap: 6px;
+                                    "
+                                    onmouseover="
+                                        this.style.background='linear-gradient(135deg, rgba(52, 168, 107, 0.95) 0%, rgba(39, 174, 96, 0.95) 100%)';
+                                        this.style.transform='translateY(-1px)';
+                                        this.style.boxShadow='0 4px 12px rgba(67, 181, 129, 0.4)';
+                                    "
+                                    onmouseout="
+                                        this.style.background='linear-gradient(135deg, rgba(67, 181, 129, 0.9) 0%, rgba(52, 168, 107, 0.9) 100%)';
+                                        this.style.transform='translateY(0)';
+                                        this.style.boxShadow='0 3px 8px rgba(67, 181, 129, 0.3)';
+                                    ">
+                                <span style="font-size: 12px;">🚪</span>
+                                Join Room
+                            </button>
+                            <button type="button" 
+                                    onclick="document.getElementById('joinRoomModal').style.display='none'"
+                                    style="
+                                        background: rgba(114, 118, 125, 0.15);
+                                        color: #b9bbbe;
+                                        padding: 11px 18px;
+                                        border: 1px solid rgba(114, 118, 125, 0.4);
+                                        border-radius: 7px;
+                                        cursor: pointer;
+                                        font-size: 13px;
+                                        font-weight: 400;
+                                        transition: all 0.2s ease;
+                                        backdrop-filter: blur(10px);
+                                    "
+                                    onmouseover="
+                                        this.style.background='rgba(114, 118, 125, 0.25)';
+                                        this.style.color='#dcddde';
+                                        this.style.borderColor='rgba(114, 118, 125, 0.6)';
+                                    "
+                                    onmouseout="
+                                        this.style.background='rgba(114, 118, 125, 0.15)';
+                                        this.style.color='#b9bbbe';
+                                        this.style.borderColor='rgba(114, 118, 125, 0.4)';
+                                    ">
+                                Cancel
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        document.body.insertAdjacentHTML('beforeend', modalHTML);
+        
+        // Set up event handlers and focus on input
+        const confirmBtn = document.getElementById('joinRoomConfirm');
+        const roomInput = document.getElementById('joinRoomInput');
+        const joinModal = document.getElementById('joinRoomModal');
+        
+        // Focus on the input field after modal is created
+        if (roomInput) {
+            setTimeout(() => {
+                roomInput.focus();
+            }, 100); // Small delay to ensure modal is fully rendered
+        }
+        
+        if (confirmBtn && roomInput) {
+            confirmBtn.onclick = function() {
+                const roomName = roomInput.value.trim();
+                if (roomName) {
+                    socket.emit('joinRoom', roomName);
+                    currentRoom = roomName;
+                    joinModal.style.display = 'none';
+                } else {
+                    // Enhanced error feedback with better styling
+                    roomInput.style.animation = 'shake 0.3s ease-in-out';
+                    roomInput.style.borderColor = 'rgba(218, 86, 79, 0.8)';
+                    roomInput.style.boxShadow = 'inset 0 1px 3px rgba(0, 0, 0, 0.2), 0 0 0 3px rgba(218, 86, 79, 0.2)';
+                    
+                    // Add a subtle error message
+                    let errorMsg = roomInput.nextElementSibling;
+                    if (!errorMsg || !errorMsg.classList.contains('error-msg')) {
+                        errorMsg = document.createElement('div');
+                        errorMsg.classList.add('error-msg');
+                        errorMsg.style.cssText = `
+                            color: rgba(218, 86, 79, 0.9);
+                            font-size: 12px;
+                            margin-top: 6px;
+                            opacity: 0;
+                            transition: opacity 0.2s ease;
+                        `;
+                        errorMsg.textContent = 'Please enter a room name';
+                        roomInput.parentNode.appendChild(errorMsg);
+                    }
+                    errorMsg.style.opacity = '1';
+                    
+                    setTimeout(() => {
+                        roomInput.style.animation = '';
+                        roomInput.style.borderColor = 'rgba(114, 118, 125, 0.4)';
+                        roomInput.style.boxShadow = 'inset 0 1px 3px rgba(0, 0, 0, 0.2)';
+                        if (errorMsg) {
+                            errorMsg.style.opacity = '0';
+                            setTimeout(() => errorMsg.remove(), 200);
+                        }
+                    }, 2500);
+                    roomInput.focus();
+                }
+            };
+        }
+        
+        // Close modal when clicking outside
+        window.addEventListener('click', function(event) {
+            if (event.target === joinModal) {
+                joinModal.style.display = 'none';
+            }
+        });
+    }
+
     if (signDivPassword) {
         signDivPassword.addEventListener("keypress", function (event) {
             if (event.key === "Enter" && signDivSignIn) {
@@ -2670,6 +3383,10 @@ document.addEventListener('DOMContentLoaded', function() {
             if(currentRoom && currentRoom !== "Global"){
                 socket.emit('leaveRoom', currentRoom);
                 
+                // Reset game state and close triad popup when leaving room
+                currentRoundNumber = 0;
+                closeTriadFormationPopup();
+                
                 // Hide game interface and return to chat
                 const gameDiv = document.getElementById('gameDiv');
                 if (gameDiv) gameDiv.style.display = 'none';
@@ -2701,11 +3418,7 @@ document.addEventListener('DOMContentLoaded', function() {
     if (joinRoomButton) {
         joinRoomButton.addEventListener('click', (e) => {
             e.preventDefault(); // Prevent default link behavior
-            let roomName = prompt("Enter room name", '');
-            socket.emit('joinRoom', roomName);
-            if (roomName) {
-                currentRoom = roomName; // Update current room tracking
-            }
+            showJoinRoomModal();
         });
     }
 
@@ -3067,7 +3780,7 @@ function toggleTestingPanel() {
 function sendSystemMessage() {
     const messageText = document.getElementById('systemMessageText').value.trim();
     if (!messageText) {
-        alert('Please enter a message to send.');
+        showGlassmorphismAlert('Missing Message', 'Please enter a message to send.', 'warning');
         return;
     }
     
@@ -3500,21 +4213,32 @@ function updateTurnDisplay(turnData) {
         turnDisplay = document.createElement('div');
         turnDisplay.id = 'turnDisplay';
         turnDisplay.style.cssText = `
-            position: fixed;
-            top: 20px;
-            left: 20px;
+            position: absolute;
+            top: -60px;
+            left: 50%;
+            transform: translateX(-50%);
             background: rgba(72, 47, 247, 0.9);
             color: white;
-            padding: 12px 20px;
+            padding: 8px 16px;
             border-radius: 8px;
             font-family: 'Inter', sans-serif;
-            font-size: 14px;
+            font-size: 13px;
             z-index: 1000;
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
             border: 2px solid rgba(92, 63, 255, 0.5);
+            white-space: nowrap;
         `;
-        document.body.appendChild(turnDisplay);
-        console.log(`✅ turnDisplay element created and added to DOM`);
+        
+        // Anchor it to the decision grid container or create a container for it
+        const decisionGridContainer = document.getElementById('decisionGridContainer');
+        if (decisionGridContainer) {
+            decisionGridContainer.style.position = 'relative';
+            decisionGridContainer.appendChild(turnDisplay);
+            console.log(`✅ turnDisplay anchored to decision grid container`);
+        } else {
+            document.body.appendChild(turnDisplay);
+            console.log(`⚠️ decision grid container not found, appending to body`);
+        }
     } else {
         console.log(`🎯 Using existing turnDisplay element`);
     }
@@ -3531,15 +4255,16 @@ function updateTurnDisplay(turnData) {
         // Add glow effect if it's the current user's turn
         if (isMyTurn) {
             turnDisplay.style.cssText = `
-                position: fixed;
-                top: 20px;
-                left: 20px;
+                position: absolute;
+                top: -60px;
+                left: 50%;
+                transform: translateX(-50%);
                 background: linear-gradient(145deg, rgba(67, 181, 129, 0.95), rgba(52, 144, 103, 0.95));
                 color: white;
-                padding: 12px 20px;
+                padding: 8px 16px;
                 border-radius: 8px;
                 font-family: 'Inter', sans-serif;
-                font-size: 14px;
+                font-size: 13px;
                 z-index: 1000;
                 box-shadow: 
                     0 0 25px rgba(67, 181, 129, 0.8),
@@ -3547,27 +4272,29 @@ function updateTurnDisplay(turnData) {
                     0 4px 12px rgba(0, 0, 0, 0.3);
                 border: 2px solid rgba(67, 181, 129, 0.9);
                 animation: pulseGlow 2s infinite alternate;
+                white-space: nowrap;
             `;
         } else {
             turnDisplay.style.cssText = `
-                position: fixed;
-                top: 20px;
-                left: 20px;
+                position: absolute;
+                top: -60px;
+                left: 50%;
+                transform: translateX(-50%);
                 background: rgba(72, 47, 247, 0.9);
                 color: white;
-                padding: 12px 20px;
+                padding: 8px 16px;
                 border-radius: 8px;
                 font-family: 'Inter', sans-serif;
-                font-size: 14px;
+                font-size: 13px;
                 z-index: 1000;
                 box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
                 border: 2px solid rgba(92, 63, 255, 0.5);
+                white-space: nowrap;
             `;
         }
         
         const displayHTML = `
-            <div style="font-weight: 600; margin-bottom: 4px;">${isMyTurn ? '🎯 YOUR TURN!' : '🎯 Current Turn'}</div>
-            <div style="font-size: 16px; color: ${isMyTurn ? '#ffffff' : '#faa61a'};">${turnData.currentTurnPlayer}</div>
+            <div style="font-weight: 600; font-size: 12px;">${isMyTurn ? '🎯 YOUR TURN' : `🎯 ${turnData.currentTurnPlayer}'s Turn`}</div>
         `;
         turnDisplay.innerHTML = displayHTML;
         turnDisplay.style.display = 'block';

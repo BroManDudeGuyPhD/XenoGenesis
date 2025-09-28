@@ -48,32 +48,268 @@
     </header>
 
 
-    <div id="id01" class="modal">
-        <div class="modal-content animate">
+    <div id="id01" class="modal" style="
+        background: rgba(0, 0, 0, 0.75);
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+    ">
+        <div class="modal-content animate" style="
+            max-width: 420px;
+            background: linear-gradient(145deg, 
+                rgba(43, 45, 59, 0.98) 0%, 
+                rgba(54, 57, 63, 0.95) 100%);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            box-shadow: 
+                0 20px 60px rgba(0, 0, 0, 0.5),
+                0 8px 32px rgba(0, 0, 0, 0.3),
+                inset 0 1px 0 rgba(255, 255, 255, 0.1);
+        ">
             <div class="imgcontainer">
-                <span onclick="document.getElementById('id01').style.display='none'" class="close"
-                    title="Close Modal">&times;</span>
+                <span onclick="document.getElementById('id01').style.display='none'" 
+                      class="close"
+                      title="Close Modal"
+                      style="
+                          color: #b9bbbe;
+                          font-size: 28px;
+                          transition: all 0.2s ease;
+                      "
+                      onmouseover="this.style.color='#ffffff'; this.style.transform='scale(1.1)'"
+                      onmouseout="this.style.color='#b9bbbe'; this.style.transform='scale(1)'">&times;</span>
                 <!-- <img src="../../img/favicon.png" alt="Avatar" class="avatar"> -->
             </div>
 
-            <div class="container">
-                <label for="uname"><b>Username</b></label>
-                <input type="text" placeholder="Enter Username" id="username"name="uname" required>
+            <div class="container" style="text-align: center; padding: 30px;">
+                <div style="
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    gap: 10px;
+                    margin-bottom: 8px;
+                ">
+                    <div style="
+                        width: 3px;
+                        height: 3px;
+                        background: linear-gradient(135deg, #667aff, #7386ff);
+                        border-radius: 50%;
+                        animation: subtlePulse 2s infinite;
+                    "></div>
+                    <h3 style="
+                        color: #dcddde; 
+                        font-weight: 600; 
+                        font-size: 20px;
+                        margin: 0;
+                        background: linear-gradient(135deg, #dcddde, #ffffff);
+                        -webkit-background-clip: text;
+                        -webkit-text-fill-color: transparent;
+                        background-clip: text;
+                    ">Welcome to XenoGenesis</h3>
+                    <div style="
+                        width: 3px;
+                        height: 3px;
+                        background: linear-gradient(135deg, #667aff, #7386ff);
+                        border-radius: 50%;
+                        animation: subtlePulse 2s infinite;
+                    "></div>
+                </div>
+                
+                <p style="
+                    color: #b9bbbe; 
+                    margin-bottom: 24px; 
+                    font-size: 13px;
+                    opacity: 0.8;
+                    line-height: 1.4;
+                ">Sign in to access the game platform</p>
+                
+                <div style="text-align: left; margin-bottom: 16px;">
+                    <label for="uname" style="
+                        color: #dcddde;
+                        font-weight: 500;
+                        font-size: 13px;
+                        margin-bottom: 6px;
+                        display: block;
+                    "><b>Username</b></label>
+                    <input type="text" 
+                           placeholder="Enter Username" 
+                           id="username" 
+                           name="uname" 
+                           required
+                           style="
+                               width: 100%;
+                               padding: 14px 16px;
+                               background: rgba(32, 34, 37, 0.8);
+                               border: 1px solid rgba(114, 118, 125, 0.4);
+                               border-radius: 8px;
+                               color: #dcddde;
+                               font-size: 14px;
+                               font-weight: 400;
+                               transition: all 0.3s ease;
+                               box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.2);
+                               backdrop-filter: blur(10px);
+                               box-sizing: border-box;
+                           "
+                           onfocus="
+                               this.style.borderColor='rgba(102, 122, 255, 0.6)';
+                               this.style.boxShadow='inset 0 1px 3px rgba(0, 0, 0, 0.2), 0 0 0 3px rgba(102, 122, 255, 0.15)';
+                           "
+                           onblur="
+                               this.style.borderColor='rgba(114, 118, 125, 0.4)';
+                               this.style.boxShadow='inset 0 1px 3px rgba(0, 0, 0, 0.2)';
+                           "
+                    >
+                </div>
 
-                <label for="psw"><b>Password</b></label>
-                <input type="password" placeholder="Enter Password" id="password" name="psw" required>
+                <div style="text-align: left; margin-bottom: 24px;">
+                    <label for="psw" style="
+                        color: #dcddde;
+                        font-weight: 500;
+                        font-size: 13px;
+                        margin-bottom: 6px;
+                        display: block;
+                    "><b>Password</b></label>
+                    <input type="password" 
+                           placeholder="Enter Password" 
+                           id="password" 
+                           name="psw" 
+                           required
+                           style="
+                               width: 100%;
+                               padding: 14px 16px;
+                               background: rgba(32, 34, 37, 0.8);
+                               border: 1px solid rgba(114, 118, 125, 0.4);
+                               border-radius: 8px;
+                               color: #dcddde;
+                               font-size: 14px;
+                               font-weight: 400;
+                               transition: all 0.3s ease;
+                               box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.2);
+                               backdrop-filter: blur(10px);
+                               box-sizing: border-box;
+                           "
+                           onfocus="
+                               this.style.borderColor='rgba(102, 122, 255, 0.6)';
+                               this.style.boxShadow='inset 0 1px 3px rgba(0, 0, 0, 0.2), 0 0 0 3px rgba(102, 122, 255, 0.15)';
+                           "
+                           onblur="
+                               this.style.borderColor='rgba(114, 118, 125, 0.4)';
+                               this.style.boxShadow='inset 0 1px 3px rgba(0, 0, 0, 0.2)';
+                           "
+                           onkeypress="if(event.key === 'Enter') document.getElementById('signIn').click()"
+                    >
+                </div>
 
-                <button type="button" id="signIn" class="btn">Login</button>
-                <button type="button" id="signUp" class="btn">Sign Up</button>
-                <label>
-                    <input type="checkbox" checked="checked" name="remember"> Remember me
+                <div style="display: flex; gap: 12px; justify-content: center; margin-bottom: 20px;">
+                    <button type="button" id="signIn" style="
+                        background: linear-gradient(135deg, rgba(67, 181, 129, 0.9) 0%, rgba(52, 168, 107, 0.9) 100%);
+                        color: white;
+                        padding: 12px 20px;
+                        border: none;
+                        border-radius: 7px;
+                        cursor: pointer;
+                        font-weight: 500;
+                        font-size: 14px;
+                        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+                        box-shadow: 0 3px 8px rgba(67, 181, 129, 0.3);
+                        display: flex;
+                        align-items: center;
+                        gap: 6px;
+                    "
+                    onmouseover="
+                        this.style.background='linear-gradient(135deg, rgba(52, 168, 107, 0.95) 0%, rgba(39, 174, 96, 0.95) 100%)';
+                        this.style.transform='translateY(-1px)';
+                        this.style.boxShadow='0 4px 12px rgba(67, 181, 129, 0.4)';
+                    "
+                    onmouseout="
+                        this.style.background='linear-gradient(135deg, rgba(67, 181, 129, 0.9) 0%, rgba(52, 168, 107, 0.9) 100%)';
+                        this.style.transform='translateY(0)';
+                        this.style.boxShadow='0 3px 8px rgba(67, 181, 129, 0.3)';
+                    ">
+                        <span style="font-size: 12px;">🔐</span>
+                        Login
+                    </button>
+                    <button type="button" id="signUp" style="
+                        background: rgba(114, 118, 125, 0.15);
+                        color: #b9bbbe;
+                        padding: 12px 20px;
+                        border: 1px solid rgba(114, 118, 125, 0.4);
+                        border-radius: 7px;
+                        cursor: pointer;
+                        font-size: 14px;
+                        font-weight: 500;
+                        transition: all 0.2s ease;
+                        backdrop-filter: blur(10px);
+                        display: flex;
+                        align-items: center;
+                        gap: 6px;
+                    "
+                    onmouseover="
+                        this.style.background='rgba(114, 118, 125, 0.25)';
+                        this.style.color='#dcddde';
+                        this.style.borderColor='rgba(114, 118, 125, 0.6)';
+                        this.style.transform='translateY(-1px)';
+                    "
+                    onmouseout="
+                        this.style.background='rgba(114, 118, 125, 0.15)';
+                        this.style.color='#b9bbbe';
+                        this.style.borderColor='rgba(114, 118, 125, 0.4)';
+                        this.style.transform='translateY(0)';
+                    ">
+                        <span style="font-size: 12px;">✨</span>
+                        Sign Up
+                    </button>
+                </div>
+                
+                <label style="
+                    color: #b9bbbe;
+                    font-size: 12px;
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                    justify-content: center;
+                    opacity: 0.7;
+                    margin-bottom: 16px;
+                ">
+                    <input type="checkbox" checked="checked" name="remember" style="
+                        accent-color: rgba(102, 122, 255, 0.8);
+                        transform: scale(0.9);
+                    "> 
+                    Remember me
                 </label>
             </div>
 
-            <div class="container" style="background-color:#f1f1f1">
-                <button type="button" onclick="document.getElementById('id01').style.display='none'"
-                    class="cancelbtn">Cancel</button>
-                <span class="psw">Forgot <a href="#">password?</a></span>
+            <div class="container" style="
+                background: linear-gradient(135deg, rgba(241, 241, 241, 0.05), rgba(241, 241, 241, 0.02));
+                border-top: 1px solid rgba(255, 255, 255, 0.08);
+                backdrop-filter: blur(10px);
+                padding: 20px 30px;
+                text-align: center;
+            ">
+                <button type="button" 
+                        onclick="document.getElementById('id01').style.display='none'"
+                        style="
+                            background: rgba(218, 86, 79, 0.1);
+                            color: rgba(218, 86, 79, 0.9);
+                            padding: 8px 16px;
+                            border: 1px solid rgba(218, 86, 79, 0.3);
+                            border-radius: 6px;
+                            cursor: pointer;
+                            font-size: 12px;
+                            font-weight: 400;
+                            transition: all 0.2s ease;
+                            margin-right: 16px;
+                        "
+                        onmouseover="
+                            this.style.background='rgba(218, 86, 79, 0.15)';
+                            this.style.borderColor='rgba(218, 86, 79, 0.5)';
+                        "
+                        onmouseout="
+                            this.style.background='rgba(218, 86, 79, 0.1)';
+                            this.style.borderColor='rgba(218, 86, 79, 0.3)';
+                        ">Cancel</button>
+                <span class="psw" style="color: #b9bbbe; font-size: 12px; opacity: 0.7;">
+                    Forgot <a href="#" style="color: rgba(102, 122, 255, 0.8); text-decoration: none;">password?</a>
+                </span>
             </div>
         </div>
     </div>
@@ -84,17 +320,8 @@
 
     <!-- Game Interface Container (initially hidden) -->
     <div id="gameDiv" style="display: none; width: 100%; max-width: 1200px; margin: 20px auto;">
-        <!-- Behavioral Economics Experiment Interface -->
+        <!-- Game Interface -->
         <div id="experimentContainer" style="width: 100%; background-color: #36393f; padding: 20px; border-radius: 10px; box-sizing: border-box;">
-            
-            <!-- Header with experiment info -->
-            <div id="experimentHeader" style="background-color: #40444b; padding: 15px; border-radius: 5px; margin-bottom: 20px;">
-                <h2 style="color: #ffffff; margin: 0; text-align: center;">Behavioral Economics Experiment</h2>
-                <div id="triadStatus" style="color: #b9bbbe; text-align: center; margin-top: 10px;">
-                    <span id="playerCount">Waiting for players...</span>
-                    <span id="playerPosition" style="margin-left: 20px;"></span>
-                </div>
-            </div>
 
             <!-- Experiment Status Panel -->
             <div id="statusPanel" style="display: flex; gap: 20px; margin-bottom: 20px;">
@@ -527,6 +754,27 @@
                             0% { box-shadow: 0 0 0 0 rgba(88, 101, 242, 0.3); }
                             70% { box-shadow: 0 0 0 6px rgba(88, 101, 242, 0); }
                             100% { box-shadow: 0 0 0 0 rgba(88, 101, 242, 0); }
+                        }
+                        
+                        @keyframes pulseGlow {
+                            0% { 
+                                box-shadow: 
+                                    0 0 25px rgba(67, 181, 129, 0.8),
+                                    0 0 50px rgba(67, 181, 129, 0.4),
+                                    0 4px 12px rgba(0, 0, 0, 0.3);
+                            }
+                            100% { 
+                                box-shadow: 
+                                    0 0 35px rgba(67, 181, 129, 1),
+                                    0 0 70px rgba(67, 181, 129, 0.6),
+                                    0 6px 16px rgba(0, 0, 0, 0.4);
+                            }
+                        }
+                        
+                        @keyframes shake {
+                            0%, 100% { transform: translateX(0); }
+                            10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
+                            20%, 40%, 60%, 80% { transform: translateX(5px); }
                         }
                         
                         #lockInBtn:disabled {

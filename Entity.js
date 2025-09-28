@@ -1708,13 +1708,26 @@ Player.onConnect = function(socket,username,admin,io){
         const humanPlayers = roomPlayers.filter(player => !player.isAI);
         const aiPlayers = roomPlayers.filter(player => player.isAI);
         
-        // Calculate how many AI players we can add
-        const maxPlayers = 3; // Triad formation
-        const spotsLeft = maxPlayers - roomPlayers.length;
-        const maxAI = Math.min(spotsLeft, AIConfig.maxAIPlayers - aiPlayers.length);
+        // Smart triad formation logic
+        const maxTriadSize = 3; // Triad formation requires exactly 3 players (excluding moderator)
+        const currentTotalPlayers = roomPlayers.length; // Current human + AI players
+        
+        // Calculate how many AI players are needed to reach triad formation
+        const aiPlayersNeeded = Math.max(0, maxTriadSize - currentTotalPlayers);
+        
+        // Ensure we don't exceed the configured AI limit
+        const maxAI = Math.min(aiPlayersNeeded, AIConfig.maxAIPlayers - aiPlayers.length);
         
         if (maxAI <= 0) {
-            socket.emit('systemMessage', { message: 'Cannot add more AI players - room is full or AI limit reached' });
+            if (currentTotalPlayers >= maxTriadSize) {
+                socket.emit('systemMessage', { 
+                    message: `Triad formation complete - room already has ${currentTotalPlayers} players (${humanPlayers.length} human, ${aiPlayers.length} AI)` 
+                });
+            } else {
+                socket.emit('systemMessage', { 
+                    message: 'Cannot add more AI players - AI limit reached' 
+                });
+            }
             return;
         }
         
@@ -1765,12 +1778,16 @@ Player.onConnect = function(socket,username,admin,io){
             players: playersWithModerator
         });
         
-        // Send success message
+        // Send success message with detailed information
+        const finalTotalPlayers = currentTotalPlayers + maxAI;
+        const finalHumanPlayers = humanPlayers.length;
+        const finalAIPlayers = aiPlayers.length + maxAI;
+        
         socket.emit('systemMessage', { 
-            message: `Successfully added ${maxAI} AI player(s) to room ${room}` 
+            message: `Successfully added ${maxAI} AI player(s) to room ${room}. Triad formation: ${finalTotalPlayers}/3 players (${finalHumanPlayers} human, ${finalAIPlayers} AI)` 
         });
         
-        console.log(`🤖 Successfully added ${maxAI} AI players to room ${room}`);
+        console.log(`🤖 Successfully added ${maxAI} AI players to room ${room}. Final count: ${finalTotalPlayers} total (${finalHumanPlayers} human, ${finalAIPlayers} AI)`);
     });
 
     socket.on('requestRoomState', (data) => {
