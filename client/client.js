@@ -1,4 +1,39 @@
-// Variables
+// Store user admin status globally so we can use it for invite visibility
+let isGlobalAdmin = false;
+
+// Function to update invite card visibility based on admin/moderator status  
+function updateInviteVisibility() {
+    const inviteCard = document.getElementById('invite-card');
+    const inviteFab = document.getElementById('invite-fab');
+    
+    // Show invite options if user is either:
+    // 1. Global admin (can invite anywhere including Global chat)  
+    // 2. Room moderator in current room (can invite to their room)
+    const shouldShowInvite = isGlobalAdmin || (currentRoom && currentRoom !== 'Global' && isCurrentRoomModerator());
+    
+    console.log(`🔑 INVITE VISIBILITY DEBUG:`);
+    console.log(`   - isGlobalAdmin: ${isGlobalAdmin}`);
+    console.log(`   - currentRoom: ${currentRoom}`);
+    console.log(`   - isCurrentRoomModerator(): ${isCurrentRoomModerator()}`);
+    console.log(`   - shouldShowInvite: ${shouldShowInvite}`);
+    
+    if (inviteCard) {
+        inviteCard.style.display = shouldShowInvite ? 'block' : 'none';
+        console.log(`🔑 Invite card display set to: ${inviteCard.style.display}`);
+    } else {
+        console.log(`❌ Invite card element not found!`);
+    }
+    
+    if (inviteFab) {
+        inviteFab.style.display = shouldShowInvite ? 'block' : 'none';
+    }
+}
+
+// Function to check if current user is moderator of current room
+function isCurrentRoomModerator() {
+    // This will be set by the playersInRoom handler
+    return window.currentUserIsModerator || false;
+}
 const socket = io();
 
 // Store pending token updates to apply after players return to poker table positions
@@ -1217,19 +1252,13 @@ socket.on('signInResponse', function (data) {
         console.log('Signed in as:', currentUsername);
         
         // Store admin status and update UI
-        const isAdmin = data.isAdmin || false;
+        isGlobalAdmin = data.isAdmin || false;
         console.log(`🔍 SignInResponse data:`, data);
         console.log(`🔍 Admin status received: ${data.isAdmin} (type: ${typeof data.isAdmin})`);
-        console.log(`🔍 Processed isAdmin: ${isAdmin}`);
+        console.log(`🔍 Stored isGlobalAdmin: ${isGlobalAdmin}`);
         
-        const inviteButton = document.getElementById('invite-btn');
-        console.log(`🔍 Invite button element:`, inviteButton);
-        if (inviteButton) {
-            inviteButton.style.display = isAdmin ? 'block' : 'none';
-            console.log(`👑 Admin status: ${isAdmin} - Invite button ${isAdmin ? 'shown' : 'hidden'}`);
-        } else {
-            console.log('❌ Invite button not found in DOM');
-        }
+        // Update invite visibility based on global admin status
+        updateInviteVisibility();
         
         //signDiv.style.display = 'none';
         landingPage.style.display = "none";
@@ -1300,15 +1329,11 @@ socket.on('signUpResponse', function (data) {
             console.log('Signed up and logged in as:', currentUsername);
             
             // Store the admin status and update UI like a normal sign-in
-            const isAdmin = data.isAdmin || false;
-            console.log(`🔍 SignUpResponse with autoLogin - Admin status: ${isAdmin}`);
+            isGlobalAdmin = data.isAdmin || false;
+            console.log(`🔍 SignUpResponse with autoLogin - Admin status: ${isGlobalAdmin}`);
             
-            const inviteButton = document.getElementById('invite-btn');
-            console.log(`🔍 Invite button element:`, inviteButton);
-            if (inviteButton) {
-                inviteButton.style.display = isAdmin ? 'block' : 'none';
-                console.log(`👑 Admin status: ${isAdmin} - Invite button ${isAdmin ? 'shown' : 'hidden'}`);
-            }
+            // Update invite visibility based on global admin status
+            updateInviteVisibility();
             
             // Hide landing page and show chat interface
             landingPage.style.display = "none";
@@ -1510,6 +1535,10 @@ socket.on('playersInRoom', function(data) {
             isCurrentUserModerator: isCurrentUserModerator,
             data: data
         });
+        
+        // Store moderator status globally and update invite visibility
+        window.currentUserIsModerator = isCurrentUserModerator;
+        updateInviteVisibility();
         
         // Show/hide "Start Experiment" button based on moderator status
         const startExperimentBtn = document.getElementById('startExperimentBtn');
@@ -1922,6 +1951,16 @@ function showGameInterface() {
     }
     
     gameActive = true;
+    document.body.classList.add('game-active');
+    
+    // Hide create room and join room buttons when game becomes active
+    if (createRoomButton) {
+        createRoomButton.style.display = 'none';
+    }
+    if (joinRoomButton) {
+        joinRoomButton.style.display = 'none';
+    }
+    
     console.log('🎮 Game interface setup complete');
 }
 
@@ -2150,8 +2189,22 @@ socket.on('leftRoom', function(data) {
     
     // Hide game interface and return to chat
     const gameDiv = document.getElementById('gameDiv');
+    const landingPage = document.getElementById('landingPage');
+    
     if (gameDiv) {
         gameDiv.style.display = 'none';
+        console.log('✅ Game interface hidden');
+    }
+    
+    // Show landing page and chat container when returning to Global
+    if (landingPage) {
+        landingPage.style.display = 'block';
+        console.log('✅ Landing page shown');
+    }
+    
+    if (chatDiv) {
+        chatDiv.style.display = '';  // Use empty string like the login handlers
+        console.log('✅ Chat container shown');
     }
     
     // Clear the poker table completely
@@ -2166,13 +2219,18 @@ socket.on('leftRoom', function(data) {
     if (aiBtn) aiBtn.style.display = 'none';
     if (addAIBtn) addAIBtn.remove(); // Remove dynamically created button
     
-    // Show create/join room buttons again
-    if (createRoomButton) createRoomButton.style.display = 'inline-block';
-    if (joinRoomButton) joinRoomButton.style.display = 'inline-block';
-    
-    // Reset game state
+    // Reset game state FIRST (before showing cards)
     gameActive = false;
+    document.body.classList.remove('game-active');
     currentRoom = 'Global';
+    
+    // Show create/join room cards again (now that game-active class is removed)
+    if (createRoomButton) createRoomButton.style.display = 'block';
+    if (joinRoomButton) joinRoomButton.style.display = 'block';
+    
+    // Clear room moderator status and update invite visibility
+    window.currentUserIsModerator = false;
+    updateInviteVisibility();
     
     // Update leave button visibility (hide for Global)
     updateLeaveButtonVisibility();
@@ -2280,6 +2338,17 @@ socket.on('init', function(data) {
         gameDiv.style.display = 'inline-block';
         gameActive = true; // Mark game as active
         
+        // Add game-active class to body for styling
+        document.body.classList.add('game-active');
+        
+        // Hide create room and join room buttons when game is active
+        if (createRoomButton) {
+            createRoomButton.style.display = 'none';
+        }
+        if (joinRoomButton) {
+            joinRoomButton.style.display = 'none';
+        }
+        
         // Clear existing players before adding new ones
         Player.list = {};
         
@@ -2299,6 +2368,17 @@ socket.on('init', function(data) {
         gameDiv.style.display = 'none';
         gameActive = false; // Mark game as inactive
         Player.list = {};
+        
+        // Remove game-active class from body
+        document.body.classList.remove('game-active');
+        
+        // Show create room and join room buttons when game is not active (if in appropriate context)
+        if (createRoomButton && currentRoom !== "Global") {
+            createRoomButton.style.display = 'block';
+        }
+        if (joinRoomButton && currentRoom !== "Global") {
+            joinRoomButton.style.display = 'block';
+        }
     }
 });
 
@@ -3333,16 +3413,16 @@ function updateDecisionGrid(gridData) {
     });
 }
 
-// Function to control leave button visibility
+// Function to control leave card visibility
 function updateLeaveButtonVisibility() {
-    const leaveBtn = document.getElementById('leave-btn');
-    if (leaveBtn) {
+    const leaveCard = document.getElementById('leave-card');
+    if (leaveCard) {
         if (currentRoom && currentRoom !== 'Global') {
-            leaveBtn.style.display = 'inline-block';
-            console.log(`👁️ Leave button shown for room: ${currentRoom}`);
+            leaveCard.style.display = 'block';
+            console.log(`👁️ Leave card shown for room: ${currentRoom}`);
         } else {
-            leaveBtn.style.display = 'none';
-            console.log('👁️ Leave button hidden (in Global chat)');
+            leaveCard.style.display = 'none';
+            console.log('👁️ Leave card hidden (in Global chat)');
         }
     }
 }
@@ -3389,9 +3469,9 @@ document.addEventListener('DOMContentLoaded', function() {
     // Initialize UI elements  
     modal = document.getElementById('id01');
     loginButton = document.getElementById('loginNav');
-    createRoomButton = document.getElementById('create-btn');
-    joinRoomButton = document.getElementById('join-btn');
-    inviteButton = document.getElementById('invite-btn');
+    createRoomButton = document.getElementById('create-card');
+    joinRoomButton = document.getElementById('join-card');
+    inviteButton = document.getElementById('invite-card');
 
     // Initialize login elements
     signDiv = document.getElementById('signDiv');
@@ -3436,9 +3516,57 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     if (loginButton) {
+        console.log('🔑 Primary login button found - adding mobile support');
+        
+        let touchStartedOnLogin = false;
+        
+        // Add touch event handlers for mobile
+        loginButton.addEventListener('touchstart', function(e) {
+            console.log('📱 Touch started on primary login button');
+            touchStartedOnLogin = true;
+            // Visual feedback
+            this.style.background = 'linear-gradient(135deg, #16a34a 0%, #22c55e 100%)';
+            this.style.transform = 'scale(0.95)';
+        }, { passive: false });
+        
+        loginButton.addEventListener('touchend', function(e) {
+            console.log('📱 Touch ended on primary login button');
+            if (touchStartedOnLogin) {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                // Reset visual feedback
+                this.style.background = 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)';
+                this.style.transform = 'scale(1)';
+                
+                // Open modal
+                console.log('📱 Opening login modal from mobile touch');
+                if (modal) modal.style.display='block';
+                if (signDivUsername) signDivUsername.focus();
+                
+                touchStartedOnLogin = false;
+            }
+        }, { passive: false });
+        
+        // Handle touch cancel
+        loginButton.addEventListener('touchcancel', function(e) {
+            console.log('📱 Touch cancelled on primary login button');
+            if (touchStartedOnLogin) {
+                // Reset visual feedback
+                this.style.background = 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)';
+                this.style.transform = 'scale(1)';
+                touchStartedOnLogin = false;
+            }
+        });
+        
+        // Original click handler for desktop
         loginButton.onclick = function(event) {
-            if (modal) modal.style.display='block';
-            if (signDivUsername) signDivUsername.focus();
+            console.log('🖱️ Click on primary login button');
+            // Only handle if not a touch event
+            if (!touchStartedOnLogin) {
+                if (modal) modal.style.display='block';
+                if (signDivUsername) signDivUsername.focus();
+            }
         }
     }
 
@@ -3455,35 +3583,54 @@ document.addEventListener('DOMContentLoaded', function() {
     setupProfileMenu();
 
     if (signDivSignIn) {
-        console.log('🔑 Login button found and setting up event listener');
-        signDivSignIn.addEventListener('click', function (e) {
+        console.log('🔑 Login button found - setting up simple event handler');
+        
+        // Simple, reliable event handling
+        function handleSignIn(e) {
+            console.log('� Login button clicked/tapped!');
             e.preventDefault();
+            e.stopPropagation();
             
             // Prevent multiple rapid signin attempts
             if (signinInProgress) {
-                console.log('⚠️ Signin already in progress, ignoring duplicate request');
+                console.log('⚠️ Signin already in progress');
                 return;
             }
             
-            console.log('🔑 Login button clicked!');
-            console.log('🔑 Username field:', signDivUsername ? signDivUsername.value : 'NOT FOUND');
-            console.log('🔑 Password field:', signDivPassword ? signDivPassword.value : 'NOT FOUND');
-            
-            if (signDivUsername && signDivPassword) {
-                signinInProgress = true;
-                console.log('🔑 Sending signIn socket event...');
-                socket.emit('signIn', { username: signDivUsername.value, password: signDivPassword.value });
-                if (modal) modal.style.display = "none";
-                if (typeof closeMenu === 'function') closeMenu();
+            console.log('🔑 Username:', signDivUsername ? signDivUsername.value : 'NOT FOUND');
+            console.log('🔑 Password:', signDivPassword ? signDivPassword.value : 'NOT FOUND');
                 
-                // Reset signin progress after a delay
+            if (signDivUsername && signDivPassword && signDivUsername.value && signDivPassword.value) {
+                signinInProgress = true;
+                console.log('🔑 Sending login request...');
+                
+                // Simple visual feedback
+                signDivSignIn.style.background = '#16a34a';
+                signDivSignIn.textContent = 'Logging in...';
+                
+                socket.emit('signIn', { 
+                    username: signDivUsername.value, 
+                    password: signDivPassword.value 
+                });
+                
+                if (modal) modal.style.display = "none";
+                
+                // Reset button after delay
                 setTimeout(() => {
                     signinInProgress = false;
+                    signDivSignIn.style.background = '#22c55e';
+                    signDivSignIn.innerHTML = '<span style="font-size: 12px;">🔐</span> Login';
                 }, 2000);
             } else {
-                console.error('❌ Username or password field not found!');
+                console.error('❌ Username or password missing!');
+                alert('Please enter both username and password');
             }
-        });
+        }
+        
+        // Add both touch and click handlers (simple approach)
+        signDivSignIn.addEventListener('touchend', handleSignIn, { passive: false });
+        signDivSignIn.addEventListener('click', handleSignIn);
+        
     } else {
         console.error('❌ Login button (signIn) not found in DOM!');
     }
@@ -3842,6 +3989,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 const gameDiv = document.getElementById('gameDiv');
                 if (gameDiv) gameDiv.style.display = 'none';
                 gameActive = false;
+                document.body.classList.remove('game-active');
                 currentRoom = "Global";
                 
                 // Update leave button visibility (hide for Global)
@@ -3876,71 +4024,199 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Set up invite button submenu handlers
+    // Set up invite card handlers
     if (inviteButton) {
-        console.log('🔍 Setting up invite button handlers');
-        const submenu = document.getElementById('invite-submenu');
-        const randomInviteBtn = document.getElementById('random-invite-btn');
-        const permanentInviteBtn = document.getElementById('permanent-invite-btn');
+        console.log('🔍 Setting up invite card handlers');
+        console.log('🔍 Invite button element:', inviteButton);
+        console.log('🔍 Invite button HTML:', inviteButton.outerHTML);
         
-        console.log('🔍 Submenu elements:', { submenu, randomInviteBtn, permanentInviteBtn });
-        
-        // Toggle submenu on main button click
+        // Toggle invite options on main card click
         inviteButton.addEventListener('click', (e) => {
-            console.log('🖱️ Invite button clicked');
+            console.log('🖱️ Invite card clicked - opening glassmorphism modal');
             e.preventDefault();
             e.stopPropagation();
             
-            const currentSubmenu = document.getElementById('invite-submenu');
-            if (currentSubmenu) {
-                if (currentSubmenu.style.display === 'none' || currentSubmenu.style.display === '') {
-                    console.log('📂 Opening submenu');
-                    currentSubmenu.style.display = 'block';
-                } else {
-                    console.log('📁 Closing submenu');
-                    currentSubmenu.style.display = 'none';
-                }
-            } else {
-                console.log('❌ Submenu not found');
-            }
+            // Open the existing glassmorphism invite choice modal
+            createInviteChoiceModal();
         });
         
-        // Close submenu when clicking outside
+        // Close invite options when clicking outside (not needed with modal, but keeping for safety)
         document.addEventListener('click', (e) => {
-            const currentSubmenu = document.getElementById('invite-submenu');
-            if (!inviteButton.contains(e.target) && currentSubmenu) {
-                currentSubmenu.style.display = 'none';
+            // This is now handled by the modal system
+        });
+    } else {
+        console.log('❌ Invite card not found during setup');
+    }
+
+    // Set up leave card handler
+    const leaveCard = document.getElementById('leave-card');
+    if (leaveCard) {
+        leaveCard.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            const leaveRoom = confirm("Are you sure you want to leave this room?");
+            if (leaveRoom) {
+                socket.emit('leaveRoom', "Global");
+                window.location.href = '/';
+            }
+        });
+    }
+
+    // Set up Floating Action Button (FAB) for mobile
+    const fabMain = document.getElementById('fab-main');
+    const fabMenu = document.getElementById('fab-menu');
+    const fabContainer = document.getElementById('floating-action-container');
+    
+    if (fabMain && fabMenu) {
+        let fabOpen = false;
+        
+        fabMain.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            fabOpen = !fabOpen;
+            
+            if (fabOpen) {
+                fabMenu.classList.add('active');
+                fabMain.classList.add('active');
+            } else {
+                fabMenu.classList.remove('active');
+                fabMain.classList.remove('active');
             }
         });
         
-        // Setup submenu button handlers
-        // setupInviteSubmenuHandlers(); // Removed - using emergency fix instead
-    } else {
-        console.log('❌ Invite button not found during setup');
-    }
-
-    // Set up navigation menu handlers
-    const hamburger = document.querySelector(".hamburger");
-    const navMenu = document.querySelector(".nav-menu");
-    const navLink = document.querySelectorAll(".nav-link");
-
-    if (hamburger && navMenu) {
-        hamburger.addEventListener("click", mobileMenu);
+        // Close FAB menu when clicking outside
+        document.addEventListener('click', (e) => {
+            if (fabContainer && !fabContainer.contains(e.target) && fabOpen) {
+                fabOpen = false;
+                fabMenu.classList.remove('active');
+                fabMain.classList.remove('active');
+            }
+        });
         
-        function mobileMenu() {
-            hamburger.classList.toggle("active");
-            navMenu.classList.toggle("active");
+        // FAB item handlers
+        const createFab = document.getElementById('create-fab');
+        const joinFab = document.getElementById('join-fab');
+        const inviteFab = document.getElementById('invite-fab');
+        
+        if (createFab) {
+            createFab.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                socket.emit("createRoom");
+                if (roomNameText) roomNameText.click();
+                // Close FAB menu
+                fabOpen = false;
+                fabMenu.classList.remove('active');
+                fabMain.classList.remove('active');
+            });
+        }
+        
+        if (joinFab) {
+            joinFab.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                showJoinRoomModal();
+                // Close FAB menu
+                fabOpen = false;
+                fabMenu.classList.remove('active');
+                fabMain.classList.remove('active');
+            });
+        }
+        
+        if (inviteFab) {
+            inviteFab.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                // For now, just generate a random invite
+                socket.emit('generateInviteCode', { isPermanent: false });
+                // Close FAB menu
+                fabOpen = false;
+                fabMenu.classList.remove('active');
+                fabMain.classList.remove('active');
+            });
         }
     }
 
-    if (navLink.length > 0) {
-        navLink.forEach(n => n.addEventListener("click", closeMenu));
-        
-        function closeMenu() {
-            if (hamburger) hamburger.classList.remove("active");
-            if (navMenu) navMenu.classList.remove("active");
+    // Function to show/hide FAB based on screen size
+    function updateFabVisibility() {
+        if (fabContainer) {
+            if (window.innerWidth <= 768) {
+                fabContainer.style.display = 'block';
+            } else {
+                fabContainer.style.display = 'none';
+            }
         }
     }
+    
+    // Initial FAB visibility check
+    updateFabVisibility();
+    
+    // Update FAB visibility on window resize
+    window.addEventListener('resize', updateFabVisibility);
+
+    // Update header pills with real-time info
+    function updateHeaderPills() {
+        const headerUserCount = document.getElementById('header-user-count-text');
+        const roomPill = document.getElementById('room-pill');
+        const roomPillText = document.getElementById('room-pill-text');
+        
+        // Update user count pill
+        if (headerUserCount && userCount) {
+            headerUserCount.textContent = userCount.textContent || '0 online';
+        }
+        
+        // Update room pill visibility and content
+        if (roomPill && roomPillText) {
+            if (currentRoom && currentRoom !== 'Global') {
+                roomPill.style.display = 'flex';
+                roomPillText.textContent = currentRoom;
+            } else {
+                roomPill.style.display = 'none';
+            }
+        }
+    }
+    
+    // Initial pill update
+    updateHeaderPills();
+    
+    // Update pills whenever user list or room changes
+    const observer = new MutationObserver(() => {
+        updateHeaderPills();
+    });
+    
+    if (userCount) {
+        observer.observe(userCount, { childList: true, subtree: true, characterData: true });
+    }
+
+    // Add smooth animations to cards
+    function addCardAnimations() {
+        const cards = document.querySelectorAll('.action-card');
+        cards.forEach((card, index) => {
+            card.style.animationDelay = `${index * 0.1}s`;
+            card.classList.add('card-animate-in');
+        });
+    }
+    
+    // Trigger animations when chat becomes visible
+    const chatContainer = document.getElementById('chat-container');
+    if (chatContainer) {
+        const containerObserver = new MutationObserver((mutations) => {
+            mutations.forEach((mutation) => {
+                if (mutation.type === 'attributes' && mutation.attributeName === 'style') {
+                    const isVisible = chatContainer.style.display !== 'none';
+                    if (isVisible) {
+                        setTimeout(addCardAnimations, 100);
+                    }
+                }
+            });
+        });
+        
+        containerObserver.observe(chatContainer, { attributes: true });
+    }
+
+    // Navigation is now always visible - no hamburger menu needed
 
     // Start Experiment button (inside game interface)
     const startExperimentBtn = document.getElementById('startExperimentBtn');

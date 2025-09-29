@@ -288,7 +288,11 @@ io.on('connection', (socket) => {
                             
                             Database.isAdmin(data, function(admin){ 
                                 Player.onConnect(socket, data.username, admin, io);
-                                socket.emit('signInResponse', { success: true, isAdmin: admin });
+                                socket.emit('signInResponse', { 
+                                    success: true, 
+                                    isAdmin: admin, 
+                                    username: data.username 
+                                });
                                 console.log('✅ Sign in response sent to client');
                                 
                                 // Trigger session restoration event for room restoration
@@ -314,7 +318,11 @@ io.on('connection', (socket) => {
                             
                             Database.isAdmin(data, function(admin){ 
                                 Player.onConnect(socket, data.username, admin, io);
-                                socket.emit('signInResponse', { success: true, isAdmin: admin });
+                                socket.emit('signInResponse', { 
+                                    success: true, 
+                                    isAdmin: admin, 
+                                    username: data.username 
+                                });
                                 console.log('✅ Sign in response sent to client');
                             });
                         });
@@ -334,7 +342,11 @@ io.on('connection', (socket) => {
                         
                         Database.isAdmin(data, function(admin){ 
                             Player.onConnect(socket, data.username, admin, io);
-                            socket.emit('signInResponse', { success: true, isAdmin: admin });
+                            socket.emit('signInResponse', { 
+                                success: true, 
+                                isAdmin: admin, 
+                                username: data.username 
+                            });
                             console.log('✅ Sign in response sent to client');
                         });
                     });
@@ -351,7 +363,11 @@ io.on('connection', (socket) => {
                     
                     Database.isAdmin(data, function(admin){ 
                         Player.onConnect(socket, data.username, admin, io);
-                        socket.emit('signInResponse', { success: true, isAdmin: admin });
+                        socket.emit('signInResponse', { 
+                            success: true, 
+                            isAdmin: admin, 
+                            username: data.username 
+                        });
                         console.log('✅ Sign in response sent to client');
                     });
                 });

@@ -6,6 +6,25 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta http-equiv="X-UA-Compatible" content="ie=edge" />
     
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://xenogenesis.sirbrobot.com/" />
+    <meta property="og:title" content="XenoGenesis - Gaming Platform" />
+    <meta property="og:description" content="Join XenoGenesis for an immersive gaming experience with chat, rooms, and multiplayer games." />
+    <meta property="og:image" content="https://xenogenesis.sirbrobot.com/client/img/favicon.png" />
+    <meta property="og:site_name" content="XenoGenesis" />
+    
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary" />
+    <meta property="twitter:url" content="https://xenogenesis.sirbrobot.com/" />
+    <meta property="twitter:title" content="XenoGenesis - Gaming Platform" />
+    <meta property="twitter:description" content="Join XenoGenesis for an immersive gaming experience with chat, rooms, and multiplayer games." />
+    <meta property="twitter:image" content="https://xenogenesis.sirbrobot.com/client/img/favicon.png" />
+    
+    <!-- Additional Meta Tags -->
+    <meta name="description" content="XenoGenesis - Gaming platform with chat, rooms, and multiplayer games" />
+    <meta name="keywords" content="gaming, multiplayer, chat, rooms, xenogenesis" />
+    
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.12.1/css/all.min.css"
         integrity="sha256-mmgLkCYLUQbXn0B1SRqzHar6dCnv9oZFPEC1g1cwlkk=" crossorigin="anonymous" />
     <link rel="stylesheet" href="../../css/style.css" />
@@ -33,7 +52,24 @@
                     <a href="#" class="nav-link">About</a>
                 </li> -->
                 <li class="nav-item">
-                    <button id="loginNav"><span>Login</span></button>
+                    <button id="loginNav" style="
+                        background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+                        color: white;
+                        border: none;
+                        padding: 12px 20px;
+                        border-radius: 8px;
+                        cursor: pointer;
+                        font-size: 16px;
+                        font-weight: 600;
+                        min-height: 44px;
+                        min-width: 80px;
+                        touch-action: manipulation;
+                        -webkit-tap-highlight-color: transparent;
+                        -webkit-touch-callout: none;
+                        -webkit-user-select: none;
+                        user-select: none;
+                        transition: all 0.2s ease;
+                    "><span>Login</span></button>
                 </li>
                 <li class="nav-item profile-menu-container" style="display: none; position: relative;">
                     <button id="profileMenuBtn" style="
@@ -147,11 +183,6 @@
                     </div>
                 </li>
             </ul>
-            <div class="hamburger">
-                <span class="bar"></span>
-                <span class="bar"></span>
-                <span class="bar"></span>
-            </div>
         </nav>
     </header>
 
@@ -311,17 +342,27 @@
                     <button type="button" id="signIn" style="
                         background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%) !important;
                         color: white !important;
-                        padding: 12px 20px;
+                        padding: 16px 24px;
                         border: 1px solid rgba(34, 197, 94, 0.4) !important;
                         border-radius: 7px;
                         cursor: pointer;
                         font-weight: 600;
-                        font-size: 14px;
+                        font-size: 16px;
                         transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
                         box-shadow: 0 3px 12px rgba(34, 197, 94, 0.3) !important;
                         display: flex;
                         align-items: center;
-                        gap: 6px;
+                        gap: 8px;
+                        min-height: 48px;
+                        min-width: 120px;
+                        justify-content: center;
+                        -webkit-tap-highlight-color: rgba(34, 197, 94, 0.2);
+                        touch-action: manipulation;
+                        -webkit-touch-callout: none;
+                        -webkit-user-select: none;
+                        -moz-user-select: none;
+                        -ms-user-select: none;
+                        user-select: none;
                     "
                     onmouseover="
                         this.style.setProperty('background', 'linear-gradient(135deg, #16a34a 0%, #22c55e 100%)', 'important');
@@ -334,7 +375,7 @@
                         this.style.setProperty('transform', 'translateY(0)', 'important');
                         this.style.setProperty('box-shadow', '0 3px 12px rgba(34, 197, 94, 0.3)', 'important');
                         this.style.setProperty('border-color', 'rgba(34, 197, 94, 0.4)', 'important');
-                    ">
+                    "
                         <span style="font-size: 12px;">🔐</span>
                         Login
                     </button>
@@ -851,7 +892,10 @@
     </div>
 
     <div id="landingPage">
-        <img src="/client/img/meht-solar-pixels.jpg" id="backgroundIMG">
+        <!-- Desktop background image -->
+        <img src="/client/img/meht-solar-pixels.jpg" id="backgroundIMG" class="desktop-bg">
+        <!-- Mobile background image (vertical space optimized) -->
+        <img src="/client/img/meht-solar-pixels-mobile.jpg" id="backgroundIMGMobile" class="mobile-bg">
     </div>
 
     <!-- Game Interface Container (initially hidden) -->
@@ -1433,25 +1477,102 @@
     </div>
 
     <div id="chat-container" class="chat-container" style="display:none;">
-        <header class="chat-header">
-            <i class="fa-thin fa-globe-stand"></i>
-            <a id="create-btn" class="btn">Create Room</a>
-            <a id="join-btn" class="btn">Join Room</a>
-            <a id="invite-btn" class="btn" style="display:none; background: linear-gradient(135deg, #667aff, #7386ff); color: white; position: relative;">
-                Generate Invite
-                <div id="invite-submenu" class="invite-submenu" style="display:none;">
-                    <button id="random-invite-btn" class="submenu-btn">
-                        <i class="fas fa-random"></i>
-                        Random Code
-                    </button>
-                    <button id="permanent-invite-btn" class="submenu-btn">
-                        <i class="fas fa-crown"></i>
-                        Permanent Code
-                    </button>
+        <header class="modern-chat-header">
+            <div class="chat-title">
+                <i class="fas fa-globe-americas chat-icon"></i>
+                <h2 class="chat-heading">XenoGenesis Hub</h2>
+                <div class="status-pill-container">
+                    <div class="status-pill connected">
+                        <div class="pulse-dot"></div>
+                        <span class="status-text">Connected</span>
+                    </div>
+                    <div class="user-count-pill" id="header-user-count">
+                        <i class="fas fa-users"></i>
+                        <span id="header-user-count-text">0 online</span>
+                    </div>
+                    <div class="room-pill" id="room-pill" style="display:none;">
+                        <i class="fas fa-home"></i>
+                        <span id="room-pill-text">Global</span>
+                    </div>
                 </div>
-            </a>
-            <a id="leave-btn" class="btn" style="color:red">Leave Room</a>
+            </div>
+            
+            <div class="action-cards-container">
+                <div class="action-card create-card" id="create-card" data-tooltip="Create a new private room for gaming">
+                    <div class="card-icon create-icon">
+                        <i class="fas fa-plus-circle"></i>
+                    </div>
+                    <div class="card-content">
+                        <h3 class="card-title">Create Room</h3>
+                        <p class="card-description">Start a new private room</p>
+                    </div>
+                    <div class="card-glow create-glow"></div>
+                </div>
+                
+                <div class="action-card join-card" id="join-card" data-tooltip="Join an existing room using a room code">
+                    <div class="card-icon join-icon">
+                        <i class="fas fa-door-open"></i>
+                    </div>
+                    <div class="card-content">
+                        <h3 class="card-title">Join Room</h3>
+                        <p class="card-description">Enter with room code</p>
+                    </div>
+                    <div class="card-glow join-glow"></div>
+                </div>
+                
+                <div class="action-card invite-card" id="invite-card" style="display:none;" data-tooltip="Generate invite codes for friends (Admin only)">
+                    <div class="card-icon invite-icon">
+                        <i class="fas fa-share-alt"></i>
+                    </div>
+                    <div class="card-content">
+                        <h3 class="card-title">Invite Friends</h3>
+                        <p class="card-description">Share room access</p>
+                    </div>
+                    <div class="card-glow invite-glow"></div>
+                </div>
+                
+                <div class="action-card leave-card" id="leave-card" style="display:none;" data-tooltip="Leave current room and return to global chat">
+                    <div class="card-icon leave-icon">
+                        <i class="fas fa-sign-out-alt"></i>
+                    </div>
+                    <div class="card-content">
+                        <h3 class="card-title">Leave Room</h3>
+                        <p class="card-description">Return to global chat</p>
+                    </div>
+                    <div class="card-glow leave-glow"></div>
+                </div>
+            </div>
         </header>
+        
+        <!-- Floating Action Button for Mobile -->
+        <div class="floating-action-container" id="floating-action-container" style="display:none;">
+            <div class="fab-menu" id="fab-menu">
+                <div class="fab-item create-fab" id="create-fab">
+                    <div class="fab-icon">
+                        <i class="fas fa-plus"></i>
+                    </div>
+                    <div class="fab-label">Create Room</div>
+                </div>
+                
+                <div class="fab-item join-fab" id="join-fab">
+                    <div class="fab-icon">
+                        <i class="fas fa-door-open"></i>
+                    </div>
+                    <div class="fab-label">Join Room</div>
+                </div>
+                
+                <div class="fab-item invite-fab" id="invite-fab" style="display:none;">
+                    <div class="fab-icon">
+                        <i class="fas fa-share"></i>
+                    </div>
+                    <div class="fab-label">Invite</div>
+                </div>
+            </div>
+            
+            <button class="fab-main" id="fab-main">
+                <i class="fas fa-plus fab-main-icon"></i>
+            </button>
+        </div>
         <main class="chat-main">
             <div class="chat-sidebar">
                 <h3><i class="fas fa-comments" id="rooms"></i> Rooms:</h3>
@@ -1481,6 +1602,18 @@
         // Pass session data to client
         window.sessionData = <%- sessionData %>;
         console.log('Session data passed to client:', window.sessionData);
+        
+        // Close invite options when clicking outside
+        document.addEventListener('click', function(event) {
+            const inviteCard = document.getElementById('invite-card');
+            const inviteOptions = document.querySelector('.invite-options');
+            
+            if (inviteOptions && inviteOptions.style.display === 'block' && 
+                inviteCard && !inviteCard.contains(event.target)) {
+                inviteOptions.style.display = 'none';
+                console.log('📁 Closed invite options (clicked outside)');
+            }
+        });
     </script>
     <script type="text/javascript" src="/client/client.js"></script>
 
