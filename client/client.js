@@ -1,27 +1,97 @@
 // Store user admin status globally so we can use it for invite visibility
 let isGlobalAdmin = false;
 
+// Function to determine current menu context
+function getMenuContext() {
+    // Check if we're in an active game
+    const isInGame = gameActive || document.body.classList.contains('game-active');
+    
+    // Check if we're in global chat (not in a room and not in game)
+    const isInGlobalChat = currentRoom === 'Global' && !isInGame;
+    
+    // Check if we're in a room but not in an active game  
+    const isInRoomLobby = currentRoom !== 'Global' && !isInGame;
+    
+    return {
+        isInGame,
+        isInGlobalChat, 
+        isInRoomLobby,
+        context: isInGame ? 'game' : (isInGlobalChat ? 'global' : 'room')
+    };
+}
+
+// Function to update card visibility based on menu context
+function updateCardVisibility() {
+    const menuContext = getMenuContext();
+    const createCard = document.getElementById('create-card');
+    const joinCard = document.getElementById('join-card');
+    const inviteCard = document.getElementById('invite-card');
+    
+    // Check if admin status was set early from session data
+    if (window.isGlobalAdmin !== undefined && isGlobalAdmin !== window.isGlobalAdmin) {
+        isGlobalAdmin = window.isGlobalAdmin;
+    }
+    
+    console.log(`🎯 MENU CONTEXT DEBUG:`);
+    console.log(`   - gameActive: ${gameActive}`);
+    console.log(`   - currentRoom: ${currentRoom}`);
+    console.log(`   - body.game-active: ${document.body.classList.contains('game-active')}`);
+    console.log(`   - context: ${menuContext.context}`);
+    console.log(`   - isGlobalAdmin: ${isGlobalAdmin}`);
+    
+    // Create and Join cards should only show in global chat context
+    if (createCard && joinCard) {
+        if (menuContext.isInGlobalChat) {
+            // Show create/join in global chat
+            createCard.classList.remove('card-hidden');
+            createCard.classList.add('card-visible');
+            joinCard.classList.remove('card-hidden'); 
+            joinCard.classList.add('card-visible');
+            console.log(`✅ Showing create/join cards - Global chat context`);
+        } else {
+            // Hide create/join in game or room contexts
+            createCard.classList.remove('card-visible');
+            createCard.classList.add('card-hidden');
+            joinCard.classList.remove('card-visible');
+            joinCard.classList.add('card-hidden');
+            console.log(`❌ Hiding create/join cards - ${menuContext.context} context`);
+        }
+    }
+    
+    // Update invite visibility
+    updateInviteVisibility();
+}
+
 // Function to update invite card visibility based on admin/moderator status  
 function updateInviteVisibility() {
     const inviteCard = document.getElementById('invite-card');
     const inviteFab = document.getElementById('invite-fab');
+    const menuContext = getMenuContext();
     
     // Show invite options if user is either:
-    // 1. Global admin (can invite anywhere including Global chat)  
-    // 2. Room moderator in current room (can invite to their room)
-    const shouldShowInvite = isGlobalAdmin || (currentRoom && currentRoom !== 'Global' && isCurrentRoomModerator());
+    // 1. Global admin in global chat or room lobby (not during active games)
+    // 2. Room moderator in their room lobby (not during active games)
+    let shouldShowInvite = false;
     
-    console.log(`🔑 INVITE VISIBILITY DEBUG:`);
-    console.log(`   - isGlobalAdmin: ${isGlobalAdmin}`);
-    console.log(`   - currentRoom: ${currentRoom}`);
-    console.log(`   - isCurrentRoomModerator(): ${isCurrentRoomModerator()}`);
-    console.log(`   - shouldShowInvite: ${shouldShowInvite}`);
+    if (menuContext.isInGlobalChat && isGlobalAdmin) {
+        shouldShowInvite = true; // Global admin in global chat
+    } else if (menuContext.isInRoomLobby && isCurrentRoomModerator()) {
+        shouldShowInvite = true; // Room moderator in room lobby  
+    }
+    // Note: Never show invite during active games
     
     if (inviteCard) {
-        inviteCard.style.display = shouldShowInvite ? 'block' : 'none';
-        console.log(`🔑 Invite card display set to: ${inviteCard.style.display}`);
-    } else {
-        console.log(`❌ Invite card element not found!`);
+        if (shouldShowInvite) {
+            inviteCard.classList.remove('invite-hidden');
+            inviteCard.classList.add('invite-visible');
+            inviteCard.style.display = 'block';
+            inviteCard.style.visibility = 'visible';
+            inviteCard.style.opacity = '1';
+        } else {
+            inviteCard.classList.remove('invite-visible');
+            inviteCard.classList.add('invite-hidden');
+            inviteCard.style.display = 'none';
+        }
     }
     
     if (inviteFab) {
@@ -747,6 +817,14 @@ function performSessionRestore(data) {
     // Update UI to reflect logged-in state
     currentUsername = data.username;
     
+    // Set admin status if provided in session data
+    if (data.isAdmin !== undefined) {
+        isGlobalAdmin = data.isAdmin;
+        
+        // Immediately update invite visibility since admin status is now known
+        updateInviteVisibility();
+    }
+    
     // Hide login elements and show logged-in state
     const signDiv = document.getElementById('signDiv');
     const loginButton = document.getElementById('loginNav');
@@ -817,6 +895,14 @@ function performSessionRestore(data) {
             gameDiv.style.display = 'none';
             console.log('🌐 Game UI hidden - starting in Global chat');
         }
+        
+        // Ensure we're not in game-active state for Global chat
+        gameActive = false;
+        document.body.classList.remove('game-active');
+        console.log('🔧 Ensured cards are visible for Global chat');
+        
+        // Update card visibility for global context
+        updateCardVisibility();
         
         // Join Global chat
         socket.emit('joinRoom', { room: 'Global' });
@@ -1257,8 +1343,8 @@ socket.on('signInResponse', function (data) {
         console.log(`🔍 Admin status received: ${data.isAdmin} (type: ${typeof data.isAdmin})`);
         console.log(`🔍 Stored isGlobalAdmin: ${isGlobalAdmin}`);
         
-        // Update invite visibility based on global admin status
-        updateInviteVisibility();
+        // Update card visibility based on context and admin status
+        updateCardVisibility();
         
         //signDiv.style.display = 'none';
         landingPage.style.display = "none";
@@ -1332,8 +1418,8 @@ socket.on('signUpResponse', function (data) {
             isGlobalAdmin = data.isAdmin || false;
             console.log(`🔍 SignUpResponse with autoLogin - Admin status: ${isGlobalAdmin}`);
             
-            // Update invite visibility based on global admin status
-            updateInviteVisibility();
+            // Update card visibility based on context and admin status
+            updateCardVisibility();
             
             // Hide landing page and show chat interface
             landingPage.style.display = "none";
@@ -1536,9 +1622,9 @@ socket.on('playersInRoom', function(data) {
             data: data
         });
         
-        // Store moderator status globally and update invite visibility
+        // Store moderator status globally and update card visibility
         window.currentUserIsModerator = isCurrentUserModerator;
-        updateInviteVisibility();
+        updateCardVisibility();
         
         // Show/hide "Start Experiment" button based on moderator status
         const startExperimentBtn = document.getElementById('startExperimentBtn');
@@ -1953,12 +2039,15 @@ function showGameInterface() {
     gameActive = true;
     document.body.classList.add('game-active');
     
-    // Hide create room and join room buttons when game becomes active
+    // Update card visibility for game context
+    updateCardVisibility();
+    
+    // Clear inline styles to let CSS take over (CSS will hide them with game-active class)
     if (createRoomButton) {
-        createRoomButton.style.display = 'none';
+        createRoomButton.style.display = '';
     }
     if (joinRoomButton) {
-        joinRoomButton.style.display = 'none';
+        joinRoomButton.style.display = '';
     }
     
     console.log('🎮 Game interface setup complete');
@@ -2224,13 +2313,75 @@ socket.on('leftRoom', function(data) {
     document.body.classList.remove('game-active');
     currentRoom = 'Global';
     
-    // Show create/join room cards again (now that game-active class is removed)
-    if (createRoomButton) createRoomButton.style.display = 'block';
-    if (joinRoomButton) joinRoomButton.style.display = 'block';
+    // Update card visibility for global context
+    updateCardVisibility();
     
-    // Clear room moderator status and update invite visibility
-    window.currentUserIsModerator = false;
+    // Ensure action cards container is visible after leaving room
+    const actionCardsContainer = document.querySelector('.action-cards-container');
+    if (actionCardsContainer) {
+        actionCardsContainer.style.display = '';
+        actionCardsContainer.style.visibility = '';
+        actionCardsContainer.style.opacity = '';
+    }
+    
+    // Update invite visibility for moderators/admins
     updateInviteVisibility();
+    
+    // Clear any inline styles to let CSS take over
+    console.log('🔧 Attempting to show cards after leaving room');
+    console.log('🔧 createRoomButton:', createRoomButton);
+    console.log('🔧 joinRoomButton:', joinRoomButton);
+    console.log('🔧 body classes after changes:', document.body.className);
+    
+    if (createRoomButton) {
+        console.log('🔧 createRoomButton current display:', createRoomButton.style.display);
+        console.log('🔧 createRoomButton computed style:', window.getComputedStyle(createRoomButton).display);
+        createRoomButton.style.display = ''; // Clear inline styles to let CSS take over
+        console.log('🔧 Cleared createRoomButton inline display');
+    }
+    if (joinRoomButton) {
+        console.log('🔧 joinRoomButton current display:', joinRoomButton.style.display);
+        console.log('🔧 joinRoomButton computed style:', window.getComputedStyle(joinRoomButton).display);
+        joinRoomButton.style.display = ''; // Clear inline styles to let CSS take over
+        console.log('🔧 Cleared joinRoomButton inline display');
+    }
+    
+    // Force reflow and check computed styles after a brief delay
+    setTimeout(() => {
+        console.log('🔧 Post-delay computed styles:');
+        if (createRoomButton) {
+            console.log('🔧 createRoomButton final computed style:', window.getComputedStyle(createRoomButton).display);
+            if (window.getComputedStyle(createRoomButton).display === 'none') {
+                console.log('❌ createRoomButton still hidden - forcing display');
+                createRoomButton.style.display = 'block';
+                createRoomButton.style.visibility = 'visible';
+                createRoomButton.style.opacity = '1';
+            }
+        }
+        if (joinRoomButton) {
+            console.log('🔧 joinRoomButton final computed style:', window.getComputedStyle(joinRoomButton).display);
+            if (window.getComputedStyle(joinRoomButton).display === 'none') {
+                console.log('❌ joinRoomButton still hidden - forcing display');
+                joinRoomButton.style.display = 'block';
+                joinRoomButton.style.visibility = 'visible';
+                joinRoomButton.style.opacity = '1';
+            }
+        }
+        
+        // Force a DOM reflow to ensure styles are applied
+        document.body.offsetHeight;
+        console.log('🔧 Forced DOM reflow completed');
+        
+        // Nuclear option: call the force show function
+        console.log('🚨 NUCLEAR OPTION: Calling forceShowCards()');
+        if (window.forceShowCards) {
+            window.forceShowCards();
+        }
+    }, 200);
+    
+    // Clear room moderator status and update card visibility
+    window.currentUserIsModerator = false;
+    updateCardVisibility();
     
     // Update leave button visibility (hide for Global)
     updateLeaveButtonVisibility();
@@ -2241,6 +2392,24 @@ socket.on('leftRoom', function(data) {
     if (roomChatMessages) roomChatMessages.style.display = "none";
     
     console.log('✅ Returned to Global chat and cleared all room data');
+});
+
+socket.on('experimentEnded', function(data) {
+    console.log('🛑 Experiment ended:', data);
+    
+    // Show a notification to the user
+    alert(`Experiment ended: ${data.message}`);
+    
+    // Force return to global state (the leftRoom event should handle this)
+    gameActive = false;
+    document.body.classList.remove('game-active');
+    currentRoom = 'Global';
+    
+    // Update card visibility for global context
+    updateCardVisibility();
+    
+    // Hide any open modals or menus
+    hideModeratorContextMenu();
 });
 
 socket.on("gameStarted", function(){
@@ -2341,12 +2510,15 @@ socket.on('init', function(data) {
         // Add game-active class to body for styling
         document.body.classList.add('game-active');
         
-        // Hide create room and join room buttons when game is active
+        // Update card visibility for game context
+        updateCardVisibility();
+        
+        // Clear inline styles to let CSS take over (CSS will hide them with game-active class)
         if (createRoomButton) {
-            createRoomButton.style.display = 'none';
+            createRoomButton.style.display = '';
         }
         if (joinRoomButton) {
-            joinRoomButton.style.display = 'none';
+            joinRoomButton.style.display = '';
         }
         
         // Clear existing players before adding new ones
@@ -2370,6 +2542,10 @@ socket.on('init', function(data) {
         Player.list = {};
         
         // Remove game-active class from body
+        document.body.classList.remove('game-active');
+        
+        // Update card visibility for non-game context
+        updateCardVisibility();
         document.body.classList.remove('game-active');
         
         // Show create room and join room buttons when game is not active (if in appropriate context)
@@ -3417,13 +3593,19 @@ function updateDecisionGrid(gridData) {
 function updateLeaveButtonVisibility() {
     const leaveCard = document.getElementById('leave-card');
     if (leaveCard) {
+        // Clear any inline styles first
+        leaveCard.style.display = '';
+        
         if (currentRoom && currentRoom !== 'Global') {
-            leaveCard.style.display = 'block';
+            leaveCard.classList.remove('leave-hidden');
+            leaveCard.classList.add('leave-visible');
             console.log(`👁️ Leave card shown for room: ${currentRoom}`);
         } else {
-            leaveCard.style.display = 'none';
+            leaveCard.classList.remove('leave-visible');
+            leaveCard.classList.add('leave-hidden');
             console.log('👁️ Leave card hidden (in Global chat)');
         }
+        console.log(`👁️ Leave card classes: ${leaveCard.className}`);
     }
 }
 
@@ -3472,6 +3654,14 @@ document.addEventListener('DOMContentLoaded', function() {
     createRoomButton = document.getElementById('create-card');
     joinRoomButton = document.getElementById('join-card');
     inviteButton = document.getElementById('invite-card');
+    
+    // Clear any inline styles on ALL cards to let CSS take full control
+    if (createRoomButton) createRoomButton.style.display = '';
+    if (joinRoomButton) joinRoomButton.style.display = '';
+    if (inviteButton) inviteButton.style.display = '';
+    
+    const leaveCardElement = document.getElementById('leave-card');
+    if (leaveCardElement) leaveCardElement.style.display = '';
 
     // Initialize login elements
     signDiv = document.getElementById('signDiv');
@@ -3485,6 +3675,12 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Initialize leave button visibility (hidden by default for Global)
     updateLeaveButtonVisibility();
+    
+    // Ensure cards are visible by default (unless in active game)
+    if (!gameActive && currentRoom === 'Global') {
+        document.body.classList.remove('game-active');
+        console.log('🔧 Initial setup: Cards set to visible for Global context');
+    }
     
     // Debug chat elements
     console.log('💬 Chat system initialization:');
@@ -4055,12 +4251,117 @@ document.addEventListener('DOMContentLoaded', function() {
             e.preventDefault();
             e.stopPropagation();
             
-            const leaveRoom = confirm("Are you sure you want to leave this room?");
-            if (leaveRoom) {
-                socket.emit('leaveRoom', "Global");
-                window.location.href = '/';
+            // Check if user is moderator
+            if (window.currentUserIsModerator) {
+                // Show moderator context menu
+                showModeratorContextMenu();
+            } else {
+                // Regular user - simple leave confirmation
+                const leaveRoom = confirm("Are you sure you want to leave this room?");
+                if (leaveRoom) {
+                    socket.emit('leaveRoom', "Global");
+                    window.location.href = '/';
+                }
             }
         });
+    }
+
+    // Set up room pill dropdown menu
+    const roomPill = document.getElementById('room-pill');
+    const roomPillSubmenu = document.getElementById('room-pill-submenu');
+    const leaveRoomOption = document.getElementById('leave-room-option');
+    
+    if (roomPill && roomPillSubmenu && leaveRoomOption) {
+        let isSubmenuOpen = false;
+        
+        // Function to show room pill submenu
+        function showRoomPillSubmenu() {
+            if (!roomPill || !roomPillSubmenu) return;
+            
+            // Get room pill position
+            const pillRect = roomPill.getBoundingClientRect();
+            
+            // Move submenu to body to escape stacking context
+            if (roomPillSubmenu.parentNode !== document.body) {
+                document.body.appendChild(roomPillSubmenu);
+            }
+            
+            // Position submenu absolutely relative to viewport
+            roomPillSubmenu.style.position = 'fixed';
+            roomPillSubmenu.style.top = (pillRect.bottom + 8) + 'px';
+            roomPillSubmenu.style.right = (window.innerWidth - pillRect.right) + 'px';
+            roomPillSubmenu.style.left = 'auto';
+            roomPillSubmenu.style.zIndex = '999999';
+            
+            roomPill.classList.add('expanded');
+            roomPillSubmenu.classList.add('show');
+            isSubmenuOpen = true;
+        }
+        
+        // Function to hide room pill submenu
+        function hideRoomPillSubmenu() {
+            if (!roomPillSubmenu) return;
+            
+            roomPill.classList.remove('expanded');
+            roomPillSubmenu.classList.remove('show');
+            isSubmenuOpen = false;
+        }
+        
+        // Toggle submenu on pill click
+        roomPill.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            // Only show menu if we're in a room (not Global)
+            if (currentRoom === 'Global') {
+                return;
+            }
+            
+            if (isSubmenuOpen) {
+                hideRoomPillSubmenu();
+            } else {
+                showRoomPillSubmenu();
+            }
+        });
+        
+        // Close submenu when clicking outside
+        document.addEventListener('click', (e) => {
+            if (isSubmenuOpen && !roomPill.contains(e.target)) {
+                isSubmenuOpen = false;
+                roomPill.classList.remove('expanded');
+                roomPillSubmenu.classList.remove('show');
+                console.log('📋 Room pill menu closed (click outside)');
+            }
+        });
+        
+        // Handle leave room option click
+        leaveRoomOption.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            console.log('🚪 Leave room option clicked from pill menu');
+            
+            // Close the submenu first
+            isSubmenuOpen = false;
+            roomPill.classList.remove('expanded');
+            roomPillSubmenu.classList.remove('show');
+            
+            // Same logic as other leave room handlers
+            if (window.currentUserIsModerator) {
+                // Show moderator context menu
+                console.log('👑 Moderator leaving via pill menu - showing context menu');
+                showModeratorContextMenu();
+            } else {
+                // Regular user - simple leave confirmation
+                const leaveRoom = confirm("Are you sure you want to leave this room?");
+                if (leaveRoom) {
+                    socket.emit('leaveRoom', "Global");
+                    window.location.href = '/';
+                }
+            }
+        });
+        
+    } else {
     }
 
     // Set up Floating Action Button (FAB) for mobile
@@ -4172,8 +4473,10 @@ document.addEventListener('DOMContentLoaded', function() {
             if (currentRoom && currentRoom !== 'Global') {
                 roomPill.style.display = 'flex';
                 roomPillText.textContent = currentRoom;
+                roomPill.setAttribute('data-room', currentRoom);
             } else {
                 roomPill.style.display = 'none';
+                roomPill.removeAttribute('data-room');
             }
         }
     }
@@ -6215,6 +6518,109 @@ function switchToLoggedOutUI() {
 
 console.log('🧠 Client.js loaded - Canvas rendering and keyboard controls disabled for behavioral experiment mode');
 
+// Enhanced debug function for checking all card visibility states
+window.debugCardVisibility = function() {
+    console.log('🔥 CARD VISIBILITY DEBUG REPORT 🔥');
+    const menuContext = getMenuContext();
+    console.log('🎯 Menu Context:', menuContext);
+    console.log('🔍 Current admin status:', isGlobalAdmin);
+    console.log('🔍 Current username:', currentUsername);
+    console.log('🔍 Current room:', currentRoom);
+    console.log('🔍 Game active:', gameActive);
+    console.log('🔍 Body classes:', document.body.className);
+    console.log('🔍 Body has game-active:', document.body.classList.contains('game-active'));
+    
+    const createCard = document.getElementById('create-card');
+    const joinCard = document.getElementById('join-card');
+    const inviteCard = document.getElementById('invite-card');
+    const roomPill = document.getElementById('room-pill');
+    const actionCardsContainer = document.querySelector('.action-cards-container');
+    
+    if (createCard) {
+        console.log('📊 Create Card:');
+        console.log('  - Classes:', createCard.className);
+        console.log('  - Display:', window.getComputedStyle(createCard).display);
+        console.log('  - Visibility:', window.getComputedStyle(createCard).visibility);
+        console.log('  - Opacity:', window.getComputedStyle(createCard).opacity);
+    }
+    
+    if (joinCard) {
+        console.log('📊 Join Card:');
+        console.log('  - Classes:', joinCard.className);
+        console.log('  - Display:', window.getComputedStyle(joinCard).display);
+        console.log('  - Visibility:', window.getComputedStyle(joinCard).visibility);
+        console.log('  - Opacity:', window.getComputedStyle(joinCard).opacity);
+    }
+    
+    if (inviteCard) {
+        console.log('📊 Invite Card:');
+        console.log('  - Classes:', inviteCard.className);
+        console.log('  - Display:', window.getComputedStyle(inviteCard).display);
+        console.log('  - Visibility:', window.getComputedStyle(inviteCard).visibility);
+        console.log('  - Opacity:', window.getComputedStyle(inviteCard).opacity);
+    }
+    
+    if (actionCardsContainer) {
+        console.log('📊 Action Cards Container:');
+        console.log('  - Classes:', actionCardsContainer.className);
+        console.log('  - Display:', window.getComputedStyle(actionCardsContainer).display);
+        console.log('  - Visibility:', window.getComputedStyle(actionCardsContainer).visibility);
+        console.log('  - Opacity:', window.getComputedStyle(actionCardsContainer).opacity);
+    }
+    
+    if (roomPill) {
+        console.log('📊 Room Pill:');
+        console.log('  - Classes:', roomPill.className);
+        console.log('  - Display:', window.getComputedStyle(roomPill).display);
+        console.log('  - Visibility:', window.getComputedStyle(roomPill).visibility);
+        console.log('  - Opacity:', window.getComputedStyle(roomPill).opacity);
+        console.log('  - Data-room attribute:', roomPill.getAttribute('data-room'));
+        
+        const submenu = document.getElementById('room-pill-submenu');
+        const leaveOption = document.getElementById('leave-room-option');
+        console.log('  - Submenu found:', !!submenu);
+        console.log('  - Leave option found:', !!leaveOption);
+        if (submenu) {
+            console.log('  - Submenu display:', window.getComputedStyle(submenu).display);
+            console.log('  - Submenu classes:', submenu.className);
+        }
+    }
+};
+
+// Global debug function to force show cards (fallback)
+window.forceShowCards = function() {
+    console.log('🔧 FORCE SHOW CARDS - Debug function called');
+    const createCard = document.getElementById('create-card');
+    const joinCard = document.getElementById('join-card');
+    
+    if (createCard) {
+        createCard.style.display = 'block';
+        createCard.style.visibility = 'visible';
+        createCard.style.opacity = '1';
+        createCard.classList.remove('card-hidden');
+        createCard.classList.add('card-visible');
+        console.log('✅ Forced create card visible');
+        console.log('🔧 Create card computed style:', window.getComputedStyle(createCard).display);
+    }
+    if (joinCard) {
+        joinCard.style.display = 'block';
+        joinCard.style.visibility = 'visible';
+        joinCard.style.opacity = '1';
+        joinCard.classList.remove('card-hidden');
+        joinCard.classList.add('card-visible');
+        console.log('✅ Forced join card visible');
+        console.log('🔧 Join card computed style:', window.getComputedStyle(joinCard).display);
+    }
+    
+    document.body.classList.remove('game-active');
+    console.log('✅ Removed game-active class');
+    console.log('🔧 Current body classes:', document.body.className);
+    
+    // Force DOM reflow
+    document.body.offsetHeight;
+    console.log('🔧 Forced DOM reflow');
+};
+
 // Emergency fix for invite button submenu - Multiple approaches
 console.log('🔧 Setting up multiple emergency fixes');
 
@@ -6235,8 +6641,8 @@ window.addEventListener('load', function() {
     setupPermanentInviteHandler(); // Ensure handler is set up
 });
 
-// Approach 3: Immediate with multiple retries
-for (let i = 0; i < 5; i++) {
+// Approach 3: Immediate with retries (reduced from 5 to 2)
+for (let i = 0; i < 2; i++) {
     setTimeout(() => {
         console.log(`🔧 Retry attempt ${i + 1}`);
         setupInviteButtonFix(`retry-${i + 1}`);
@@ -6286,10 +6692,10 @@ function setupPermanentInviteHandler() {
 
 function setupInviteButtonFix(source) {
     console.log(`🔧 setupInviteButtonFix called from: ${source}`);
-    const inviteBtn = document.getElementById('invite-btn');
+    const inviteBtn = document.getElementById('invite-card'); // Changed from 'invite-btn' to 'invite-card'
     console.log(`🔧 Found invite button (${source}):`, !!inviteBtn, inviteBtn?.style?.display);
     
-    if (inviteBtn && inviteBtn.style.display !== 'none') {
+    if (inviteBtn && !inviteBtn.classList.contains('invite-hidden')) {
         console.log(`🔧 Setting up invite button click handler (${source})`);
         
         // Remove existing listeners by cloning
@@ -6527,5 +6933,78 @@ function setupSubmenuButtons(source) {
                 customCode: customCode 
             });
         });
+    }
+}
+
+// Moderator Context Menu Functions
+function showModeratorContextMenu() {
+    const overlay = document.getElementById('moderatorContextOverlay');
+    const menu = document.getElementById('moderatorContextMenu');
+    
+    if (overlay && menu) {
+        overlay.style.display = 'block';
+        menu.style.display = 'block';
+        
+        // Add click handlers for the buttons
+        setupModeratorMenuHandlers();
+        
+        // Close menu when clicking overlay
+        overlay.addEventListener('click', hideModeratorContextMenu);
+    }
+}
+
+function hideModeratorContextMenu() {
+    const overlay = document.getElementById('moderatorContextOverlay');
+    const menu = document.getElementById('moderatorContextMenu');
+    
+    if (overlay && menu) {
+        overlay.style.display = 'none';
+        menu.style.display = 'none';
+    }
+}
+
+function setupModeratorMenuHandlers() {
+    const endBtn = document.getElementById('endExperimentBtn');
+    const pauseBtn = document.getElementById('pauseExperimentBtn');
+    
+    // Remove any existing listeners to prevent duplicates
+    endBtn?.removeEventListener('click', handleEndExperiment);
+    pauseBtn?.removeEventListener('click', handlePauseExperiment);
+    
+    // Add new listeners
+    endBtn?.addEventListener('click', handleEndExperiment);
+    pauseBtn?.addEventListener('click', handlePauseExperiment);
+}
+
+function handleEndExperiment() {
+    hideModeratorContextMenu();
+    
+    const confirmEnd = confirm("Are you sure you want to END the experiment? This will return all players to global chat and permanently end the room.");
+    
+    if (confirmEnd) {
+        console.log('🛑 Moderator ending experiment');
+        
+        // Emit end experiment event to server
+        socket.emit('endExperiment', {
+            room: currentRoom,
+            moderatorAction: true
+        });
+        
+        // Redirect to home page
+        window.location.href = '/';
+    }
+}
+
+function handlePauseExperiment() {
+    hideModeratorContextMenu();
+    
+    const confirmPause = confirm("Are you sure you want to PAUSE the experiment? This will allow you to leave while keeping the room active for other players.");
+    
+    if (confirmPause) {
+        console.log('⏸️ Moderator pausing experiment (leaving room)');
+        
+        // Regular leave room behavior for moderator
+        socket.emit('leaveRoom', "Global");
+        window.location.href = '/';
     }
 }

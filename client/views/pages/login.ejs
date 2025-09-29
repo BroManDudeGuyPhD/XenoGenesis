@@ -1493,6 +1493,13 @@
                     <div class="room-pill" id="room-pill" style="display:none;">
                         <i class="fas fa-home"></i>
                         <span id="room-pill-text">Global</span>
+                        <i class="fas fa-chevron-down room-pill-dropdown" id="room-pill-dropdown"></i>
+                        <div class="room-pill-submenu" id="room-pill-submenu">
+                            <div class="room-pill-submenu-item" id="leave-room-option">
+                                <i class="fas fa-door-open"></i>
+                                <span>Leave Room</span>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1520,7 +1527,7 @@
                     <div class="card-glow join-glow"></div>
                 </div>
                 
-                <div class="action-card invite-card" id="invite-card" style="display:none;" data-tooltip="Generate invite codes for friends (Admin only)">
+                <div class="action-card invite-card invite-hidden" id="invite-card" data-tooltip="Generate invite codes for friends (Admin only)">
                     <div class="card-icon invite-icon">
                         <i class="fas fa-share-alt"></i>
                     </div>
@@ -1601,7 +1608,11 @@
     <script>
         // Pass session data to client
         window.sessionData = <%- sessionData %>;
-        console.log('Session data passed to client:', window.sessionData);
+        
+        // Immediately set admin status if available to reduce delay
+        if (window.sessionData && window.sessionData.isAdmin !== undefined) {
+            window.isGlobalAdmin = window.sessionData.isAdmin;
+        }
         
         // Close invite options when clicking outside
         document.addEventListener('click', function(event) {
@@ -1924,6 +1935,23 @@
             }
         }
     </script>
+    
+    <!-- Moderator Context Menu -->
+    <div class="moderator-context-overlay" id="moderatorContextOverlay"></div>
+    <div class="moderator-context-menu" id="moderatorContextMenu">
+        <h3 class="moderator-menu-title">Moderator Options</h3>
+        <p class="moderator-menu-subtitle">Choose how to handle leaving the room</p>
+        <div class="moderator-menu-buttons">
+            <button class="moderator-menu-button end-experiment" id="endExperimentBtn">
+                <i class="fas fa-stop-circle"></i>
+                End Experiment
+            </button>
+            <button class="moderator-menu-button pause-experiment" id="pauseExperimentBtn">
+                <i class="fas fa-pause-circle"></i>
+                Pause Experiment
+            </button>
+        </div>
+    </div>
 
 </body>
 

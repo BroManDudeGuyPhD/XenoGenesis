@@ -462,6 +462,87 @@ button[onclick*="setPlayerIncentive"]:hover {
 	font-size: 13px;
 	font-weight: 500;
 	transition: all 0.3s ease;
+	cursor: pointer;
+	position: relative;
+	user-select: none;
+	z-index: 50000;
+}
+
+/* Room pill dropdown indicator */
+.room-pill-dropdown {
+	font-size: 10px;
+	margin-left: 4px;
+	transition: transform 0.2s ease;
+	opacity: 0.8;
+	display: none; /* Hidden by default, shown when in a room */
+}
+
+/* Show dropdown arrow only when room pill has data-room attribute (not Global) */
+.room-pill[data-room]:not([data-room="Global"]) .room-pill-dropdown {
+	display: inline;
+}
+
+.room-pill.expanded .room-pill-dropdown {
+	transform: rotate(180deg);
+}
+
+/* Room pill submenu */
+.room-pill-submenu {
+	position: absolute;
+	top: 100%;
+	right: 0;
+	margin-top: 8px;
+	background: linear-gradient(135deg, 
+		rgba(31, 41, 55, 0.95) 0%, 
+		rgba(17, 24, 39, 0.9) 100%);
+	backdrop-filter: blur(15px);
+	-webkit-backdrop-filter: blur(15px);
+	border: 1px solid rgba(255, 255, 255, 0.1);
+	border-radius: 12px;
+	padding: 6px;
+	min-width: 140px;
+	box-shadow: 
+		0 10px 25px rgba(0, 0, 0, 0.3),
+		0 6px 10px rgba(0, 0, 0, 0.2);
+	z-index: 99999;
+	opacity: 0;
+	transform: translateY(-10px);
+	transition: all 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+	pointer-events: none;
+	display: block; /* Ensure it's always displayed for animation */
+}
+
+.room-pill-submenu.show {
+	opacity: 1;
+	transform: translateY(0);
+	pointer-events: all;
+}
+
+/* Room pill submenu items */
+.room-pill-submenu-item {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 8px 12px;
+	border-radius: 8px;
+	color: #e5e7eb;
+	font-size: 13px;
+	font-weight: 500;
+	cursor: pointer;
+	transition: all 0.2s ease;
+}
+
+.room-pill-submenu-item:hover {
+	background: linear-gradient(135deg, 
+		rgba(217, 83, 79, 0.8) 0%, 
+		rgba(169, 68, 66, 0.7) 100%);
+	color: white;
+	transform: translateX(2px);
+}
+
+.room-pill-submenu-item i {
+	font-size: 12px;
+	opacity: 0.9;
 }
 
 .status-pill.connected {
@@ -532,13 +613,124 @@ body.game-active .card-icon i {
 }
 
 /* Hide specific buttons in game context */
+/* FORCE VISIBILITY for create and join cards - MOST AGGRESSIVE */
+#create-card,
+#join-card {
+	display: block !important;
+	visibility: visible !important;
+	opacity: 1 !important;
+}
+
+/* Hide specific cards only when game is active */
 body.game-active .create-card,
 body.game-active .join-card {
 	display: none !important;
 }
 
+/* Explicitly show cards when not in game-active state */
+body:not(.game-active) .create-card,
+body:not(.game-active) .join-card {
+	display: block !important;
+	visibility: visible !important;
+	opacity: 1 !important;
+}
+
+/* Additional specificity for the card IDs */
+body:not(.game-active) #create-card,
+body:not(.game-active) #join-card {
+	display: block !important;
+	visibility: visible !important;
+	opacity: 1 !important;
+}
+
+/* Invite card visibility classes */
+.invite-visible {
+	display: block !important;
+	visibility: visible !important;
+	opacity: 1 !important;
+}
+
+.invite-hidden {
+	display: none !important;
+	visibility: hidden !important;
+	opacity: 0 !important;
+}
+
+/* Show invite card for moderators even in game context */
+body.game-active .invite-card.invite-visible {
+	display: block !important;
+}
+
+/* Only hide invite if explicitly marked hidden */
+body.game-active .invite-card.invite-hidden {
+	display: none !important;
+}
+
+/* Create and Join card visibility classes */
+.card-visible {
+	display: block !important;
+	visibility: visible !important;
+	opacity: 1 !important;
+}
+
+.card-hidden {
+	display: none !important;
+	visibility: hidden !important;
+	opacity: 0 !important;
+}
+
+/* Force hide create/join cards during active games - NUCLEAR APPROACH */
+body.game-active #create-card,
+body.game-active #join-card,
+body.game-active #invite-card,
+body.game-active .create-card,
+body.game-active .join-card,
+body.game-active .invite-card {
+	display: none !important;
+	visibility: hidden !important;
+	opacity: 0 !important;
+	transform: scale(0) !important;
+	pointer-events: none !important;
+}
+
+/* Additional safety - hide entire action cards container in game context */
+body.game-active .action-cards-container {
+	display: none !important;
+	visibility: hidden !important;
+	opacity: 0 !important;
+}
+
+/* Exception: Show invite card even in game context if marked visible */
+body.game-active .action-cards-container .invite-card.invite-visible {
+	display: block !important;
+	visibility: visible !important;
+	opacity: 1 !important;
+	position: relative !important;
+	z-index: 1000 !important;
+}
+
+/* Leave card visibility classes */
+.leave-visible {
+	display: block !important;
+}
+
+.leave-hidden {
+	display: none !important;
+	visibility: hidden !important;
+	opacity: 0 !important;
+}
+
+/* Force hide leave card in Global chat specifically */
+#leave-card.leave-hidden {
+	display: none !important;
+	visibility: hidden !important;
+	opacity: 0 !important;
+}
+
+/* DEFAULT VISIBILITY - Cards visible by default */
 .action-card {
 	position: relative;
+	display: block !important; /* Force visibility by default */
 	background: linear-gradient(145deg, 
 		rgba(47, 50, 66, 0.8) 0%, 
 		rgba(54, 57, 73, 0.6) 100%);
@@ -2523,4 +2715,136 @@ span.psw a:hover {
 	0% { opacity: 0.3; }
 	50% { opacity: 0.8; }
 	100% { opacity: 0.3; }
+}
+
+/* Moderator Context Menu */
+.moderator-context-menu {
+	position: fixed;
+	top: 50%;
+	left: 50%;
+	transform: translate(-50%, -50%);
+	background: linear-gradient(145deg, 
+		rgba(47, 50, 66, 0.95) 0%, 
+		rgba(54, 57, 73, 0.90) 100%);
+	backdrop-filter: blur(20px);
+	-webkit-backdrop-filter: blur(20px);
+	border: 1px solid rgba(255, 255, 255, 0.15);
+	border-radius: 20px;
+	padding: 32px;
+	box-shadow: 
+		0 20px 60px rgba(0, 0, 0, 0.5),
+		0 8px 32px rgba(0, 0, 0, 0.3),
+		inset 0 1px 0 rgba(255, 255, 255, 0.1);
+	z-index: 10000;
+	min-width: 300px;
+	display: none;
+	animation: moderatorMenuSlideIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.moderator-context-overlay {
+	position: fixed;
+	top: 0;
+	left: 0;
+	width: 100%;
+	height: 100%;
+	background: rgba(0, 0, 0, 0.6);
+	backdrop-filter: blur(8px);
+	-webkit-backdrop-filter: blur(8px);
+	z-index: 9999;
+	display: none;
+	animation: fadeIn 0.3s ease;
+}
+
+.moderator-menu-title {
+	color: #ffffff;
+	font-size: 20px;
+	font-weight: 600;
+	margin-bottom: 8px;
+	text-align: center;
+}
+
+.moderator-menu-subtitle {
+	color: rgba(255, 255, 255, 0.7);
+	font-size: 14px;
+	text-align: center;
+	margin-bottom: 24px;
+}
+
+.moderator-menu-buttons {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+}
+
+.moderator-menu-button {
+	background: linear-gradient(145deg, 
+		rgba(76, 80, 96, 0.8) 0%, 
+		rgba(86, 90, 106, 0.6) 100%);
+	border: 1px solid rgba(255, 255, 255, 0.1);
+	color: #ffffff;
+	padding: 16px 24px;
+	border-radius: 12px;
+	cursor: pointer;
+	font-size: 16px;
+	font-weight: 500;
+	text-align: center;
+	transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+	position: relative;
+	overflow: hidden;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 10px;
+}
+
+.moderator-menu-button:hover {
+	transform: translateY(-2px);
+	box-shadow: 
+		0 8px 25px rgba(0, 0, 0, 0.4),
+		0 4px 15px rgba(0, 0, 0, 0.2);
+	border-color: rgba(255, 255, 255, 0.2);
+}
+
+.moderator-menu-button.end-experiment {
+	background: linear-gradient(145deg, 
+		rgba(239, 68, 68, 0.8) 0%, 
+		rgba(220, 38, 38, 0.7) 100%);
+}
+
+.moderator-menu-button.end-experiment:hover {
+	background: linear-gradient(145deg, 
+		rgba(239, 68, 68, 0.9) 0%, 
+		rgba(220, 38, 38, 0.8) 100%);
+}
+
+.moderator-menu-button.pause-experiment {
+	background: linear-gradient(145deg, 
+		rgba(251, 191, 36, 0.8) 0%, 
+		rgba(245, 158, 11, 0.7) 100%);
+}
+
+.moderator-menu-button.pause-experiment:hover {
+	background: linear-gradient(145deg, 
+		rgba(251, 191, 36, 0.9) 0%, 
+		rgba(245, 158, 11, 0.8) 100%);
+}
+
+.moderator-menu-button i {
+	font-size: 18px;
+}
+
+@keyframes moderatorMenuSlideIn {
+	0% {
+		opacity: 0;
+		transform: translate(-50%, -50%) scale(0.8);
+	}
+	100% {
+		opacity: 1;
+		transform: translate(-50%, -50%) scale(1);
+	}
+}
+
+@keyframes fadeIn {
+	0% { opacity: 0; }
+	100% { opacity: 1; }
 }

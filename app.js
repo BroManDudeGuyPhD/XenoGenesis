@@ -58,6 +58,12 @@ app.use('/client', express.static(__dirname + '/client', {
     }
 }));
 
+// Specific route for CSS files to ensure proper MIME type
+app.get('/css/style.css', function(req, res) {
+    res.setHeader('Content-Type', 'text/css');
+    res.sendFile(__dirname + '/client/css/style.css');
+});
+
 app.get('/', function(req, res) {
     // Check if user has an active session and pass it to the client
     // Validate room if user has one in session
@@ -80,7 +86,8 @@ app.get('/', function(req, res) {
         isLoggedIn: !!req.session.username,
         username: req.session.username || null,
         room: validatedRoom,
-        roomRestored: roomExists
+        roomRestored: roomExists,
+        isAdmin: req.session.isAdmin || false
     };
 
     // Check for active game session if user is logged in and has a room
@@ -232,7 +239,8 @@ io.on('connection', (socket) => {
                     username: socket.handshake.session.username,
                     room: targetRoom,
                     roomRestored: roomExists,
-                    hasActiveGame: hasActiveGame
+                    hasActiveGame: hasActiveGame,
+                    isAdmin: admin
                 });
             });
         } else {
@@ -287,6 +295,10 @@ io.on('connection', (socket) => {
                             }
                             
                             Database.isAdmin(data, function(admin){ 
+                                // Store admin status in session
+                                socket.handshake.session.isAdmin = admin;
+                                socket.handshake.session.save();
+                                
                                 Player.onConnect(socket, data.username, admin, io);
                                 socket.emit('signInResponse', { 
                                     success: true, 
@@ -301,7 +313,8 @@ io.on('connection', (socket) => {
                                     username: data.username,
                                     room: restorationData.room,
                                     roomRestored: true,
-                                    hasActiveGame: true
+                                    hasActiveGame: true,
+                                    isAdmin: admin
                                 });
                             });
                         });
@@ -317,6 +330,10 @@ io.on('connection', (socket) => {
                             }
                             
                             Database.isAdmin(data, function(admin){ 
+                                // Store admin status in session
+                                socket.handshake.session.isAdmin = admin;
+                                socket.handshake.session.save();
+                                
                                 Player.onConnect(socket, data.username, admin, io);
                                 socket.emit('signInResponse', { 
                                     success: true, 
@@ -341,6 +358,10 @@ io.on('connection', (socket) => {
                         }
                         
                         Database.isAdmin(data, function(admin){ 
+                            // Store admin status in session
+                            socket.handshake.session.isAdmin = admin;
+                            socket.handshake.session.save();
+                            
                             Player.onConnect(socket, data.username, admin, io);
                             socket.emit('signInResponse', { 
                                 success: true, 
@@ -362,6 +383,10 @@ io.on('connection', (socket) => {
                     }
                     
                     Database.isAdmin(data, function(admin){ 
+                        // Store admin status in session
+                        socket.handshake.session.isAdmin = admin;
+                        socket.handshake.session.save();
+                        
                         Player.onConnect(socket, data.username, admin, io);
                         socket.emit('signInResponse', { 
                             success: true, 
@@ -572,6 +597,56 @@ io.on('connection', (socket) => {
             socket.handshake.session.save();
             console.log('💾 Room saved to session:', roomName);
         }
+    });
+    
+    socket.on('endExperiment', function(data) {
+        console.log('🛑 End experiment request received:', data);
+        
+        // Verify the user is a moderator (you may need to add this check)
+        const username = socket.handshake.session?.username;
+        
+        if (!username) {
+            console.log('❌ End experiment failed: No authenticated user');
+            return;
+        }
+        
+        const room = data.room;
+        if (!room || room === 'Global') {
+            console.log('❌ End experiment failed: Invalid room');
+            return;
+        }
+        
+        console.log(`🛑 Moderator ${username} ending experiment in room: ${room}`);
+        
+        // Clear session room for all users in the room by sending them to Global
+        io.in(room).fetchSockets().then(sockets => {
+            sockets.forEach(socket => {
+                if (socket.handshake.session) {
+                    socket.handshake.session.room = 'Global';
+                    socket.handshake.session.save();
+                    console.log(`🧹 Cleared session room for user: ${socket.handshake.session.username}`);
+                }
+            });
+        });
+        
+        // Broadcast to all users in the room that the experiment is ending
+        io.to(room).emit('experimentEnded', {
+            message: `The experiment has been ended by the moderator.`,
+            moderator: username
+        });
+        
+        // Send leftRoom event to all users in the room to return them to Global
+        io.to(room).emit('leftRoom', {
+            room: 'Global',
+            reason: 'Experiment ended by moderator'
+        });
+        
+        // You may want to add additional cleanup here:
+        // - Remove the room from roomList
+        // - Clear any active game sessions
+        // - Reset any AI processes
+        
+        console.log(`✅ Experiment ended in room: ${room}`);
     });
 
     socket.on('disconnect', function(){
