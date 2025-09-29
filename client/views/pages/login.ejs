@@ -35,8 +35,116 @@
                 <li class="nav-item">
                     <button id="loginNav"><span>Login</span></button>
                 </li>
-                <li class="nav-item">
-                    <button id="logoutNav" style="display: none;"><span>Logout</span></button>
+                <li class="nav-item profile-menu-container" style="display: none; position: relative;">
+                    <button id="profileMenuBtn" style="
+                        background: linear-gradient(135deg, #667aff, #7386ff);
+                        color: white;
+                        border: none;
+                        padding: 8px 16px;
+                        border-radius: 20px;
+                        cursor: pointer;
+                        font-size: 14px;
+                        display: flex;
+                        align-items: center;
+                        gap: 8px;
+                        transition: all 0.3s ease;
+                        box-shadow: 0 2px 8px rgba(102, 122, 255, 0.3);
+                    " onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 15px rgba(102, 122, 255, 0.4)'"
+                       onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 8px rgba(102, 122, 255, 0.3)'">
+                        <i class="fas fa-user-circle" style="font-size: 16px;"></i>
+                        <span id="profileUsername">Player</span>
+                        <i class="fas fa-chevron-down" style="font-size: 12px; transition: transform 0.3s ease;" id="profileChevron"></i>
+                    </button>
+                    <div id="profileDropdown" style="
+                        position: absolute;
+                        top: 100%;
+                        right: 0;
+                        background: linear-gradient(145deg, 
+                            rgba(43, 45, 59, 0.98) 0%, 
+                            rgba(54, 57, 63, 0.95) 100%);
+                        backdrop-filter: blur(20px);
+                        -webkit-backdrop-filter: blur(20px);
+                        border: 1px solid rgba(255, 255, 255, 0.15);
+                        border-radius: 12px;
+                        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+                        z-index: 1000;
+                        margin-top: 8px;
+                        min-width: 200px;
+                        display: none;
+                        animation: slideDown 0.3s ease;
+                    ">
+                        <div style="padding: 12px 0;">
+                            <button class="profile-menu-item" style="
+                                width: 100%;
+                                padding: 12px 16px;
+                                background: transparent;
+                                border: none;
+                                color: #dcddde;
+                                cursor: pointer;
+                                transition: background 0.2s ease;
+                                display: flex;
+                                align-items: center;
+                                gap: 12px;
+                                font-size: 14px;
+                            " onmouseover="this.style.background='rgba(255, 255, 255, 0.1)'"
+                               onmouseout="this.style.background='transparent'">
+                                <i class="fas fa-cog" style="width: 16px;"></i>
+                                <span>Settings</span>
+                            </button>
+                            <button class="profile-menu-item" style="
+                                width: 100%;
+                                padding: 12px 16px;
+                                background: transparent;
+                                border: none;
+                                color: #dcddde;
+                                cursor: pointer;
+                                transition: background 0.2s ease;
+                                display: flex;
+                                align-items: center;
+                                gap: 12px;
+                                font-size: 14px;
+                            " onmouseover="this.style.background='rgba(255, 255, 255, 0.1)'"
+                               onmouseout="this.style.background='transparent'">
+                                <i class="fas fa-chart-line" style="width: 16px;"></i>
+                                <span>Statistics</span>
+                            </button>
+                            <button class="profile-menu-item" style="
+                                width: 100%;
+                                padding: 12px 16px;
+                                background: transparent;
+                                border: none;
+                                color: #dcddde;
+                                cursor: pointer;
+                                transition: background 0.2s ease;
+                                display: flex;
+                                align-items: center;
+                                gap: 12px;
+                                font-size: 14px;
+                            " onmouseover="this.style.background='rgba(255, 255, 255, 0.1)'"
+                               onmouseout="this.style.background='transparent'">
+                                <i class="fas fa-trophy" style="width: 16px;"></i>
+                                <span>Achievements</span>
+                            </button>
+                            <hr style="margin: 8px 16px; border: none; height: 1px; background: rgba(255, 255, 255, 0.1);">
+                            <button id="logoutBtn" class="profile-menu-item" style="
+                                width: 100%;
+                                padding: 12px 16px;
+                                background: transparent;
+                                border: none;
+                                color: #f04747;
+                                cursor: pointer;
+                                transition: background 0.2s ease;
+                                display: flex;
+                                align-items: center;
+                                gap: 12px;
+                                font-size: 14px;
+                            " onmouseover="this.style.background='rgba(240, 71, 71, 0.1)'"
+                               onmouseout="this.style.background='transparent'">
+                                <i class="fas fa-sign-out-alt" style="width: 16px;"></i>
+                                <span>Logout</span>
+                            </button>
+                        </div>
+                    </div>
                 </li>
             </ul>
             <div class="hamburger">
@@ -201,34 +309,36 @@
 
                 <div style="display: flex; gap: 12px; justify-content: center; margin-bottom: 20px;">
                     <button type="button" id="signIn" style="
-                        background: linear-gradient(135deg, rgba(67, 181, 129, 0.9) 0%, rgba(52, 168, 107, 0.9) 100%);
-                        color: white;
+                        background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%) !important;
+                        color: white !important;
                         padding: 12px 20px;
-                        border: none;
+                        border: 1px solid rgba(34, 197, 94, 0.4) !important;
                         border-radius: 7px;
                         cursor: pointer;
-                        font-weight: 500;
+                        font-weight: 600;
                         font-size: 14px;
                         transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-                        box-shadow: 0 3px 8px rgba(67, 181, 129, 0.3);
+                        box-shadow: 0 3px 12px rgba(34, 197, 94, 0.3) !important;
                         display: flex;
                         align-items: center;
                         gap: 6px;
                     "
                     onmouseover="
-                        this.style.background='linear-gradient(135deg, rgba(52, 168, 107, 0.95) 0%, rgba(39, 174, 96, 0.95) 100%)';
-                        this.style.transform='translateY(-1px)';
-                        this.style.boxShadow='0 4px 12px rgba(67, 181, 129, 0.4)';
+                        this.style.setProperty('background', 'linear-gradient(135deg, #16a34a 0%, #22c55e 100%)', 'important');
+                        this.style.setProperty('transform', 'translateY(-2px)', 'important');
+                        this.style.setProperty('box-shadow', '0 4px 16px rgba(34, 197, 94, 0.4)', 'important');
+                        this.style.setProperty('border-color', 'rgba(34, 197, 94, 0.6)', 'important');
                     "
                     onmouseout="
-                        this.style.background='linear-gradient(135deg, rgba(67, 181, 129, 0.9) 0%, rgba(52, 168, 107, 0.9) 100%)';
-                        this.style.transform='translateY(0)';
-                        this.style.boxShadow='0 3px 8px rgba(67, 181, 129, 0.3)';
+                        this.style.setProperty('background', 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)', 'important');
+                        this.style.setProperty('transform', 'translateY(0)', 'important');
+                        this.style.setProperty('box-shadow', '0 3px 12px rgba(34, 197, 94, 0.3)', 'important');
+                        this.style.setProperty('border-color', 'rgba(34, 197, 94, 0.4)', 'important');
                     ">
                         <span style="font-size: 12px;">🔐</span>
                         Login
                     </button>
-                    <button type="button" id="signUp" style="
+                    <button type="button" id="signUp" onclick="document.getElementById('signupModal').style.display='block'" style="
                         background: rgba(114, 118, 125, 0.15);
                         color: #b9bbbe;
                         padding: 12px 20px;
@@ -310,6 +420,432 @@
                 <span class="psw" style="color: #b9bbbe; font-size: 12px; opacity: 0.7;">
                     Forgot <a href="#" style="color: rgba(102, 122, 255, 0.8); text-decoration: none;">password?</a>
                 </span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Signup Modal -->
+    <div id="signupModal" class="modal" style="
+        background: rgba(0, 0, 0, 0.75);
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+        display: none;
+    ">
+        <div class="modal-content animate" style="
+            max-width: 420px;
+            background: linear-gradient(145deg, 
+                rgba(43, 45, 59, 0.98) 0%, 
+                rgba(54, 57, 63, 0.95) 100%);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            box-shadow: 
+                0 20px 60px rgba(0, 0, 0, 0.5),
+                0 8px 32px rgba(0, 0, 0, 0.3),
+                inset 0 1px 0 rgba(255, 255, 255, 0.1);
+        ">
+            <div class="imgcontainer">
+                <span onclick="document.getElementById('signupModal').style.display='none'" 
+                      class="close"
+                      title="Close Modal"
+                      style="
+                          color: #b9bbbe;
+                          font-size: 28px;
+                          transition: all 0.2s ease;
+                      "
+                      onmouseover="this.style.color='#ffffff'; this.style.transform='scale(1.1)'"
+                      onmouseout="this.style.color='#b9bbbe'; this.style.transform='scale(1)'">&times;</span>
+            </div>
+
+            <div class="container" style="text-align: center; padding: 30px;">
+                <div style="
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    gap: 10px;
+                    margin-bottom: 8px;
+                ">
+                    <div style="
+                        width: 3px;
+                        height: 3px;
+                        background: linear-gradient(135deg, #667aff, #7386ff);
+                        border-radius: 50%;
+                        animation: subtlePulse 2s infinite;
+                    "></div>
+                    <h3 style="
+                        color: #dcddde; 
+                        font-weight: 600; 
+                        margin: 0;
+                        font-size: 24px;
+                        letter-spacing: -0.5px;
+                    ">Create Account</h3>
+                    <div style="
+                        width: 3px;
+                        height: 3px;
+                        background: linear-gradient(135deg, #667aff, #7386ff);
+                        border-radius: 50%;
+                        animation: subtlePulse 2s infinite 0.5s;
+                    "></div>
+                </div>
+                
+                <p style="
+                    color: #b9bbbe; 
+                    font-size: 14px; 
+                    margin-bottom: 25px; 
+                    opacity: 0.8;
+                ">Join with your invite code</p>
+
+                <div style="display: flex; flex-direction: column; gap: 15px;">
+                    <div style="position: relative;">
+                        <input type="text" id="signupUsername" placeholder="Username" style="
+                            width: 100%;
+                            padding: 12px 16px;
+                            background: rgba(32, 34, 37, 0.6);
+                            border: 1px solid rgba(114, 118, 125, 0.4);
+                            border-radius: 8px;
+                            color: #dcddde;
+                            font-size: 14px;
+                            font-weight: 400;
+                            transition: all 0.2s ease;
+                            backdrop-filter: blur(10px);
+                            box-sizing: border-box;
+                        "
+                        onfocus="
+                            this.style.borderColor='rgba(102, 122, 255, 0.6)';
+                            this.style.background='rgba(32, 34, 37, 0.8)';
+                        "
+                        onblur="
+                            this.style.borderColor='rgba(114, 118, 125, 0.4)';
+                            this.style.background='rgba(32, 34, 37, 0.6)';
+                        ">
+                    </div>
+
+                    <div style="position: relative;">
+                        <input type="password" id="signupPassword" placeholder="Password" style="
+                            width: 100%;
+                            padding: 12px 16px;
+                            background: rgba(32, 34, 37, 0.6);
+                            border: 1px solid rgba(114, 118, 125, 0.4);
+                            border-radius: 8px;
+                            color: #dcddde;
+                            font-size: 14px;
+                            font-weight: 400;
+                            transition: all 0.2s ease;
+                            backdrop-filter: blur(10px);
+                            box-sizing: border-box;
+                        "
+                        onfocus="
+                            this.style.borderColor='rgba(102, 122, 255, 0.6)';
+                            this.style.background='rgba(32, 34, 37, 0.8)';
+                        "
+                        onblur="
+                            this.style.borderColor='rgba(114, 118, 125, 0.4)';
+                            this.style.background='rgba(32, 34, 37, 0.6)';
+                        "
+                        oninput="validatePasswordRequirements()">
+                        
+                        <!-- Password Requirements Indicator -->
+                        <div id="passwordRequirements" style="
+                            margin-top: 8px;
+                            padding: 8px 12px;
+                            background: rgba(40, 43, 48, 0.8);
+                            border-radius: 6px;
+                            font-size: 11px;
+                            line-height: 1.4;
+                            display: none;
+                        ">
+                            <div id="lengthReq" style="color: #f04747; margin-bottom: 2px;">
+                                <span>•</span> At least 6 characters
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style="position: relative;">
+                        <input type="password" id="signupConfirmPassword" placeholder="Confirm Password" style="
+                            width: 100%;
+                            padding: 12px 16px;
+                            background: rgba(32, 34, 37, 0.6);
+                            border: 1px solid rgba(114, 118, 125, 0.4);
+                            border-radius: 8px;
+                            color: #dcddde;
+                            font-size: 14px;
+                            font-weight: 400;
+                            transition: all 0.2s ease;
+                            backdrop-filter: blur(10px);
+                            box-sizing: border-box;
+                        "
+                        onfocus="
+                            this.style.borderColor='rgba(102, 122, 255, 0.6)';
+                            this.style.background='rgba(32, 34, 37, 0.8)';
+                        "
+                        onblur="
+                            this.style.borderColor='rgba(114, 118, 125, 0.4)';
+                            this.style.background='rgba(32, 34, 37, 0.6)';
+                        "
+                        oninput="validatePasswordMatch()">
+                        
+                        <!-- Password Match Indicator -->
+                        <div id="passwordMatchIndicator" style="
+                            margin-top: 6px;
+                            font-size: 11px;
+                            display: none;
+                        ">
+                            <span id="passwordMatchText"></span>
+                        </div>
+                    </div>
+
+                    <div style="position: relative;">
+                        <input type="text" id="signupInviteCode" placeholder="Invite Code" style="
+                            width: 100%;
+                            padding: 12px 16px;
+                            background: rgba(32, 34, 37, 0.6);
+                            border: 1px solid rgba(114, 118, 125, 0.4);
+                            border-radius: 8px;
+                            color: #dcddde;
+                            font-size: 14px;
+                            font-weight: 400;
+                            transition: all 0.2s ease;
+                            backdrop-filter: blur(10px);
+                            box-sizing: border-box;
+                            text-transform: uppercase;
+                        "
+                        onfocus="
+                            this.style.borderColor='rgba(102, 122, 255, 0.6)';
+                            this.style.background='rgba(32, 34, 37, 0.8)';
+                        "
+                        onblur="
+                            this.style.borderColor='rgba(114, 118, 125, 0.4)';
+                            this.style.background='rgba(32, 34, 37, 0.6)';
+                        "
+                        oninput="this.value = this.value.toUpperCase()">
+                        <div style="
+                            position: absolute;
+                            right: 12px;
+                            top: 50%;
+                            transform: translateY(-50%);
+                            color: #7289da;
+                            font-size: 12px;
+                            opacity: 0.7;
+                        ">✨</div>
+                    </div>
+
+                    <button type="button" id="createAccountBtn" style="
+                        background: linear-gradient(135deg, rgba(67, 181, 129, 0.9) 0%, rgba(52, 168, 107, 0.9) 100%);
+                        color: white;
+                        padding: 14px 20px;
+                        border: none;
+                        border-radius: 8px;
+                        cursor: pointer;
+                        font-size: 15px;
+                        font-weight: 600;
+                        transition: all 0.2s ease;
+                        box-shadow: 0 3px 8px rgba(67, 181, 129, 0.3);
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        gap: 8px;
+                        margin-top: 10px;
+                    "
+                    onmouseover="
+                        this.style.background='linear-gradient(135deg, rgba(67, 181, 129, 1) 0%, rgba(52, 168, 107, 1) 100%)';
+                        this.style.transform='translateY(-1px)';
+                        this.style.boxShadow='0 4px 12px rgba(67, 181, 129, 0.4)';
+                    "
+                    onmouseout="
+                        this.style.background='linear-gradient(135deg, rgba(67, 181, 129, 0.9) 0%, rgba(52, 168, 107, 0.9) 100%)';
+                        this.style.transform='translateY(0)';
+                        this.style.boxShadow='0 3px 8px rgba(67, 181, 129, 0.3)';
+                    ">
+                        <span style="font-size: 12px;">🚀</span>
+                        Create Account
+                    </button>
+                </div>
+            </div>
+
+            <div class="container" style="
+                background: linear-gradient(135deg, rgba(241, 241, 241, 0.05), rgba(241, 241, 241, 0.02));
+                border-top: 1px solid rgba(255, 255, 255, 0.08);
+                backdrop-filter: blur(10px);
+                padding: 20px 30px;
+                text-align: center;
+            ">
+                <button type="button" 
+                        onclick="document.getElementById('signupModal').style.display='none'"
+                        style="
+                            background: rgba(218, 86, 79, 0.1);
+                            color: rgba(218, 86, 79, 0.9);
+                            padding: 8px 16px;
+                            border: 1px solid rgba(218, 86, 79, 0.3);
+                            border-radius: 6px;
+                            cursor: pointer;
+                            font-size: 12px;
+                            font-weight: 400;
+                            transition: all 0.2s ease;
+                            margin-right: 16px;
+                        "
+                        onmouseover="
+                            this.style.background='rgba(218, 86, 79, 0.15)';
+                            this.style.borderColor='rgba(218, 86, 79, 0.5)';
+                        "
+                        onmouseout="
+                            this.style.background='rgba(218, 86, 79, 0.1)';
+                            this.style.borderColor='rgba(218, 86, 79, 0.3)';
+                        ">Cancel</button>
+                <span class="psw" style="color: #b9bbbe; font-size: 12px; opacity: 0.7;">
+                    Need an <a href="#" style="color: rgba(102, 122, 255, 0.8); text-decoration: none;">invite code?</a>
+                </span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Permanent Invite Code Modal -->
+    <div id="permanentInviteModal" class="modal" style="
+        display: none; 
+        position: fixed; 
+        z-index: 10000; 
+        left: 0; 
+        top: 0; 
+        width: 100%; 
+        height: 100%; 
+        overflow: auto; 
+        background-color: rgba(0, 0, 0, 0.6);
+        backdrop-filter: blur(5px);
+    ">
+        <div class="modal-content animate" style="
+            background: linear-gradient(145deg, rgba(54, 57, 63, 0.95), rgba(47, 49, 54, 0.95));
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(114, 118, 125, 0.3);
+            margin: 8% auto;
+            padding: 0;
+            border-radius: 16px;
+            width: 90%;
+            max-width: 480px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            animation: modalSlideIn 0.4s ease-out;
+        ">
+            <div style="
+                background: linear-gradient(135deg, #667aff, #7386ff);
+                padding: 24px 32px;
+                border-radius: 16px 16px 0 0;
+                position: relative;
+            ">
+                <span onclick="document.getElementById('permanentInviteModal').style.display='none'" 
+                      class="close" 
+                      title="Close Modal"
+                      style="
+                          color: white;
+                          float: right;
+                          font-size: 28px;
+                          font-weight: bold;
+                          cursor: pointer;
+                          line-height: 1;
+                          margin-top: -4px;
+                          transition: all 0.2s ease;
+                      "
+                      onmouseover="this.style.opacity='0.7'"
+                      onmouseout="this.style.opacity='1'">&times;</span>
+                <h2 style="color: white; margin: 0; font-size: 24px; font-weight: 600;">
+                    <i class="fas fa-crown" style="margin-right: 12px; color: #ffd700;"></i>
+                    Create Permanent Invite
+                </h2>
+            </div>
+
+            <div style="padding: 32px;">
+                <div style="text-align: left; margin-bottom: 24px;">
+                    <label for="customCode" style="
+                        color: #dcddde;
+                        font-weight: 500;
+                        font-size: 13px;
+                        margin-bottom: 6px;
+                        display: block;
+                    "><b>Custom Code</b></label>
+                    <input type="text" 
+                           placeholder="Enter custom invite code" 
+                           id="customCode" 
+                           name="customCode" 
+                           required
+                           maxlength="20"
+                           style="
+                               width: 100%;
+                               padding: 14px 16px;
+                               background: rgba(32, 34, 37, 0.8);
+                               border: 1px solid rgba(114, 118, 125, 0.4);
+                               border-radius: 8px;
+                               color: #dcddde;
+                               font-size: 14px;
+                               font-weight: 400;
+                               transition: all 0.3s ease;
+                               box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.2);
+                               backdrop-filter: blur(10px);
+                               box-sizing: border-box;
+                           "
+                           onfocus="
+                               this.style.borderColor='rgba(102, 122, 255, 0.6)';
+                               this.style.boxShadow='inset 0 1px 3px rgba(0, 0, 0, 0.2), 0 0 0 3px rgba(102, 122, 255, 0.15)';
+                           "
+                           onblur="
+                               this.style.borderColor='rgba(114, 118, 125, 0.4)';
+                               this.style.boxShadow='inset 0 1px 3px rgba(0, 0, 0, 0.2)';
+                           "
+                           onkeypress="if(event.key === 'Enter') document.getElementById('createPermanentBtn').click()"
+                    >
+                    <div style="margin-top: 8px; font-size: 12px; color: #b9bbbe; opacity: 0.8;">
+                        <i class="fas fa-info-circle" style="margin-right: 6px;"></i>
+                        Permanent codes never expire and can be used multiple times
+                    </div>
+                </div>
+
+                <div style="display: flex; justify-content: space-between; align-items: center; gap: 16px;">
+                    <button type="button" 
+                            id="createPermanentBtn"
+                            style="
+                                flex: 1;
+                                background: linear-gradient(135deg, #667aff, #7386ff);
+                                color: white;
+                                padding: 16px 24px;
+                                border: none;
+                                border-radius: 8px;
+                                cursor: pointer;
+                                font-size: 14px;
+                                font-weight: 600;
+                                transition: all 0.3s ease;
+                                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+                            "
+                            onmouseover="
+                                this.style.background='linear-gradient(135deg, #5865f2, #6b73ff)';
+                                this.style.transform='translateY(-2px)';
+                                this.style.boxShadow='0 6px 20px rgba(0, 0, 0, 0.2)';
+                            "
+                            onmouseout="
+                                this.style.background='linear-gradient(135deg, #667aff, #7386ff)';
+                                this.style.transform='translateY(0)';
+                                this.style.boxShadow='0 4px 12px rgba(0, 0, 0, 0.15)';
+                            ">
+                        <i class="fas fa-crown" style="margin-right: 8px;"></i>
+                        Create Permanent Code
+                    </button>
+                    <button type="button" 
+                            onclick="document.getElementById('permanentInviteModal').style.display='none'"
+                            style="
+                                background: rgba(218, 86, 79, 0.1);
+                                color: rgba(218, 86, 79, 0.9);
+                                padding: 16px 24px;
+                                border: 1px solid rgba(218, 86, 79, 0.3);
+                                border-radius: 8px;
+                                cursor: pointer;
+                                font-size: 12px;
+                                font-weight: 400;
+                                transition: all 0.2s ease;
+                            "
+                            onmouseover="
+                                this.style.background='rgba(218, 86, 79, 0.15)';
+                                this.style.borderColor='rgba(218, 86, 79, 0.5)';
+                            "
+                            onmouseout="
+                                this.style.background='rgba(218, 86, 79, 0.1)';
+                                this.style.borderColor='rgba(218, 86, 79, 0.3)';
+                            ">Cancel</button>
+                </div>
             </div>
         </div>
     </div>
@@ -822,6 +1358,74 @@
                             border-radius: 8px;
                             pointer-events: none;
                         }
+                        
+                        /* Invite submenu styles */
+                        .invite-submenu {
+                            position: absolute;
+                            top: 100%;
+                            left: 0;
+                            background: rgba(40, 43, 48, 0.98) !important;
+                            backdrop-filter: blur(20px);
+                            border-radius: 12px;
+                            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+                            border: 1px solid rgba(114, 118, 125, 0.3);
+                            z-index: 9999 !important;
+                            margin-top: 8px;
+                            min-width: 160px;
+                            animation: slideDown 0.3s ease;
+                        }
+                        
+                        .invite-submenu[style*="block"] {
+                            display: block !important;
+                        }
+                        
+                        .submenu-btn {
+                            display: flex;
+                            align-items: center;
+                            gap: 8px;
+                            width: 100%;
+                            padding: 12px 16px;
+                            background: transparent;
+                            border: none;
+                            color: #dcddde;
+                            font-size: 14px;
+                            cursor: pointer;
+                            transition: all 0.3s ease;
+                            text-align: left;
+                        }
+                        
+                        .submenu-btn:first-child {
+                            border-radius: 12px 12px 0 0;
+                        }
+                        
+                        .submenu-btn:last-child {
+                            border-radius: 0 0 12px 12px;
+                        }
+                        
+                        .submenu-btn:only-child {
+                            border-radius: 12px;
+                        }
+                        
+                        .submenu-btn:hover {
+                            background: rgba(102, 122, 255, 0.2);
+                            color: #667aff;
+                        }
+                        
+                        .submenu-btn i {
+                            font-size: 16px;
+                            opacity: 0.8;
+                        }
+                        
+                        @keyframes slideDown {
+                            from {
+                                opacity: 0;
+                                transform: translateY(-10px) scale(0.95);
+                            }
+                            to {
+                                opacity: 1;
+                                transform: translateY(0) scale(1);
+                            }
+                        }
                     </style>
                 </div>
             </div>
@@ -833,6 +1437,19 @@
             <i class="fa-thin fa-globe-stand"></i>
             <a id="create-btn" class="btn">Create Room</a>
             <a id="join-btn" class="btn">Join Room</a>
+            <a id="invite-btn" class="btn" style="display:none; background: linear-gradient(135deg, #667aff, #7386ff); color: white; position: relative;">
+                Generate Invite
+                <div id="invite-submenu" class="invite-submenu" style="display:none;">
+                    <button id="random-invite-btn" class="submenu-btn">
+                        <i class="fas fa-random"></i>
+                        Random Code
+                    </button>
+                    <button id="permanent-invite-btn" class="submenu-btn">
+                        <i class="fas fa-crown"></i>
+                        Permanent Code
+                    </button>
+                </div>
+            </a>
             <a id="leave-btn" class="btn" style="color:red">Leave Room</a>
         </header>
         <main class="chat-main">
@@ -1031,6 +1648,148 @@
                 culturantCount.textContent = '0';
             }
         });
+
+        // Signup form handling
+        document.addEventListener('DOMContentLoaded', function() {
+            const createAccountBtn = document.getElementById('createAccountBtn');
+            const signupModal = document.getElementById('signupModal');
+            
+            if (createAccountBtn) {
+                createAccountBtn.addEventListener('click', function() {
+                    const username = document.getElementById('signupUsername').value.trim();
+                    const password = document.getElementById('signupPassword').value;
+                    const confirmPassword = document.getElementById('signupConfirmPassword').value;
+                    const inviteCode = document.getElementById('signupInviteCode').value.trim().toUpperCase();
+                    
+                    // Validation
+                    if (!username || !password || !confirmPassword || !inviteCode) {
+                        showGlassmorphismAlert('Missing Information', 'Please fill in all fields to create your account.', 'error');
+                        return;
+                    }
+                    
+                    if (username.length < 3) {
+                        showGlassmorphismAlert('Invalid Username', 'Username must be at least 3 characters long.', 'error');
+                        return;
+                    }
+                    
+                    if (password.length < 6) {
+                        showGlassmorphismAlert('Weak Password', 'Password must be at least 6 characters long.', 'error');
+                        return;
+                    }
+                    
+                    if (password !== confirmPassword) {
+                        showGlassmorphismAlert('Password Mismatch', 'Passwords do not match. Please try again.', 'error');
+                        return;
+                    }
+                    
+                    if (inviteCode.length !== 8) {
+                        showGlassmorphismAlert('Invalid Invite Code', 'Invite code must be exactly 8 characters.', 'error');
+                        return;
+                    }
+                    
+                    // Send signup request with invite code
+                    if (typeof socket !== 'undefined') {
+                        socket.emit('signUp', {
+                            username: username,
+                            password: password,
+                            inviteCode: inviteCode
+                        });
+                        
+                        // Close modal after sending request
+                        signupModal.style.display = 'none';
+                        
+                        // Clear form
+                        document.getElementById('signupUsername').value = '';
+                        document.getElementById('signupPassword').value = '';
+                        document.getElementById('signupConfirmPassword').value = '';
+                        document.getElementById('signupInviteCode').value = '';
+                        
+                        showGlassmorphismAlert('Creating Account...', 'Please wait while we validate your invite code and create your account.', 'info');
+                    } else {
+                        showGlassmorphismAlert('Connection Error', 'Unable to connect to server. Please refresh and try again.', 'error');
+                    }
+                });
+            }
+
+            // Close modal when clicking outside
+            window.onclick = function(event) {
+                if (event.target === signupModal) {
+                    signupModal.style.display = 'none';
+                }
+            }
+
+            // Enter key handling for signup form
+            function handleSignupEnterKey(event) {
+                if (event.key === 'Enter') {
+                    createAccountBtn.click();
+                }
+            }
+
+            document.getElementById('signupUsername')?.addEventListener('keypress', handleSignupEnterKey);
+            document.getElementById('signupPassword')?.addEventListener('keypress', handleSignupEnterKey);
+            document.getElementById('signupConfirmPassword')?.addEventListener('keypress', handleSignupEnterKey);
+            document.getElementById('signupInviteCode')?.addEventListener('keypress', handleSignupEnterKey);
+        });
+
+        // Real-time password validation functions
+        function validatePasswordRequirements() {
+            const password = document.getElementById('signupPassword').value;
+            const requirementsDiv = document.getElementById('passwordRequirements');
+            const lengthReq = document.getElementById('lengthReq');
+            
+            // Show requirements when user starts typing
+            if (password.length > 0) {
+                requirementsDiv.style.display = 'block';
+            } else {
+                requirementsDiv.style.display = 'none';
+                return;
+            }
+            
+            // Check length requirement
+            const meetsLength = password.length >= 6;
+            lengthReq.style.color = meetsLength ? '#43b581' : '#f04747';
+            lengthReq.innerHTML = meetsLength ? 
+                '<span>✓</span> At least 6 characters' : 
+                '<span>•</span> At least 6 characters';
+            
+            // Update password field border color
+            const passwordField = document.getElementById('signupPassword');
+            if (meetsLength) {
+                passwordField.style.borderColor = 'rgba(67, 181, 129, 0.6)';
+            } else {
+                passwordField.style.borderColor = 'rgba(240, 71, 71, 0.6)';
+            }
+            
+            // Also trigger confirm password validation
+            validatePasswordMatch();
+        }
+
+        function validatePasswordMatch() {
+            const password = document.getElementById('signupPassword').value;
+            const confirmPassword = document.getElementById('signupConfirmPassword').value;
+            const matchIndicator = document.getElementById('passwordMatchIndicator');
+            const matchText = document.getElementById('passwordMatchText');
+            const confirmField = document.getElementById('signupConfirmPassword');
+            
+            // Only show indicator if user has typed in confirm password
+            if (confirmPassword.length === 0) {
+                matchIndicator.style.display = 'none';
+                confirmField.style.borderColor = 'rgba(114, 118, 125, 0.4)';
+                return;
+            }
+            
+            matchIndicator.style.display = 'block';
+            
+            if (password === confirmPassword && password.length > 0) {
+                matchText.style.color = '#43b581';
+                matchText.innerHTML = '✓ Passwords match';
+                confirmField.style.borderColor = 'rgba(67, 181, 129, 0.6)';
+            } else {
+                matchText.style.color = '#f04747';
+                matchText.innerHTML = '• Passwords do not match';
+                confirmField.style.borderColor = 'rgba(240, 71, 71, 0.6)';
+            }
+        }
     </script>
 
 </body>

@@ -148,7 +148,30 @@ app.get('/globalChat', function(req, res) {
     res.render('globalChat');
 });
 
-server.listen(2000, () => console.log("------------ Server started ------------"));
+server.listen(2000, () => {
+    console.log("------------ Server started ------------");
+    
+    // Update invite code schema and clean up on startup
+    setTimeout(() => {
+        Database.updateInviteCodeSchema(function(schemaSuccess) {
+            if (schemaSuccess) {
+                console.log('🔄 Invite code schema update completed');
+                
+                // Clean up any existing used invite codes after schema update
+                Database.cleanupUsedInviteCodes(function(cleanupSuccess) {
+                    if (cleanupSuccess) {
+                        console.log('🧹 Startup cleanup of used invite codes completed');
+                    }
+                    
+                    // Debug: List all invite codes after cleanup
+                    Database.listAllInviteCodes((invites) => {
+                        console.log(`📊 Found ${invites.length} total invite codes in database`);
+                    });
+                });
+            }
+        });
+    }, 2000); // Wait 2 seconds for DB connection to be ready
+});
 
 
 ////
@@ -229,6 +252,15 @@ io.on('connection', (socket) => {
                 return socket.emit('signInResponse', { success: false });
             }
             
+            console.log('✅ Password validated for:', data.username);
+            
+            // Clean up used invite codes on successful login
+            Database.cleanupUsedInviteCodes(function(cleanupSuccess) {
+                if (!cleanupSuccess) {
+                    console.log('⚠️ Invite code cleanup failed, but continuing with login');
+                }
+            });
+            
             // Store user data in session
             socket.handshake.session.username = data.username;
             socket.handshake.session.loginTime = new Date().toISOString();
@@ -256,7 +288,7 @@ io.on('connection', (socket) => {
                             
                             Database.isAdmin(data, function(admin){ 
                                 Player.onConnect(socket, data.username, admin, io);
-                                socket.emit('signInResponse', { success: true });
+                                socket.emit('signInResponse', { success: true, isAdmin: admin });
                                 console.log('✅ Sign in response sent to client');
                                 
                                 // Trigger session restoration event for room restoration
@@ -282,7 +314,7 @@ io.on('connection', (socket) => {
                             
                             Database.isAdmin(data, function(admin){ 
                                 Player.onConnect(socket, data.username, admin, io);
-                                socket.emit('signInResponse', { success: true });
+                                socket.emit('signInResponse', { success: true, isAdmin: admin });
                                 console.log('✅ Sign in response sent to client');
                             });
                         });
@@ -302,7 +334,7 @@ io.on('connection', (socket) => {
                         
                         Database.isAdmin(data, function(admin){ 
                             Player.onConnect(socket, data.username, admin, io);
-                            socket.emit('signInResponse', { success: true });
+                            socket.emit('signInResponse', { success: true, isAdmin: admin });
                             console.log('✅ Sign in response sent to client');
                         });
                     });
@@ -319,7 +351,7 @@ io.on('connection', (socket) => {
                     
                     Database.isAdmin(data, function(admin){ 
                         Player.onConnect(socket, data.username, admin, io);
-                        socket.emit('signInResponse', { success: true });
+                        socket.emit('signInResponse', { success: true, isAdmin: admin });
                         console.log('✅ Sign in response sent to client');
                     });
                 });
@@ -328,18 +360,142 @@ io.on('connection', (socket) => {
     });
 
     socket.on('signUp', function(data) {
-        Database.isUsernameTaken(data, function(res){
-            if (res) {
-                socket.emit('signUpResponse', { success: false });
-            } else {
-                Database.addUser(data, function(){
-                    // Store user data in session after successful signup
-                    socket.handshake.session.username = data.username;
-                    socket.handshake.session.loginTime = new Date().toISOString();
-                    socket.handshake.session.room = 'Global'; // New users start in Global
-                    socket.handshake.session.save();
+        console.log('📝 Sign up attempt:', { username: data.username, inviteCode: data.inviteCode });
+        
+        // Validate required fields
+        if (!data.username || !data.password || !data.inviteCode) {
+            console.log('❌ Missing required signup fields');
+            return socket.emit('signUpResponse', { 
+                success: false, 
+                message: 'All fields are required' 
+            });
+        }
+        
+        // Validate invite code first
+        Database.validateInviteCode(data.inviteCode, function(isValidInvite) {
+            if (!isValidInvite) {
+                console.log('❌ Invalid invite code:', data.inviteCode);
+                return socket.emit('signUpResponse', { 
+                    success: false, 
+                    message: 'Invalid or expired invite code' 
+                });
+            }
+            
+            // Check if username is taken
+            Database.isUsernameTaken(data, function(isTaken) {
+                if (isTaken) {
+                    console.log('❌ Username already taken:', data.username);
+                    return socket.emit('signUpResponse', { 
+                        success: false, 
+                        message: 'Username is already taken' 
+                    });
+                }
+                
+                // Create the user account
+                Database.addUser(data, function(userAdded) {
+                    if (!userAdded) {
+                        console.log('❌ Failed to create user account');
+                        return socket.emit('signUpResponse', { 
+                            success: false, 
+                            message: 'Failed to create account' 
+                        });
+                    }
                     
-                    socket.emit('signUpResponse', { success: true });
+                    // Mark invite code as used
+                    Database.useInviteCode(data.inviteCode, data.username, function(codeUsed) {
+                        if (!codeUsed) {
+                            console.log('⚠️ Account created but failed to mark invite code as used');
+                        }
+                        
+                        // Store user data in session after successful signup
+                        socket.handshake.session.username = data.username;
+                        socket.handshake.session.loginTime = new Date().toISOString();
+                        socket.handshake.session.room = 'Global'; // New users start in Global
+                        socket.handshake.session.save((err) => {
+                            if (err) {
+                                console.error('❌ Session save error after signup:', err);
+                            }
+                            
+                            console.log('✅ Account created successfully for:', data.username);
+                            
+                            // Auto-login the user after successful signup
+                            Database.isAdmin(data, function(admin) {
+                                console.log('📝 Sending successful signUpResponse with autoLogin for:', data.username);
+                                Player.onConnect(socket, data.username, admin, io);
+                                socket.emit('signUpResponse', { 
+                                    success: true, 
+                                    message: 'Account created successfully!',
+                                    autoLogin: true,
+                                    username: data.username,
+                                    isAdmin: admin
+                                });
+                                console.log('✅ User auto-logged in after signup');
+                            });
+                        });
+                    });
+                });
+            });
+        });
+    });
+
+    socket.on('generateInviteCode', function(data) {
+        const username = socket.handshake.session.username;
+        
+        if (!username) {
+            return socket.emit('inviteCodeResponse', { 
+                success: false, 
+                message: 'Not logged in' 
+            });
+        }
+        
+        // Check if user is admin
+        Database.isAdmin({ username: username }, function(isAdmin) {
+            if (!isAdmin) {
+                console.log('❌ Non-admin attempted to generate invite code:', username);
+                return socket.emit('inviteCodeResponse', { 
+                    success: false, 
+                    message: 'Admin privileges required' 
+                });
+            }
+            
+            // Check if this is a permanent code request
+            if (data.isPermanent && data.customCode) {
+                // Generate permanent custom code
+                Database.generatePermanentInviteCode(data.customCode, username, function(inviteCode) {
+                    if (!inviteCode) {
+                        console.log('❌ Failed to create permanent invite code for admin:', username);
+                        return socket.emit('inviteCodeResponse', { 
+                            success: false, 
+                            message: 'Failed to create permanent invite code (may already exist)' 
+                        });
+                    }
+                    
+                    console.log('✅ Admin created permanent invite code:', { admin: username, code: inviteCode });
+                    socket.emit('inviteCodeResponse', { 
+                        success: true, 
+                        inviteCode: inviteCode,
+                        isPermanent: true,
+                        message: 'Permanent invite code created successfully!' 
+                    });
+                });
+            } else {
+                // Generate random single-use code
+                Database.generateInviteCode(username, function(inviteCode) {
+                    if (!inviteCode) {
+                        console.log('❌ Failed to generate invite code for admin:', username);
+                        return socket.emit('inviteCodeResponse', { 
+                            success: false, 
+                            message: 'Failed to generate invite code' 
+                        });
+                    }
+                    
+                    console.log('✅ Admin generated random invite code:', { admin: username, code: inviteCode });
+                    socket.emit('inviteCodeResponse', { 
+                        success: true, 
+                        inviteCode: inviteCode,
+                        isPermanent: false,
+                        message: 'Random invite code generated successfully!' 
+                    });
                 });
             }
         });

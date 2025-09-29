@@ -10,6 +10,9 @@ let currentRoundNumber = 0;
 let domLoaded = false;
 let pendingSessionRestore = null;
 
+// Signin debounce to prevent double-submission
+let signinInProgress = false;
+
 // Socket connection monitoring
 socket.on('disconnect', function() {
     console.error('❌ Socket disconnected from server');
@@ -353,6 +356,198 @@ function closeGlassmorphismAlert() {
     }
 }
 
+// Function to show invite code with copy functionality
+function showInviteCodeAlert(inviteCode, codeType = 'Single-Use') {
+    // Remove any existing alert modal
+    const existingModal = document.getElementById('inviteCodeModal');
+    if (existingModal) {
+        existingModal.remove();
+    }
+
+    const modalHTML = `
+        <div id="inviteCodeModal" style="
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.75);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 10000;
+        ">
+            <div style="
+                max-width: 420px;
+                width: 90%;
+                background: linear-gradient(145deg, 
+                    rgba(43, 45, 59, 0.98) 0%, 
+                    rgba(54, 57, 63, 0.95) 100%);
+                backdrop-filter: blur(20px);
+                -webkit-backdrop-filter: blur(20px);
+                border: 1px solid rgba(255, 255, 255, 0.15);
+                border-radius: 16px;
+                box-shadow: 
+                    0 20px 60px rgba(0, 0, 0, 0.5),
+                    0 8px 32px rgba(0, 0, 0, 0.3),
+                    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+                padding: 30px;
+                text-align: center;
+                animation: modalSlideIn 0.3s ease-out;
+            ">
+                <div style="
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    gap: 10px;
+                    margin-bottom: 20px;
+                ">
+                    <div style="
+                        width: 3px;
+                        height: 3px;
+                        background: linear-gradient(135deg, #667aff, #7386ff);
+                        border-radius: 50%;
+                        animation: subtlePulse 2s infinite;
+                    "></div>
+                    <h3 style="
+                        color: #dcddde; 
+                        font-weight: 600; 
+                        margin: 0;
+                        font-size: 24px;
+                        letter-spacing: -0.5px;
+                    ">✨ ${codeType} Invite Code Generated!</h3>
+                    <div style="
+                        width: 3px;
+                        height: 3px;
+                        background: linear-gradient(135deg, #667aff, #7386ff);
+                        border-radius: 50%;
+                        animation: subtlePulse 2s infinite 0.5s;
+                    "></div>
+                </div>
+                
+                <p style="
+                    color: #b9bbbe; 
+                    font-size: 14px; 
+                    margin-bottom: 25px; 
+                    opacity: 0.8;
+                ">${codeType === 'Permanent' ? 'This code never expires and can be used multiple times' : 'Share this code with a user to let them create an account'}</p>
+
+                <div style="
+                    background: rgba(32, 34, 37, 0.8);
+                    border: 2px solid rgba(102, 122, 255, 0.4);
+                    border-radius: 12px;
+                    padding: 20px;
+                    margin: 20px 0;
+                    position: relative;
+                ">
+                    <div style="
+                        font-family: 'Courier New', monospace;
+                        font-size: 28px;
+                        font-weight: bold;
+                        color: #667aff;
+                        letter-spacing: 3px;
+                        margin-bottom: 10px;
+                        text-shadow: 0 0 10px rgba(102, 122, 255, 0.3);
+                    " id="inviteCodeText">${inviteCode}</div>
+                    
+                    <button onclick="copyInviteCode('${inviteCode}')" style="
+                        background: linear-gradient(135deg, rgba(102, 122, 255, 0.9), rgba(115, 134, 255, 0.9));
+                        color: white;
+                        border: none;
+                        padding: 8px 16px;
+                        border-radius: 6px;
+                        font-size: 12px;
+                        font-weight: 600;
+                        cursor: pointer;
+                        transition: all 0.2s ease;
+                        margin-top: 10px;
+                    "
+                    onmouseover="
+                        this.style.background='linear-gradient(135deg, rgba(102, 122, 255, 1), rgba(115, 134, 255, 1))';
+                        this.style.transform='translateY(-1px)';
+                    "
+                    onmouseout="
+                        this.style.background='linear-gradient(135deg, rgba(102, 122, 255, 0.9), rgba(115, 134, 255, 0.9))';
+                        this.style.transform='translateY(0)';
+                    "
+                    id="copyInviteBtn">
+                        📋 Copy Code
+                    </button>
+                </div>
+
+                <div style="display: flex; gap: 15px; justify-content: center; margin-top: 25px;">
+                    <button onclick="closeInviteCodeAlert()" style="
+                        background: rgba(114, 118, 125, 0.2);
+                        color: #b9bbbe;
+                        padding: 12px 24px;
+                        border: 1px solid rgba(114, 118, 125, 0.4);
+                        border-radius: 8px;
+                        cursor: pointer;
+                        font-size: 14px;
+                        font-weight: 500;
+                        transition: all 0.2s ease;
+                        backdrop-filter: blur(10px);
+                    "
+                    onmouseover="
+                        this.style.background='rgba(114, 118, 125, 0.3)';
+                        this.style.borderColor='rgba(114, 118, 125, 0.6)';
+                    "
+                    onmouseout="
+                        this.style.background='rgba(114, 118, 125, 0.2)';
+                        this.style.borderColor='rgba(114, 118, 125, 0.4)';
+                    ">
+                        Close
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
+}
+
+// Function to copy invite code to clipboard
+function copyInviteCode(code) {
+    navigator.clipboard.writeText(code).then(function() {
+        const copyBtn = document.getElementById('copyInviteBtn');
+        if (copyBtn) {
+            const originalText = copyBtn.innerHTML;
+            copyBtn.innerHTML = '✅ Copied!';
+            copyBtn.style.background = 'linear-gradient(135deg, #27ae60, #2ecc71)';
+            
+            setTimeout(() => {
+                copyBtn.innerHTML = originalText;
+                copyBtn.style.background = 'linear-gradient(135deg, rgba(102, 122, 255, 0.9), rgba(115, 134, 255, 0.9))';
+            }, 2000);
+        }
+        
+        showGlassmorphismAlert('Copied!', 'Invite code copied to clipboard.', 'success');
+    }).catch(function() {
+        // Fallback for browsers that don't support clipboard API
+        const textArea = document.createElement('textarea');
+        textArea.value = code;
+        document.body.appendChild(textArea);
+        textArea.select();
+        try {
+            document.execCommand('copy');
+            showGlassmorphismAlert('Copied!', 'Invite code copied to clipboard.', 'success');
+        } catch (err) {
+            showGlassmorphismAlert('Copy Failed', 'Please manually copy the invite code.', 'error');
+        }
+        document.body.removeChild(textArea);
+    });
+}
+
+// Function to close invite code modal
+function closeInviteCodeAlert() {
+    const modal = document.getElementById('inviteCodeModal');
+    if (modal) {
+        modal.remove();
+    }
+}
+
 // Function to create and show the triad formation status popup
 function showTriadFormationPopup(playerCount, playerPosition, playersInRoom) {
     // Remove any existing triad popup
@@ -527,8 +722,7 @@ function performSessionRestore(data) {
     
     console.log('🔄 Setting UI elements for logged-in state...');
     if (signDiv) signDiv.style.display = 'none';
-    if (loginButton) loginButton.style.display = 'none';
-    if (logoutButton) logoutButton.style.display = 'block';
+    switchToLoggedInUI(data.username);
     if (modal) modal.style.display = 'none';
     if (landingPage) landingPage.style.display = 'none';
     if (chatContainer) {
@@ -624,8 +818,7 @@ socket.on('logoutResponse', function(data) {
         const logoutButton = document.getElementById('logoutNav');
         
         if (signDiv) signDiv.style.display = 'block';
-        if (loginButton) loginButton.style.display = 'block';
-        if (logoutButton) logoutButton.style.display = 'none';
+        switchToLoggedOutUI();
         
         // Hide game interface
         const gameDiv = document.getElementById('gameDiv');
@@ -999,7 +1192,7 @@ function updatePokerTable(gameSession, currentTurnPlayer = null) {
 
 // DOM elements will be initialized in DOMContentLoaded
 let signDiv, signDivUsername, signDivPassword, signDivSignIn, signDivSignUp, chatDiv, landingPage, backgroundIMG;
-let modal, loginButton, createRoomButton, joinRoomButton;
+let modal, loginButton, createRoomButton, joinRoomButton, inviteButton;
 
 // Store current user's username
 let currentUsername = null;
@@ -1009,6 +1202,9 @@ let currentUsername = null;
 // Join chatroom
 socket.on('signInResponse', function (data) {
     console.log('🔑 Received signInResponse:', data);
+    
+    // Reset signin progress flag
+    signinInProgress = false;
     
     if (data.success) {
         console.log('✅ Login successful!');
@@ -1020,16 +1216,25 @@ socket.on('signInResponse', function (data) {
         }
         console.log('Signed in as:', currentUsername);
         
+        // Store admin status and update UI
+        const isAdmin = data.isAdmin || false;
+        console.log(`🔍 SignInResponse data:`, data);
+        console.log(`🔍 Admin status received: ${data.isAdmin} (type: ${typeof data.isAdmin})`);
+        console.log(`🔍 Processed isAdmin: ${isAdmin}`);
+        
+        const inviteButton = document.getElementById('invite-btn');
+        console.log(`🔍 Invite button element:`, inviteButton);
+        if (inviteButton) {
+            inviteButton.style.display = isAdmin ? 'block' : 'none';
+            console.log(`👑 Admin status: ${isAdmin} - Invite button ${isAdmin ? 'shown' : 'hidden'}`);
+        } else {
+            console.log('❌ Invite button not found in DOM');
+        }
+        
         //signDiv.style.display = 'none';
         landingPage.style.display = "none";
-        loginButton.style.display = "none";
+        switchToLoggedInUI(data.username);
         chatDiv.style.display = '';
-        
-        // Show logout button
-        const logoutButton = document.getElementById('logoutNav');
-        if (logoutButton) {
-            logoutButton.style.display = "block";
-        }
         
         // Stop space animations when user successfully logs in
         if (typeof window.stopSpaceAnimationsOnLogin === 'function') {
@@ -1078,11 +1283,143 @@ socket.on('signInResponse', function (data) {
 });
 
 socket.on('signUpResponse', function (data) {
+    console.log('📝 Received signUpResponse:', data);
+    console.log('📝 Data success value:', data.success, 'Type:', typeof data.success);
+    console.log('📝 Data autoLogin value:', data.autoLogin, 'Type:', typeof data.autoLogin);
+    
     if (data.success) {
-        showGlassmorphismAlert('Account Created!', 'Sign up successful. You can now log in with your new account.', 'success');
+        if (data.autoLogin) {
+            // Handle auto-login after successful signup
+            showGlassmorphismAlert('Welcome!', data.message || 'Account created and signed in successfully!', 'success');
+            
+            // Store the current username globally and in localStorage (like normal signin)
+            currentUsername = data.username;
+            if (currentUsername) {
+                localStorage.setItem('username', currentUsername);
+            }
+            console.log('Signed up and logged in as:', currentUsername);
+            
+            // Store the admin status and update UI like a normal sign-in
+            const isAdmin = data.isAdmin || false;
+            console.log(`🔍 SignUpResponse with autoLogin - Admin status: ${isAdmin}`);
+            
+            const inviteButton = document.getElementById('invite-btn');
+            console.log(`🔍 Invite button element:`, inviteButton);
+            if (inviteButton) {
+                inviteButton.style.display = isAdmin ? 'block' : 'none';
+                console.log(`👑 Admin status: ${isAdmin} - Invite button ${isAdmin ? 'shown' : 'hidden'}`);
+            }
+            
+            // Hide landing page and show chat interface
+            landingPage.style.display = "none";
+            loginButton.style.display = "none";
+            chatDiv.style.display = '';
+            
+            // Close any open modals/popups
+            const loginModal = document.getElementById('id01');
+            if (loginModal) {
+                loginModal.style.display = 'none';
+                console.log('🚪 Closed login modal on auto-login success');
+            }
+            
+            const signupModal = document.getElementById('signupModal');
+            if (signupModal) {
+                signupModal.style.display = 'none';
+                console.log('🚪 Closed signup modal on auto-login success');
+            }
+            
+            // Close any other potential modal overlays
+            if (modal && modal.style.display !== 'none') {
+                modal.style.display = 'none';
+                console.log('🚪 Closed generic modal on auto-login success');
+            }
+            
+            // Switch to logged-in UI with profile menu
+            switchToLoggedInUI(data.username);
+            
+            // Stop space animations when user successfully logs in
+            if (typeof window.stopSpaceAnimationsOnLogin === 'function') {
+                window.stopSpaceAnimationsOnLogin();
+            }
+            
+            // Join Global chat automatically
+            setTimeout(() => {
+                if (!currentRoom) {
+                    console.log('🌐 Auto-joining Global chat after signup');
+                    currentRoom = 'Global';
+                    
+                    // Update leave button visibility (hide for Global)
+                    updateLeaveButtonVisibility();
+                    
+                    // Hide game interface for Global chat
+                    const gameDiv = document.getElementById('gameDiv');
+                    if (gameDiv) {
+                        gameDiv.style.display = 'none';
+                        console.log('🌐 Game UI hidden - joining Global chat');
+                    }
+                    
+                    // Join Global chat
+                    socket.emit('joinRoom', { room: 'Global' });
+                }
+            }, 100);
+        } else {
+            showGlassmorphismAlert('Account Created!', data.message || 'Sign up successful. You can now log in with your new account.', 'success');
+        }
     }
-    else
-        showGlassmorphismAlert('Sign Up Failed', 'Sign up unsuccessful. This username may already be taken.', 'error');
+    else {
+        showGlassmorphismAlert('Sign Up Failed', data.message || 'Sign up unsuccessful. Please check your information.', 'error');
+    }
+});
+
+// Handle invite code generation response
+socket.on('inviteCodeResponse', function (data) {
+    // Reset button state
+    if (inviteButton) {
+        inviteButton.style.opacity = '1';
+        inviteButton.style.pointerEvents = 'auto';
+        inviteButton.innerHTML = `Generate Invite
+            <div id="invite-submenu" class="invite-submenu" style="display:none;">
+                <button id="random-invite-btn" class="submenu-btn">
+                    <i class="fas fa-random"></i>
+                    Random Code
+                </button>
+                <button id="permanent-invite-btn" class="submenu-btn">
+                    <i class="fas fa-crown"></i>
+                    Permanent Code
+                </button>
+            </div>`;
+        
+        // Re-setup submenu event handlers after button reset
+        // setupInviteSubmenuHandlers(); // Removed - using emergency fix instead
+    }
+    
+    // Reset permanent creation button if it exists
+    const createPermanentBtn = document.getElementById('createPermanentBtn');
+    if (createPermanentBtn) {
+        createPermanentBtn.style.opacity = '1';
+        createPermanentBtn.style.pointerEvents = 'auto';
+        createPermanentBtn.innerHTML = '<i class="fas fa-crown" style="margin-right: 8px;"></i>Create Permanent Code';
+    }
+    
+    if (data.success) {
+        // Close permanent modal if open
+        const permanentModal = document.getElementById('permanentInviteModal');
+        if (permanentModal) {
+            permanentModal.style.display = 'none';
+            
+            // Clear the input field
+            const customCodeInput = document.getElementById('customCode');
+            if (customCodeInput) {
+                customCodeInput.value = '';
+            }
+        }
+        
+        // Show the invite code in a special alert with copy functionality
+        const codeType = data.isPermanent ? 'Permanent' : 'Single-Use';
+        showInviteCodeAlert(data.inviteCode, codeType);
+    } else {
+        showGlassmorphismAlert('Invite Generation Failed', data.message || 'Failed to generate invite code.', 'error');
+    }
 });
 
 // Get room and users
@@ -3054,6 +3391,7 @@ document.addEventListener('DOMContentLoaded', function() {
     loginButton = document.getElementById('loginNav');
     createRoomButton = document.getElementById('create-btn');
     joinRoomButton = document.getElementById('join-btn');
+    inviteButton = document.getElementById('invite-btn');
 
     // Initialize login elements
     signDiv = document.getElementById('signDiv');
@@ -3104,7 +3442,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // Set up logout button
+    // Set up logout button (legacy - now in profile menu)
     const logoutButton = document.getElementById('logoutNav');
     if (logoutButton) {
         logoutButton.onclick = function(event) {
@@ -3113,19 +3451,35 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
+    // Set up profile menu functionality
+    setupProfileMenu();
+
     if (signDivSignIn) {
         console.log('🔑 Login button found and setting up event listener');
         signDivSignIn.addEventListener('click', function (e) {
             e.preventDefault();
+            
+            // Prevent multiple rapid signin attempts
+            if (signinInProgress) {
+                console.log('⚠️ Signin already in progress, ignoring duplicate request');
+                return;
+            }
+            
             console.log('🔑 Login button clicked!');
             console.log('🔑 Username field:', signDivUsername ? signDivUsername.value : 'NOT FOUND');
             console.log('🔑 Password field:', signDivPassword ? signDivPassword.value : 'NOT FOUND');
             
             if (signDivUsername && signDivPassword) {
+                signinInProgress = true;
                 console.log('🔑 Sending signIn socket event...');
                 socket.emit('signIn', { username: signDivUsername.value, password: signDivPassword.value });
                 if (modal) modal.style.display = "none";
                 if (typeof closeMenu === 'function') closeMenu();
+                
+                // Reset signin progress after a delay
+                setTimeout(() => {
+                    signinInProgress = false;
+                }, 2000);
             } else {
                 console.error('❌ Username or password field not found!');
             }
@@ -3134,16 +3488,7 @@ document.addEventListener('DOMContentLoaded', function() {
         console.error('❌ Login button (signIn) not found in DOM!');
     }
 
-    if (signDivSignUp) {
-        signDivSignUp.addEventListener('click', function (e) {
-            e.preventDefault();
-            if (signDivUsername && signDivPassword) {
-                socket.emit('signUp', { username: signDivUsername.value, password: signDivPassword.value });
-                if (modal) modal.style.display = "none";
-                if (typeof closeMenu === 'function') closeMenu();
-            }
-        });
-    }
+    // Old signup handler removed - now handled by modal system in login.ejs
 
     // Custom Join Room Modal Function
     function showJoinRoomModal() {
@@ -3529,6 +3874,49 @@ document.addEventListener('DOMContentLoaded', function() {
             e.preventDefault(); // Prevent default link behavior
             showJoinRoomModal();
         });
+    }
+
+    // Set up invite button submenu handlers
+    if (inviteButton) {
+        console.log('🔍 Setting up invite button handlers');
+        const submenu = document.getElementById('invite-submenu');
+        const randomInviteBtn = document.getElementById('random-invite-btn');
+        const permanentInviteBtn = document.getElementById('permanent-invite-btn');
+        
+        console.log('🔍 Submenu elements:', { submenu, randomInviteBtn, permanentInviteBtn });
+        
+        // Toggle submenu on main button click
+        inviteButton.addEventListener('click', (e) => {
+            console.log('🖱️ Invite button clicked');
+            e.preventDefault();
+            e.stopPropagation();
+            
+            const currentSubmenu = document.getElementById('invite-submenu');
+            if (currentSubmenu) {
+                if (currentSubmenu.style.display === 'none' || currentSubmenu.style.display === '') {
+                    console.log('📂 Opening submenu');
+                    currentSubmenu.style.display = 'block';
+                } else {
+                    console.log('📁 Closing submenu');
+                    currentSubmenu.style.display = 'none';
+                }
+            } else {
+                console.log('❌ Submenu not found');
+            }
+        });
+        
+        // Close submenu when clicking outside
+        document.addEventListener('click', (e) => {
+            const currentSubmenu = document.getElementById('invite-submenu');
+            if (!inviteButton.contains(e.target) && currentSubmenu) {
+                currentSubmenu.style.display = 'none';
+            }
+        });
+        
+        // Setup submenu button handlers
+        // setupInviteSubmenuHandlers(); // Removed - using emergency fix instead
+    } else {
+        console.log('❌ Invite button not found during setup');
     }
 
     // Set up navigation menu handlers
@@ -5433,4 +5821,435 @@ function restoreFloatingPlayers() {
     }, 100);
 }
 
+function setupProfileMenu() {
+    console.log('👤 Setting up profile menu');
+    
+    const profileMenuBtn = document.getElementById('profileMenuBtn');
+    const profileDropdown = document.getElementById('profileDropdown');
+    const profileChevron = document.getElementById('profileChevron');
+    const logoutBtn = document.getElementById('logoutBtn');
+    const profileUsername = document.getElementById('profileUsername');
+    
+    if (profileMenuBtn && profileDropdown) {
+        // Toggle dropdown on profile button click
+        profileMenuBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            const isVisible = profileDropdown.style.display === 'block';
+            
+            if (isVisible) {
+                profileDropdown.style.display = 'none';
+                if (profileChevron) {
+                    profileChevron.style.transform = 'rotate(0deg)';
+                }
+            } else {
+                profileDropdown.style.display = 'block';
+                if (profileChevron) {
+                    profileChevron.style.transform = 'rotate(180deg)';
+                }
+            }
+        });
+        
+        // Close dropdown when clicking outside
+        document.addEventListener('click', function(e) {
+            if (!profileMenuBtn.contains(e.target) && !profileDropdown.contains(e.target)) {
+                profileDropdown.style.display = 'none';
+                if (profileChevron) {
+                    profileChevron.style.transform = 'rotate(0deg)';
+                }
+            }
+        });
+    }
+    
+    // Set up logout functionality in profile menu
+    if (logoutBtn) {
+        logoutBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            console.log('👤 Logout clicked from profile menu');
+            
+            // Close the dropdown
+            if (profileDropdown) profileDropdown.style.display = 'none';
+            if (profileChevron) profileChevron.style.transform = 'rotate(0deg)';
+            
+            // Emit logout
+            socket.emit('logout');
+        });
+    }
+    
+    // Set up other profile menu items (placeholder for future functionality)
+    const profileMenuItems = document.querySelectorAll('.profile-menu-item');
+    profileMenuItems.forEach(item => {
+        if (item.id !== 'logoutBtn') { // Skip logout button as it's handled above
+            item.addEventListener('click', function(e) {
+                e.preventDefault();
+                const itemText = item.querySelector('span').textContent;
+                console.log(`👤 Profile menu item clicked: ${itemText}`);
+                
+                // Close dropdown
+                if (profileDropdown) profileDropdown.style.display = 'none';
+                if (profileChevron) profileChevron.style.transform = 'rotate(0deg)';
+                
+                // Placeholder for future functionality
+                switch(itemText) {
+                    case 'Settings':
+                        alert('Settings functionality coming soon!');
+                        break;
+                    case 'Statistics':
+                        alert('Statistics functionality coming soon!');
+                        break;
+                    case 'Achievements':
+                        alert('Achievements functionality coming soon!');
+                        break;
+                }
+            });
+        }
+    });
+    
+    // Update username in profile menu when available
+    if (profileUsername && currentUsername) {
+        profileUsername.textContent = currentUsername;
+    }
+}
+
+// Helper function to switch between login and profile menu
+function switchToLoggedInUI(username) {
+    const loginButton = document.getElementById('loginNav');
+    const profileMenuContainer = document.querySelector('.profile-menu-container');
+    const profileUsername = document.getElementById('profileUsername');
+    
+    if (loginButton) loginButton.style.display = 'none';
+    if (profileMenuContainer) profileMenuContainer.style.display = 'block';
+    if (profileUsername && username) profileUsername.textContent = username;
+    
+    console.log('👤 UI switched to logged-in state with profile menu');
+}
+
+function switchToLoggedOutUI() {
+    const loginButton = document.getElementById('loginNav');
+    const profileMenuContainer = document.querySelector('.profile-menu-container');
+    const profileDropdown = document.getElementById('profileDropdown');
+    const profileChevron = document.getElementById('profileChevron');
+    
+    if (loginButton) loginButton.style.display = 'block';
+    if (profileMenuContainer) profileMenuContainer.style.display = 'none';
+    if (profileDropdown) profileDropdown.style.display = 'none';
+    if (profileChevron) profileChevron.style.transform = 'rotate(0deg)';
+    
+    console.log('👤 UI switched to logged-out state with login button');
+}
+
 console.log('🧠 Client.js loaded - Canvas rendering and keyboard controls disabled for behavioral experiment mode');
+
+// Emergency fix for invite button submenu - Multiple approaches
+console.log('🔧 Setting up multiple emergency fixes');
+
+// Set up permanent invite button handler immediately
+setupPermanentInviteHandler();
+
+// Approach 1: DOMContentLoaded
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('🔧 DOMContentLoaded fired - attempting emergency fix');
+    setupInviteButtonFix('DOMContentLoaded');
+    setupPermanentInviteHandler(); // Ensure handler is set up
+});
+
+// Approach 2: Window load
+window.addEventListener('load', function() {
+    console.log('🔧 Window load fired - attempting emergency fix');
+    setupInviteButtonFix('window.load');
+    setupPermanentInviteHandler(); // Ensure handler is set up
+});
+
+// Approach 3: Immediate with multiple retries
+for (let i = 0; i < 5; i++) {
+    setTimeout(() => {
+        console.log(`🔧 Retry attempt ${i + 1}`);
+        setupInviteButtonFix(`retry-${i + 1}`);
+        setupPermanentInviteHandler(); // Ensure handler is set up
+    }, 1000 * (i + 1));
+}
+
+function setupPermanentInviteHandler() {
+    console.log('🔧 Setting up permanent invite button handler');
+    const createBtn = document.getElementById('createPermanentBtn');
+    if (createBtn) {
+        console.log('✅ Found createPermanentBtn, setting up handler');
+        // Remove existing listeners by cloning
+        const newBtn = createBtn.cloneNode(true);
+        createBtn.parentNode.replaceChild(newBtn, createBtn);
+        
+        newBtn.addEventListener('click', function(e) {
+            console.log('🔨 Create permanent clicked');
+            e.preventDefault();
+            
+            const customCode = document.getElementById('customCode').value.trim();
+            if (!customCode) {
+                alert('Please enter a custom invite code.');
+                return;
+            }
+            
+            if (customCode.length < 3) {
+                alert('Custom invite code must be at least 3 characters long.');
+                return;
+            }
+            
+            newBtn.style.opacity = '0.6';
+            newBtn.style.pointerEvents = 'none';
+            newBtn.innerHTML = 'Creating...';
+            
+            socket.emit('generateInviteCode', { 
+                isPermanent: true, 
+                customCode: customCode 
+            });
+        });
+        return true;
+    } else {
+        console.log('❌ createPermanentBtn not found yet');
+        return false;
+    }
+}
+
+function setupInviteButtonFix(source) {
+    console.log(`🔧 setupInviteButtonFix called from: ${source}`);
+    const inviteBtn = document.getElementById('invite-btn');
+    console.log(`🔧 Found invite button (${source}):`, !!inviteBtn, inviteBtn?.style?.display);
+    
+    if (inviteBtn && inviteBtn.style.display !== 'none') {
+        console.log(`🔧 Setting up invite button click handler (${source})`);
+        
+        // Remove existing listeners by cloning
+        const newBtn = inviteBtn.cloneNode(true);
+        inviteBtn.parentNode.replaceChild(newBtn, inviteBtn);
+        
+        newBtn.addEventListener('click', function(e) {
+            console.log(`🖱️ Invite button clicked! (${source}) - Creating MODAL instead of submenu`);
+            e.preventDefault();
+            e.stopPropagation();
+            
+            // Create a modal like the login/signup modals
+            createInviteChoiceModal();
+        });
+        
+        // Add visual indicator that fix is active
+        newBtn.style.boxShadow = '0 0 5px #00ff00';
+        newBtn.title = `Modal-based fix active (${source}) - Click for modal menu`;
+        
+        return true; // Success
+    }
+    return false; // Failed
+}
+
+function createInviteChoiceModal() {
+    console.log('🎯 Creating invite choice modal');
+    
+    // Remove existing modal if it exists
+    const existingModal = document.getElementById('inviteChoiceModal');
+    if (existingModal) {
+        existingModal.remove();
+    }
+    
+    // Create modal HTML using the same structure as login modals
+    const modalHTML = `
+        <div id="inviteChoiceModal" class="modal" style="
+            display: block;
+            background: rgba(0, 0, 0, 0.75);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+        ">
+            <div class="modal-content animate" style="
+                max-width: 420px;
+                background: linear-gradient(145deg, 
+                    rgba(43, 45, 59, 0.98) 0%, 
+                    rgba(54, 57, 63, 0.95) 100%);
+                backdrop-filter: blur(20px);
+                -webkit-backdrop-filter: blur(20px);
+                border: 1px solid rgba(255, 255, 255, 0.15);
+                box-shadow: 
+                    0 20px 60px rgba(0, 0, 0, 0.5),
+                    0 8px 32px rgba(0, 0, 0, 0.3),
+                    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+                margin: 10% auto;
+            ">
+                <div class="imgcontainer" style="text-align: center; padding: 20px 20px 0 20px;">
+                    <span onclick="closeInviteChoiceModal()" 
+                          class="close"
+                          title="Close Modal"
+                          style="
+                              position: absolute;
+                              top: 15px;
+                              right: 20px;
+                              color: #b9bbbe;
+                              font-size: 28px;
+                              cursor: pointer;
+                              transition: all 0.2s ease;
+                          "
+                          onmouseover="this.style.color='#ffffff'; this.style.transform='scale(1.1)'"
+                          onmouseout="this.style.color='#b9bbbe'; this.style.transform='scale(1)'">&times;</span>
+                </div>
+
+                <div class="container" style="text-align: center; padding: 30px;">
+                    <h3 style="color: #dcddde; font-weight: 600; margin-bottom: 25px;">
+                        <i class="fas fa-user-plus" style="margin-right: 10px;"></i>
+                        Generate Invite Code
+                    </h3>
+                    
+                    <button onclick="generateRandomInvite()" style="
+                        width: 100%;
+                        padding: 15px;
+                        margin: 10px 0;
+                        background: linear-gradient(135deg, #667aff, #7386ff);
+                        color: white;
+                        border: none;
+                        border-radius: 12px;
+                        font-size: 16px;
+                        cursor: pointer;
+                        transition: all 0.3s ease;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        gap: 10px;
+                    " onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 8px 25px rgba(102, 122, 255, 0.4)'"
+                       onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none'">
+                        <i class="fas fa-random"></i>
+                        Generate Random Code
+                    </button>
+                    
+                    <button onclick="openPermanentInviteModal()" style="
+                        width: 100%;
+                        padding: 15px;
+                        margin: 10px 0;
+                        background: linear-gradient(135deg, #ff7647, #ff8c67);
+                        color: white;
+                        border: none;
+                        border-radius: 12px;
+                        font-size: 16px;
+                        cursor: pointer;
+                        transition: all 0.3s ease;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        gap: 10px;
+                    " onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 8px 25px rgba(255, 118, 71, 0.4)'"
+                       onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none'">
+                        <i class="fas fa-crown"></i>
+                        Create Permanent Code
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Add modal to the page
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
+    console.log('✅ Invite choice modal created and displayed');
+}
+
+// Global functions for the modal
+window.closeInviteChoiceModal = function() {
+    const modal = document.getElementById('inviteChoiceModal');
+    if (modal) {
+        modal.remove();
+        console.log('❌ Invite choice modal closed');
+    }
+};
+
+window.generateRandomInvite = function() {
+    console.log('🎲 Random invite requested from modal');
+    closeInviteChoiceModal();
+    
+    const inviteBtn = document.getElementById('invite-btn');
+    if (inviteBtn) {
+        inviteBtn.style.opacity = '0.6';
+        inviteBtn.style.pointerEvents = 'none';
+        inviteBtn.innerHTML = 'Generating...';
+    }
+    
+    socket.emit('generateInviteCode', { isPermanent: false });
+};
+
+window.openPermanentInviteModal = function() {
+    console.log('👑 Permanent invite requested from modal');
+    closeInviteChoiceModal();
+    
+    const permanentModal = document.getElementById('permanentInviteModal');
+    if (permanentModal) {
+        permanentModal.style.display = 'block';
+        setTimeout(() => {
+            const input = document.getElementById('customCode');
+            if (input) input.focus();
+        }, 100);
+    }
+};
+
+function setupSubmenuButtons(source) {
+    console.log(`🔧 Setting up submenu buttons (${source})`);
+    
+    const randomBtn = document.getElementById('random-invite-btn');
+    const permanentBtn = document.getElementById('permanent-invite-btn');
+    const createBtn = document.getElementById('createPermanentBtn');
+    
+    if (randomBtn) {
+        randomBtn.addEventListener('click', function(e) {
+            console.log(`🎲 Random invite clicked (${source})`);
+            e.preventDefault();
+            e.stopPropagation();
+            
+            const submenu = document.getElementById('invite-submenu');
+            if (submenu) submenu.style.display = 'none';
+            
+            const inviteBtn = document.getElementById('invite-btn');
+            if (inviteBtn) {
+                inviteBtn.style.opacity = '0.6';
+                inviteBtn.style.pointerEvents = 'none';
+                inviteBtn.innerHTML = 'Generating...';
+            }
+            
+            socket.emit('generateInviteCode', { isPermanent: false });
+        });
+    }
+    
+    if (permanentBtn) {
+        permanentBtn.addEventListener('click', function(e) {
+            console.log(`👑 Permanent invite clicked (${source})`);
+            e.preventDefault();
+            e.stopPropagation();
+            
+            const submenu = document.getElementById('invite-submenu');
+            if (submenu) submenu.style.display = 'none';
+            
+            const modal = document.getElementById('permanentInviteModal');
+            if (modal) {
+                modal.style.display = 'block';
+                setTimeout(() => {
+                    const input = document.getElementById('customCode');
+                    if (input) input.focus();
+                }, 100);
+            }
+        });
+    }
+    
+    if (createBtn) {
+        createBtn.addEventListener('click', function(e) {
+            console.log(`🔨 Create permanent clicked (${source})`);
+            e.preventDefault();
+            
+            const customCode = document.getElementById('customCode').value.trim();
+            if (!customCode) {
+                alert('Please enter a custom invite code.');
+                return;
+            }
+            
+            if (customCode.length < 3) {
+                alert('Custom invite code must be at least 3 characters long.');
+                return;
+            }
+            
+            createBtn.style.opacity = '0.6';
+            createBtn.innerHTML = 'Creating...';
+            
+            socket.emit('generateInviteCode', { 
+                isPermanent: true, 
+                customCode: customCode 
+            });
+        });
+    }
+}
