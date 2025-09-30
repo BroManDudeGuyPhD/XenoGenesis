@@ -2750,33 +2750,56 @@ function outputUsers(users) {
 // Room button handlers will be initialized in DOMContentLoaded
 
 socket.on("joinRoom", (room) => {
-    currentRoom = room; // Ensure currentRoom is updated when server confirms room join
-    
-    // Reset all game visuals when joining a room (in case previous room ended in weird state)
-    if (room !== 'Global') {
-        resetGameVisuals();
-        console.log('🔄 Reset game visuals for fresh room start');
-    }
-    
+    // The server may send a string ("Global") or an object ({ room: 'Global' })
+    const roomName = (typeof room === 'object' && room && room.room) ? room.room : room;
+    currentRoom = roomName; // Ensure currentRoom is updated when server confirms room join
+
     // Update leave button visibility based on room
     updateLeaveButtonVisibility();
-    
+
+    // If joining Global, don't show the room-name pill (prevents duplicate "Global" tab)
+    if (roomName === 'Global') {
+        console.log('🌐 Joined Global - ensuring only the global tab is shown');
+
+        // Hide room name pill if present
+        if (roomNameText) {
+            roomNameText.innerText = '';
+            roomNameText.style.display = 'none';
+            roomNameText.style.backgroundColor = '';
+        }
+
+        // Ensure global chat is visible and styled as active
+        if (globalChatMessages) globalChatMessages.style.display = '';
+        if (globalNameText) globalNameText.style.backgroundColor = 'green';
+
+        // Ensure room chat is hidden
+        if (roomChatMessages) roomChatMessages.style.display = 'none';
+
+        // Reset any game visuals/state since we're in Global
+        gameActive = false;
+        document.body.classList.remove('game-active');
+        resetGameVisuals();
+        return;
+    }
+
+    // Joining a non-Global room 
+    console.log('🔄 Joined room:', roomName);
+    resetGameVisuals();
+
     // Update room name display if elements are available
     if (roomNameText) {
-        roomNameText.innerText = room;
+        roomNameText.innerText = roomName;
         roomNameText.style.display = "";
         roomNameText.style.backgroundColor = "green";
     } else {
         console.log(`❌ roomNameText element not found, cannot display room name`);
     }
-    
-    // Show game interface immediately when joining a room (unless it's Global)
-    if (room !== 'Global') {
-        showGameInterface();
-        console.log('🎮 Showing game board for player joining room');
-    }
-    
-    // Handle chat switching if elements are available  
+
+    // Show game interface immediately when joining a room
+    showGameInterface();
+    console.log('🎮 Showing game board for player joining room');
+
+    // Handle chat switching if elements are available
     if (globalChatMessages) globalChatMessages.style.display = "none";
     if (globalNameText) globalNameText.style.backgroundColor = "#667aff";
     if (roomChatMessages) roomChatMessages.style.display = "";
