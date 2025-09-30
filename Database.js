@@ -5,25 +5,33 @@ var mongojs = USE_DB ? require("mongojs") : null;
 var db = null;
 if (USE_DB) {
     try {
-        // First try to connect to ironman server
-        console.log('🔍 Attempting to connect to MongoDB on ironman...');
-        db = mongojs('ironman:27017/xenogenesis', ['account','progress','invites']);
-        
-        // Test the connection
-        db.runCommand("ping", function(err, res) {
-            if (err) {
-                console.log('❌ Failed to connect to ironman, falling back to localhost...');
-                db.close();
-                db = mongojs('localhost:27017/xenogenesis', ['account','progress','invites']);
-                console.log('✅ Connected to MongoDB on localhost');
-            } else {
-                console.log('✅ Connected to MongoDB on ironman');
-            }
-        });
-        
+        // Allow environment override for portability
+        const env = (typeof process !== 'undefined' && process.env) ? process.env : {};
+        const MONGO_URI = env.MONGO_URI || env.MONGODB_URI || null;
+
+        if (MONGO_URI) {
+            console.log('🌐 Connecting to MongoDB using MONGO_URI from environment...');
+            db = mongojs(MONGO_URI, ['account','progress','invites']);
+        } else {
+            // First try to connect to ironman server
+            console.log('🔍 Attempting to connect to MongoDB on ironman...');
+            db = mongojs('ironman:27017/xenogenesis', ['account','progress','invites']);
+
+            // Test the connection
+            db.runCommand("ping", function(err, res) {
+                if (err) {
+                    console.log('❌ Failed to connect to ironman, falling back to localhost...');
+                    try { db.close(); } catch (e) {}
+                    db = mongojs('localhost:27017/xenogenesis', ['account','progress','invites']);
+                    console.log('✅ Connected to MongoDB on localhost');
+                } else {
+                    console.log('✅ Connected to MongoDB on ironman');
+                }
+            });
+        }
     } catch (error) {
-        console.log('❌ Error connecting to ironman, using localhost fallback...');
-        db = mongojs('localhost:27017/xenogenesis', ['account','progress']);
+        console.log('❌ Error establishing MongoDB connection, using localhost fallback...');
+        db = mongojs('localhost:27017/xenogenesis', ['account','progress','invites']);
     }
 }
 

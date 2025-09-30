@@ -16,6 +16,7 @@ const {
 const botName = "Server";
 const mainChat = "Global";
 
+
 // Track recent disconnections to suppress refresh spam notifications
 const recentDisconnections = new Map(); // username -> { timestamp, room, timeout }
 
@@ -844,28 +845,15 @@ GameSession = {
     }
 };
 
-var continentCoords = {
-    NorthEast:{
-        x:1500,
-        y:100,
-    },
-    NorthWest:{
-        x:300,
-        y:100,
-    },
-    SouthEast:{
-        x:1400,
-        y:650,
-    },
-    SouthWest:{
-        x:300,
-        y:700,
-    },
-    Middle:{
-        x:900,
-        y:400,
-    },
-}
+// Redundant legacy map coordinates (unused in behavioral experiment)
+// Keeping commented for reference; safe to remove later
+// var continentCoords = {
+//     NorthEast:{ x:1500, y:100 },
+//     NorthWest:{ x:300, y:100 },
+//     SouthEast:{ x:1400, y:650 },
+//     SouthWest:{ x:300, y:700 },
+//     Middle:{ x:900, y:400 },
+// }
 
 String.prototype.toHHMMSS = function () {
     var sec_num = parseInt(this, 10); // don't forget the second param

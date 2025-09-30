@@ -1,0 +1,41 @@
+# /etc/systemd/system/xenogenesis.service
+# Systemd unit to run the XenoGenesis Node.js app as a service
+# Copy this file to /etc/systemd/system/ and edit the EnvironmentFile path as needed.
+
+[Unit]
+Description=XenoGenesis Node.js Service
+After=network-online.target mongod.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+# Change this to your non-root user on the target machine
+User=xeno
+Group=xeno
+
+# Point to the app directory
+WorkingDirectory=/opt/xenogenesis
+
+# Load environment variables (optional)
+EnvironmentFile=-/etc/xenogenesis/xenogenesis.env
+# Minimal environment fallback
+Environment=NODE_ENV=production
+# Logging level (debug|info|warn|error|silent)
+Environment=LOG_LEVEL=info
+
+# Start the app
+ExecStart=/usr/bin/node app.js
+Restart=always
+RestartSec=3
+
+# Increase file descriptors if needed
+LimitNOFILE=65535
+
+# Hardening (optional)
+NoNewPrivileges=true
+ProtectSystem=full
+ProtectHome=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

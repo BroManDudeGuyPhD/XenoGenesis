@@ -1,3 +1,9 @@
+// Centralized logging setup
+const logger = require('./utils/logger');
+// Patch global console methods according to LOG_LEVEL/DEBUG_LOGS
+// LOG_LEVEL options: silent, error, warn, info, debug (default: warn unless DEBUG_LOGS=true)
+logger.applyGlobalPatch({ mapConsoleLogTo: 'debug' });
+
 require('./Database');
 require('./Entity');
 require('./client/Inventory')
