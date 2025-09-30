@@ -13,8 +13,25 @@ SERVICE_NAME=xenogenesis
 APP_DIR=/opt/xenogenesis
 ENV_DIR=/etc/xenogenesis
 ENV_FILE="$ENV_DIR/$SERVICE_NAME.env"
-UNIT_SRC="$(cd "$(dirname "$0")" && pwd)/systemd/$SERVICE_NAME.service"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+UNIT_SRC="$SCRIPT_DIR/systemd/$SERVICE_NAME.service"
 UNIT_DST=/etc/systemd/system/$SERVICE_NAME.service
+
+# Debug: Show the paths we're using
+echo "Script directory: $SCRIPT_DIR"
+echo "Looking for systemd service file at: $UNIT_SRC"
+if [[ ! -f "$UNIT_SRC" ]]; then
+  echo "ERROR: Systemd service file not found at: $UNIT_SRC"
+  echo "Available files in $SCRIPT_DIR:"
+  ls -la "$SCRIPT_DIR"
+  if [[ -d "$SCRIPT_DIR/systemd" ]]; then
+    echo "Files in $SCRIPT_DIR/systemd:"
+    ls -la "$SCRIPT_DIR/systemd"
+  else
+    echo "systemd directory not found in $SCRIPT_DIR"
+  fi
+  exit 1
+fi
 
 if [[ $EUID -ne 0 ]]; then
   echo "Please run as root (sudo)." >&2

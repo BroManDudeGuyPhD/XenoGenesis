@@ -626,33 +626,77 @@ io.on('connection', (socket) => {
         
         // Clear session room for all users in the room by sending them to Global
         io.in(room).fetchSockets().then(sockets => {
+            console.log(`📡 Found ${sockets.length} users in room ${room} to process`);
+            
+            // First, send events to all sockets while they're still in the room
+            sockets.forEach(socket => {
+                // Send experimentEnded event to each socket individually
+                socket.emit('experimentEnded', {
+                    message: `The experiment has been ended by the moderator.`,
+                    moderator: username
+                });
+                
+                // Send leftRoom event to each socket individually
+                socket.emit('leftRoom', {
+                    room: 'Global',
+                    reason: 'Experiment ended by moderator'
+                });
+                
+                console.log(`📡 Sent end experiment events to: ${socket.handshake.session?.username || 'unknown user'}`);
+            });
+            
+            // Then update sessions and move sockets
             sockets.forEach(socket => {
                 if (socket.handshake.session) {
                     socket.handshake.session.room = 'Global';
                     socket.handshake.session.save();
                     console.log(`🧹 Cleared session room for user: ${socket.handshake.session.username}`);
+                    
+                    // Force socket to leave the experiment room and join Global
+                    socket.leave(room);
+                    socket.join('Global');
+                    console.log(`🚪 Moved socket from ${room} to Global for user: ${socket.handshake.session.username}`);
+                    
+                    // Send joinRoom confirmation to the socket
+                    socket.emit('joinRoom', 'Global');
+                    console.log(`✅ Sent joinRoom Global confirmation to: ${socket.handshake.session.username}`);
                 }
             });
+            
+            // After clearing all sessions, log completion
+            console.log(`✅ Processed experiment end for ${sockets.length} users in room ${room}`);
+            
+            // Clean up game sessions and room data
+            const Entity = require('./Entity.js');
+            const cleanupSuccess = Entity.cleanupRoom(room);
+            
+            if (!cleanupSuccess) {
+                console.warn(`⚠️ Room cleanup had some issues for room: ${room}`);
+            }
+            
+            console.log(`✅ Experiment ended in room: ${room}`);
+        }).catch(error => {
+            console.error(`❌ Error ending experiment in room ${room}:`, error);
+            
+            // Fallback: send events to individual sockets if main flow failed
+            io.in(room).fetchSockets().then(fallbackSockets => {
+                fallbackSockets.forEach(socket => {
+                    socket.emit('experimentEnded', {
+                        message: `The experiment has been ended by the moderator.`,
+                        moderator: username
+                    });
+                    
+                    socket.emit('leftRoom', {
+                        room: 'Global',
+                        reason: 'Experiment ended by moderator'
+                    });
+                    
+                    socket.emit('joinRoom', 'Global');
+                });
+            }).catch(fallbackError => {
+                console.error(`❌ Fallback also failed:`, fallbackError);
+            });
         });
-        
-        // Broadcast to all users in the room that the experiment is ending
-        io.to(room).emit('experimentEnded', {
-            message: `The experiment has been ended by the moderator.`,
-            moderator: username
-        });
-        
-        // Send leftRoom event to all users in the room to return them to Global
-        io.to(room).emit('leftRoom', {
-            room: 'Global',
-            reason: 'Experiment ended by moderator'
-        });
-        
-        // You may want to add additional cleanup here:
-        // - Remove the room from roomList
-        // - Clear any active game sessions
-        // - Reset any AI processes
-        
-        console.log(`✅ Experiment ended in room: ${room}`);
     });
 
     socket.on('disconnect', function(){

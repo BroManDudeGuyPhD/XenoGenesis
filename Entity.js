@@ -4013,9 +4013,56 @@ Player.hasActiveGameSession = function(roomName) {
     return isActive;
 };
 
+// Function to clean up a room when experiment ends
+Player.cleanupRoom = function(roomName) {
+    console.log(`🧹 Starting cleanup for room: ${roomName}`);
+    
+    try {
+        // Remove the game session for this room
+        if (GameSessions[roomName]) {
+            delete GameSessions[roomName];
+            console.log(`🧹 Cleaned up game session for room: ${roomName}`);
+        }
+        
+        // Remove players from this room in the Player.list
+        const playersToRemove = [];
+        Object.keys(Player.list).forEach(playerId => {
+            const player = Player.list[playerId];
+            if (player && player.room === roomName) {
+                playersToRemove.push(playerId);
+            }
+        });
+        
+        playersToRemove.forEach(playerId => {
+            delete Player.list[playerId];
+        });
+        
+        if (playersToRemove.length > 0) {
+            console.log(`🧹 Removed ${playersToRemove.length} players from room ${roomName}`);
+        }
+        
+        // Remove the room from roomList (if accessible)
+        if (typeof roomList !== 'undefined') {
+            const roomIndex = roomList.findIndex(r => r.name === roomName);
+            if (roomIndex !== -1) {
+                roomList.splice(roomIndex, 1);
+                console.log(`🧹 Removed room "${roomName}" from roomList`);
+            }
+        }
+        
+        console.log(`✅ Room cleanup completed for: ${roomName}`);
+        return true;
+        
+    } catch (error) {
+        console.error(`❌ Error cleaning up room ${roomName}:`, error);
+        return false;
+    }
+};
+
 // Export the Player object so it can be used in other modules
 module.exports = {
     Player: Player,
     GameSession: GameSession,
-    hasActiveGameSession: Player.hasActiveGameSession
+    hasActiveGameSession: Player.hasActiveGameSession,
+    cleanupRoom: Player.cleanupRoom
 };

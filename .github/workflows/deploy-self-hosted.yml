@@ -1,0 +1,18 @@
+name: Deploy to Production (Self-hosted)
+
+on:
+  push:
+    branches: [ mave ]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ironman  # Runs on your own server
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Update service
+      run: |
+        sudo ./setup/update_service.sh

@@ -27,17 +27,10 @@ function updateCardVisibility() {
     const joinCard = document.getElementById('join-card');
     const inviteCard = document.getElementById('invite-card');
     
-    // Check if admin status was set early from session data
-    if (window.isGlobalAdmin !== undefined && isGlobalAdmin !== window.isGlobalAdmin) {
+    // Check if admin status was set early from session data - but don't override login response
+    if (window.isGlobalAdmin !== undefined && window.isGlobalAdmin === true && isGlobalAdmin !== window.isGlobalAdmin) {
         isGlobalAdmin = window.isGlobalAdmin;
     }
-    
-    console.log(`🎯 MENU CONTEXT DEBUG:`);
-    console.log(`   - gameActive: ${gameActive}`);
-    console.log(`   - currentRoom: ${currentRoom}`);
-    console.log(`   - body.game-active: ${document.body.classList.contains('game-active')}`);
-    console.log(`   - context: ${menuContext.context}`);
-    console.log(`   - isGlobalAdmin: ${isGlobalAdmin}`);
     
     // Create and Join cards should only show in global chat context
     if (createCard && joinCard) {
@@ -47,7 +40,6 @@ function updateCardVisibility() {
             createCard.classList.add('card-visible');
             joinCard.classList.remove('card-hidden'); 
             joinCard.classList.add('card-visible');
-            console.log(`✅ Showing create/join cards - Global chat context`);
         } else {
             // Hide create/join in game or room contexts
             createCard.classList.remove('card-visible');
@@ -650,6 +642,472 @@ function closeInviteCodeAlert() {
     const modal = document.getElementById('inviteCodeModal');
     if (modal) {
         modal.remove();
+    }
+}
+
+// Function to show experiment ended modal with glassmorphic styling
+function showExperimentEndedModal(message, moderator) {
+    // Remove any existing modal
+    const existingModal = document.getElementById('experimentEndedModal');
+    if (existingModal) {
+        existingModal.remove();
+    }
+
+    const modalHTML = `
+        <div id="experimentEndedModal" style="
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 10000;
+            animation: fadeIn 0.3s ease-out;
+        ">
+            <div style="
+                max-width: 500px;
+                width: 90%;
+                background: linear-gradient(145deg, 
+                    rgba(43, 45, 59, 0.98) 0%, 
+                    rgba(54, 57, 63, 0.95) 100%);
+                backdrop-filter: blur(20px);
+                -webkit-backdrop-filter: blur(20px);
+                border: 1px solid rgba(255, 255, 255, 0.15);
+                border-radius: 20px;
+                box-shadow: 
+                    0 25px 80px rgba(0, 0, 0, 0.6),
+                    0 10px 40px rgba(0, 0, 0, 0.4),
+                    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+                padding: 40px;
+                text-align: center;
+                position: relative;
+                animation: modalSlideIn 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            ">
+                <!-- Decorative elements -->
+                <div style="
+                    position: absolute;
+                    top: -2px;
+                    left: -2px;
+                    right: -2px;
+                    height: 4px;
+                    background: linear-gradient(90deg, #e74c3c, #f39c12, #e74c3c);
+                    border-radius: 20px 20px 0 0;
+                    opacity: 0.8;
+                "></div>
+                
+                <div style="
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    gap: 12px;
+                    margin-bottom: 25px;
+                ">
+                    <div style="
+                        width: 4px;
+                        height: 4px;
+                        background: linear-gradient(135deg, #e74c3c, #f39c12);
+                        border-radius: 50%;
+                        animation: subtlePulse 2s infinite;
+                    "></div>
+                    <h2 style="
+                        color: #dcddde; 
+                        font-weight: 600; 
+                        margin: 0;
+                        font-size: 28px;
+                        letter-spacing: -0.5px;
+                        background: linear-gradient(135deg, #e74c3c, #f39c12);
+                        -webkit-background-clip: text;
+                        -webkit-text-fill-color: transparent;
+                        background-clip: text;
+                    ">🛑 Experiment Ended</h2>
+                    <div style="
+                        width: 4px;
+                        height: 4px;
+                        background: linear-gradient(135deg, #e74c3c, #f39c12);
+                        border-radius: 50%;
+                        animation: subtlePulse 2s infinite 0.5s;
+                    "></div>
+                </div>
+                
+                <div style="
+                    font-size: 56px;
+                    margin-bottom: 20px;
+                    opacity: 0.9;
+                    filter: drop-shadow(0 4px 8px rgba(0,0,0,0.3));
+                ">🏁</div>
+                
+                <div style="
+                    background: rgba(32, 34, 37, 0.6);
+                    border: 1px solid rgba(231, 76, 60, 0.3);
+                    border-radius: 12px;
+                    padding: 20px;
+                    margin: 20px 0;
+                    backdrop-filter: blur(10px);
+                ">
+                    <p style="
+                        color: #dcddde; 
+                        font-size: 16px; 
+                        margin: 0 0 10px 0; 
+                        line-height: 1.5;
+                        font-weight: 500;
+                    ">${message}</p>
+                    
+                    ${moderator ? `<p style="
+                        color: #f39c12; 
+                        font-size: 14px; 
+                        margin: 0;
+                        opacity: 0.9;
+                        font-style: italic;
+                    ">— ${moderator}</p>` : ''}
+                </div>
+                
+                <p style="
+                    color: #b9bbbe; 
+                    font-size: 14px; 
+                    margin-bottom: 30px; 
+                    opacity: 0.8;
+                    line-height: 1.4;
+                ">You will be returned to the global chat area.</p>
+
+                <button onclick="closeExperimentEndedModal()" style="
+                    background: linear-gradient(135deg, rgba(67, 181, 129, 0.9) 0%, rgba(52, 168, 107, 0.9) 100%);
+                    color: white;
+                    padding: 15px 32px;
+                    border: none;
+                    border-radius: 10px;
+                    cursor: pointer;
+                    font-weight: 600;
+                    font-size: 16px;
+                    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+                    box-shadow: 
+                        0 4px 15px rgba(67, 181, 129, 0.4),
+                        0 2px 8px rgba(0, 0, 0, 0.2);
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                    margin: 0 auto;
+                    position: relative;
+                    overflow: hidden;
+                "
+                onmouseover="
+                    this.style.background='linear-gradient(135deg, rgba(52, 168, 107, 0.95) 0%, rgba(39, 174, 96, 0.95) 100%)';
+                    this.style.transform='translateY(-2px)';
+                    this.style.boxShadow='0 6px 20px rgba(67, 181, 129, 0.5), 0 4px 12px rgba(0, 0, 0, 0.3)';
+                "
+                onmouseout="
+                    this.style.background='linear-gradient(135deg, rgba(67, 181, 129, 0.9) 0%, rgba(52, 168, 107, 0.9) 100%)';
+                    this.style.transform='translateY(0)';
+                    this.style.boxShadow='0 4px 15px rgba(67, 181, 129, 0.4), 0 2px 8px rgba(0, 0, 0, 0.2)';
+                "
+                onmousedown="this.style.transform='translateY(0) scale(0.98)'"
+                onmouseup="this.style.transform='translateY(-2px) scale(1)'">
+                    <span style="font-size: 14px;">🏠</span>
+                    Return to Global Chat
+                </button>
+            </div>
+        </div>
+        
+        <style>
+            @keyframes fadeIn {
+                from { opacity: 0; }
+                to { opacity: 1; }
+            }
+            
+            @keyframes modalSlideIn {
+                from {
+                    opacity: 0;
+                    transform: translateY(-20px) scale(0.95);
+                }
+                to {
+                    opacity: 1;
+                    transform: translateY(0) scale(1);
+                }
+            }
+            
+            @keyframes subtlePulse {
+                0%, 100% { opacity: 0.6; transform: scale(1); }
+                50% { opacity: 1; transform: scale(1.2); }
+            }
+        </style>
+    `;
+    
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
+}
+
+// Function to close experiment ended modal and return to global chat
+function closeExperimentEndedModal() {
+    const modal = document.getElementById('experimentEndedModal');
+    if (modal) {
+        modal.style.animation = 'fadeOut 0.3s ease-in';
+        setTimeout(() => {
+            if (modal.parentNode) {
+                modal.remove();
+            }
+        }, 300);
+    }
+    
+    // Ensure proper UI state when returning to global chat
+    // Hide the login screen (landing page) and show the chat interface
+    const landingPage = document.getElementById('landingPage');
+    const chatContainer = document.getElementById('chat-container');
+    
+    if (landingPage) {
+        landingPage.style.display = 'none';
+        console.log('✅ Hidden landing page (login screen background)');
+    }
+    
+    if (chatContainer) {
+        chatContainer.style.display = 'block';
+        console.log('✅ Shown chat container');
+    }
+    
+    // Ensure we're showing the global chat tab
+    const globalChatMessages = document.getElementById('globalChatMessages');
+    const roomChatMessages = document.getElementById('roomChatMessages');
+    const globalNameText = document.getElementById('globalNameText');
+    
+    if (globalChatMessages) {
+        globalChatMessages.style.display = '';
+        console.log('✅ Shown global chat messages');
+    }
+    
+    if (roomChatMessages) {
+        roomChatMessages.style.display = 'none';
+        console.log('✅ Hidden room chat messages');
+    }
+    
+    if (globalNameText) {
+        globalNameText.style.backgroundColor = '#667aff';
+        console.log('✅ Activated global chat tab styling');
+    }
+    
+    // Reset current room state
+    currentRoom = 'Global';
+    gameActive = false;
+    document.body.classList.remove('game-active');
+    
+    // Update card visibility for global context - this includes invite visibility
+    updateCardVisibility();
+    
+    // Hide room pill in global chat (inline implementation)  
+    const roomPill = document.getElementById('room-pill');
+    if (roomPill) {
+        roomPill.style.display = 'none';
+    }
+    
+    // Double-check invite visibility specifically
+    setTimeout(() => {
+        updateInviteVisibility();
+    }, 100);
+}
+
+// Function to properly return user to global chat
+function returnToGlobalChat() {
+    console.log('🏠 Returning user to global chat...');
+    
+    // Hide game interface
+    const gameDiv = document.getElementById('gameDiv');
+    if (gameDiv) {
+        gameDiv.style.display = 'none';
+    }
+    
+    // Show chat interface
+    const chatContainer = document.getElementById('chat-container');
+    const landingPage = document.getElementById('landingPage');
+    
+    // Determine which interface to show based on login status
+    const isLoggedIn = currentUsername && currentUsername !== null && currentUsername !== '';
+    
+    if (isLoggedIn && chatContainer) {
+        // User is logged in, show chat interface
+        chatContainer.style.display = 'block';
+        if (landingPage) {
+            landingPage.style.display = 'none';
+        }
+        console.log('✅ Returned logged-in user to chat interface');
+    } else if (landingPage) {
+        // User is not logged in or session lost, show landing page
+        landingPage.style.display = 'block';
+        if (chatContainer) {
+            chatContainer.style.display = 'none';
+        }
+        console.log('✅ Returned user to landing page (not logged in)');
+    } else {
+        console.warn('⚠️ Could not find proper interface elements to show');
+    }
+    
+    // Ensure we're in Global room state
+    currentRoom = 'Global';
+    gameActive = false;
+    document.body.classList.remove('game-active');
+    
+    // Update card visibility
+    updateCardVisibility();
+    
+    // Emit joinRoom to Global to ensure server state is correct
+    if (typeof socket !== 'undefined' && socket.connected) {
+        socket.emit('joinRoom', 'Global');
+    }
+}
+
+// Function to reset all visual components and animations for fresh room start
+function resetGameVisuals() {
+    console.log('🔄 Resetting all game visuals and animations...');
+    
+    try {
+        // Reset all player animations and states
+        const players = document.querySelectorAll('.player');
+        players.forEach(player => {
+            player.classList.remove('thinking', 'active', 'winner', 'loser', 'highlighted', 'turn-active');
+            player.style.transform = '';
+            player.style.opacity = '';
+            player.style.animation = '';
+            player.style.filter = '';
+            
+            // Reset any player-specific visual effects
+            const playerAvatar = player.querySelector('.player-avatar');
+            const playerName = player.querySelector('.player-name');
+            const playerStatus = player.querySelector('.player-status');
+            
+            if (playerAvatar) {
+                playerAvatar.style.animation = '';
+                playerAvatar.style.transform = '';
+                playerAvatar.style.filter = '';
+            }
+            
+            if (playerName) {
+                playerName.style.color = '';
+                playerName.style.fontWeight = '';
+            }
+            
+            if (playerStatus) {
+                playerStatus.textContent = '';
+                playerStatus.style.display = 'none';
+            }
+        });
+        
+        // Reset game board and table visuals
+        const gameBoard = document.getElementById('gameBoard');
+        const pokerTable = document.querySelector('.poker-table');
+        
+        if (gameBoard) {
+            gameBoard.classList.remove('game-in-progress', 'round-active', 'decision-phase');
+            gameBoard.style.filter = '';
+            gameBoard.style.opacity = '';
+        }
+        
+        if (pokerTable) {
+            pokerTable.classList.remove('active', 'highlighted', 'game-active');
+            pokerTable.style.animation = '';
+            pokerTable.style.transform = '';
+        }
+        
+        // Reset all cards and card animations
+        const cards = document.querySelectorAll('.card, .poker-card, .action-card');
+        cards.forEach(card => {
+            card.classList.remove('flipped', 'highlighted', 'selected', 'dealt', 'revealed');
+            card.style.animation = '';
+            card.style.transform = '';
+            card.style.transition = '';
+            card.style.opacity = '';
+            card.style.zIndex = '';
+        });
+        
+        // Reset community cards area
+        const communityCards = document.querySelector('.community-cards');
+        if (communityCards) {
+            communityCards.innerHTML = '';
+            communityCards.style.opacity = '';
+            communityCards.style.animation = '';
+        }
+        
+        // Reset pot and betting areas
+        const pot = document.querySelector('.pot, #pot');
+        const bettingArea = document.querySelector('.betting-area');
+        
+        if (pot) {
+            pot.textContent = '$0';
+            pot.style.animation = '';
+            pot.style.transform = '';
+        }
+        
+        if (bettingArea) {
+            bettingArea.style.opacity = '';
+            bettingArea.style.display = '';
+        }
+        
+        // Reset action buttons and controls
+        const actionButtons = document.querySelectorAll('.action-button, .game-button, .control-button');
+        actionButtons.forEach(button => {
+            button.classList.remove('active', 'disabled', 'highlighted', 'pulsing');
+            button.style.animation = '';
+            button.style.transform = '';
+            button.disabled = false;
+        });
+        
+        // Reset progress bars and timers
+        const progressBars = document.querySelectorAll('.progress-bar, .timer-bar, .countdown');
+        progressBars.forEach(bar => {
+            bar.style.width = '0%';
+            bar.style.animation = '';
+            bar.style.transform = '';
+        });
+        
+        // Reset any overlays or modals (except our own system modals)
+        const gameOverlays = document.querySelectorAll('.game-overlay, .turn-overlay, .result-overlay');
+        gameOverlays.forEach(overlay => {
+            if (!overlay.id.includes('Modal') && !overlay.id.includes('Alert')) {
+                overlay.remove();
+            }
+        });
+        
+        // Reset round and turn indicators
+        const roundIndicator = document.querySelector('.round-indicator, #currentRound');
+        const turnIndicator = document.querySelector('.turn-indicator, #currentTurn');
+        
+        if (roundIndicator) {
+            roundIndicator.textContent = '';
+            roundIndicator.style.opacity = '';
+        }
+        
+        if (turnIndicator) {
+            turnIndicator.textContent = '';
+            turnIndicator.style.opacity = '';
+        }
+        
+        // Reset any sound or audio elements
+        const audioElements = document.querySelectorAll('audio');
+        audioElements.forEach(audio => {
+            audio.pause();
+            audio.currentTime = 0;
+        });
+        
+        // Reset any particle effects or canvas animations
+        const canvases = document.querySelectorAll('canvas');
+        canvases.forEach(canvas => {
+            const ctx = canvas.getContext('2d');
+            if (ctx) {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+            }
+        });
+        
+        // Clear any inline styles that might interfere
+        document.body.style.filter = '';
+        document.body.style.animation = '';
+        
+        // Reset game state variables
+        currentRoundNumber = 0;
+        isGameInProgress = false;
+        
+        console.log('✅ Game visuals reset completed');
+        
+    } catch (error) {
+        console.error('❌ Error resetting game visuals:', error);
     }
 }
 
@@ -1339,17 +1797,58 @@ socket.on('signInResponse', function (data) {
         
         // Store admin status and update UI
         isGlobalAdmin = data.isAdmin || false;
-        console.log(`🔍 SignInResponse data:`, data);
-        console.log(`🔍 Admin status received: ${data.isAdmin} (type: ${typeof data.isAdmin})`);
-        console.log(`🔍 Stored isGlobalAdmin: ${isGlobalAdmin}`);
-        
-        // Update card visibility based on context and admin status
-        updateCardVisibility();
         
         //signDiv.style.display = 'none';
         landingPage.style.display = "none";
         switchToLoggedInUI(data.username);
         chatDiv.style.display = '';
+        
+        // Hide room pill in global chat (inline implementation since updateHeaderPills is defined later)
+        const roomPill = document.getElementById('room-pill');
+        if (roomPill) {
+            roomPill.style.display = 'none';
+        }
+        
+        // Update card visibility AFTER UI elements are shown
+        updateCardVisibility();
+        
+        // Ensure invite card visibility is updated with additional retries
+        setTimeout(() => {
+            updateInviteVisibility();
+        }, 100);
+        
+        // Additional retry with longer delay to ensure DOM is fully ready
+        setTimeout(() => {
+            const inviteCard = document.getElementById('invite-card');
+            const actionCardsContainer = document.querySelector('.action-cards-container');
+            
+            if (inviteCard) {
+                const inviteStyles = window.getComputedStyle(inviteCard);
+                
+                // Fix CSS override issues
+                if (inviteStyles.visibility === 'hidden' || inviteStyles.opacity === '0') {
+                    inviteCard.style.setProperty('visibility', 'visible', 'important');
+                    inviteCard.style.setProperty('opacity', '1', 'important');
+                    inviteCard.style.setProperty('display', 'block', 'important');
+                }
+            }
+            
+            if (inviteCard && isGlobalAdmin && currentRoom === 'Global') {
+                inviteCard.style.display = 'block';
+                inviteCard.style.visibility = 'visible';
+                inviteCard.style.opacity = '1';
+                inviteCard.classList.remove('invite-hidden');
+                inviteCard.classList.add('invite-visible');
+                
+                // Also ensure container is visible
+                if (actionCardsContainer) {
+                    actionCardsContainer.style.display = '';
+                    actionCardsContainer.style.visibility = '';
+                    actionCardsContainer.style.opacity = '';
+                }
+            }
+            updateInviteVisibility();
+        }, 500);
         
         // Stop space animations when user successfully logs in
         if (typeof window.stopSpaceAnimationsOnLogin === 'function') {
@@ -1416,7 +1915,6 @@ socket.on('signUpResponse', function (data) {
             
             // Store the admin status and update UI like a normal sign-in
             isGlobalAdmin = data.isAdmin || false;
-            console.log(`🔍 SignUpResponse with autoLogin - Admin status: ${isGlobalAdmin}`);
             
             // Update card visibility based on context and admin status
             updateCardVisibility();
@@ -1873,19 +2371,33 @@ socket.on('playersInRoom', function(data) {
         const userIsModerator = moderatorPlayer && moderatorPlayer.username === currentUsername;
         const moderatorText = userIsModerator ? `You are the moderator` : '';
         
-        // Only show the triad formation popup if no game is in progress AND user is on game screen
-        // This prevents the popup from showing when players rejoin after refresh/logout or when on chat screen
+        // Only show the triad formation popup in NEW rooms before the game has started (lobby phase)
+        // Check multiple conditions to ensure we're truly in lobby state:
+        // 1. No active game (gameActive = false)
+        // 2. Current round is 0 (no rounds have started)
+        // 3. User is on game screen (not chat screen)
+        // 4. Lobby phase is visible (not decision/results phase)
         const gameDiv = document.getElementById('gameDiv');
+        const lobbyPhase = document.getElementById('lobbyPhase');
+        const decisionPhase = document.getElementById('decisionPhase');
         const isOnGameScreen = gameDiv && gameDiv.style.display !== 'none';
+        const isInLobbyPhase = lobbyPhase && lobbyPhase.style.display !== 'none';
+        const isNotInDecisionPhase = !decisionPhase || decisionPhase.style.display === 'none';
         
-        if (currentRoundNumber === 0 && isOnGameScreen) {
+        // Only show popup if ALL conditions indicate we're in true lobby state
+        if (!gameActive && currentRoundNumber === 0 && isOnGameScreen && isInLobbyPhase && isNotInDecisionPhase) {
             showTriadFormationPopup(playerCountText, moderatorText, data.players);
+            console.log('🎯 Showing triad formation popup - in lobby phase');
         } else {
-            if (currentRoundNumber > 0) {
-                console.log('🎮 Game in progress (round ' + currentRoundNumber + '), skipping triad formation popup');
-            } else if (!isOnGameScreen) {
-                console.log('📺 Not on game screen, skipping triad formation popup');
-            }
+            // Log the reason for not showing the popup for debugging
+            const reasons = [];
+            if (gameActive) reasons.push('game is active');
+            if (currentRoundNumber > 0) reasons.push(`round ${currentRoundNumber} in progress`);
+            if (!isOnGameScreen) reasons.push('not on game screen');
+            if (!isInLobbyPhase) reasons.push('not in lobby phase');
+            if (!isNotInDecisionPhase) reasons.push('in decision phase');
+            
+            console.log('� Skipping triad formation popup:', reasons.join(', '));
         }
     } else {
         console.log(`🚫 Ignoring playersInRoom for ${data.room} - current room is ${currentRoom}`);
@@ -2240,6 +2752,12 @@ function outputUsers(users) {
 socket.on("joinRoom", (room) => {
     currentRoom = room; // Ensure currentRoom is updated when server confirms room join
     
+    // Reset all game visuals when joining a room (in case previous room ended in weird state)
+    if (room !== 'Global') {
+        resetGameVisuals();
+        console.log('🔄 Reset game visuals for fresh room start');
+    }
+    
     // Update leave button visibility based on room
     updateLeaveButtonVisibility();
     
@@ -2312,6 +2830,9 @@ socket.on('leftRoom', function(data) {
     gameActive = false;
     document.body.classList.remove('game-active');
     currentRoom = 'Global';
+    
+    // Close triad formation popup when leaving room
+    closeTriadFormationPopup();
     
     // Update card visibility for global context
     updateCardVisibility();
@@ -2386,6 +2907,9 @@ socket.on('leftRoom', function(data) {
     // Update leave button visibility (hide for Global)
     updateLeaveButtonVisibility();
     
+    // Update header pills to hide room pill in global
+    updateHeaderPills();
+    
     // Switch back to global chat
     if (globalChatMessages) globalChatMessages.style.display = "";
     if (globalNameText) globalNameText.style.backgroundColor = "#667aff";
@@ -2397,19 +2921,23 @@ socket.on('leftRoom', function(data) {
 socket.on('experimentEnded', function(data) {
     console.log('🛑 Experiment ended:', data);
     
-    // Show a notification to the user
-    alert(`Experiment ended: ${data.message}`);
+    // Show glassmorphic experiment ended modal
+    showExperimentEndedModal(data.message, data.moderator);
     
-    // Force return to global state (the leftRoom event should handle this)
+    // Reset game state immediately
     gameActive = false;
     document.body.classList.remove('game-active');
     currentRoom = 'Global';
+    currentRoundNumber = 0;
     
     // Update card visibility for global context
     updateCardVisibility();
     
     // Hide any open modals or menus
     hideModeratorContextMenu();
+    
+    // The server also sends a 'leftRoom' event which will handle the UI transition
+    console.log('🛑 Experiment ended, waiting for leftRoom event to handle UI transition...');
 });
 
 socket.on("gameStarted", function(){
@@ -2497,6 +3025,12 @@ socket.on('init', function(data) {
     console.log(`📡 RECEIVED INIT - Room: ${currentRoom}, Players: ${data.player ? data.player.length : 0}, SelfId: ${!!data.selfId}, Timestamp: ${new Date().toLocaleTimeString()}`);
     console.log('📡 Full init data:', data);
     
+    // Reset all game visuals for fresh experiment start
+    if (currentRoom !== 'Global') {
+        resetGameVisuals();
+        console.log('🔄 Reset game visuals for experiment initialization');
+    }
+    
     if(data.selfId){
         selfId = data.selfId;
         console.log('🔑 SelfId set to:', selfId);
@@ -2506,6 +3040,9 @@ socket.on('init', function(data) {
     if(data.player && data.player.length > 0 && (currentRoom !== "Global" || data.selfId)) {
         gameDiv.style.display = 'inline-block';
         gameActive = true; // Mark game as active
+        
+        // Close triad formation popup when game initializes
+        closeTriadFormationPopup();
         
         // Add game-active class to body for styling
         document.body.classList.add('game-active');
@@ -2703,6 +3240,12 @@ socket.on('yourTurn', function(data) {
     console.log('🎯 DOM state check - gameDiv exists:', !!document.getElementById('gameDiv'));
     console.log('🎯 DOM state check - decisionPhase exists:', !!document.getElementById('decisionPhase'));
     console.log('🎯 DOM state check - selectionSection exists:', !!document.getElementById('selectionSection'));
+    
+    // Close the triad formation popup when actual gameplay starts
+    closeTriadFormationPopup();
+    
+    // Set game as active since we're now in active gameplay
+    gameActive = true;
     
     // IMMEDIATE gameDiv protection at yourTurn start
     const gameDiv = document.getElementById('gameDiv');
@@ -2927,6 +3470,10 @@ socket.on('yourTurn', function(data) {
 // New round started
 socket.on('newRound', function(data) {
     console.log('🔄 New round started:', data);
+    
+    // Reset game visuals at the start of each new round (clears any stuck animations)
+    resetGameVisuals();
+    console.log('🔄 Reset game visuals for new round start');
     
     // Close the triad formation popup when game starts
     closeTriadFormationPopup();
@@ -3383,6 +3930,9 @@ socket.on('experimentEnd', function(data) {
     
     // Reset round number so triad popup can show again for next game
     currentRoundNumber = 0;
+    
+    // Reset game state to allow new game to start
+    gameActive = false;
     
     // Store export data for later use
     window.experimentData = data.exportData;
@@ -4286,11 +4836,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 document.body.appendChild(roomPillSubmenu);
             }
             
-            // Position submenu absolutely relative to viewport
+            // Position submenu absolutely relative to viewport (left-aligned now)
             roomPillSubmenu.style.position = 'fixed';
             roomPillSubmenu.style.top = (pillRect.bottom + 8) + 'px';
-            roomPillSubmenu.style.right = (window.innerWidth - pillRect.right) + 'px';
-            roomPillSubmenu.style.left = 'auto';
+            roomPillSubmenu.style.left = pillRect.left + 'px';
+            roomPillSubmenu.style.right = 'auto';
             roomPillSubmenu.style.zIndex = '999999';
             
             roomPill.classList.add('expanded');
@@ -6523,7 +7073,6 @@ window.debugCardVisibility = function() {
     console.log('🔥 CARD VISIBILITY DEBUG REPORT 🔥');
     const menuContext = getMenuContext();
     console.log('🎯 Menu Context:', menuContext);
-    console.log('🔍 Current admin status:', isGlobalAdmin);
     console.log('🔍 Current username:', currentUsername);
     console.log('🔍 Current room:', currentRoom);
     console.log('🔍 Game active:', gameActive);
@@ -6979,20 +7528,257 @@ function setupModeratorMenuHandlers() {
 function handleEndExperiment() {
     hideModeratorContextMenu();
     
-    const confirmEnd = confirm("Are you sure you want to END the experiment? This will return all players to global chat and permanently end the room.");
-    
-    if (confirmEnd) {
-        console.log('🛑 Moderator ending experiment');
-        
-        // Emit end experiment event to server
-        socket.emit('endExperiment', {
-            room: currentRoom,
-            moderatorAction: true
-        });
-        
-        // Redirect to home page
-        window.location.href = '/';
+    // Show glassmorphic confirmation as part of the button press
+    showEndExperimentConfirmation();
+}
+
+// Function to show glassmorphic end experiment confirmation
+function showEndExperimentConfirmation() {
+    // Remove any existing modal
+    const existingModal = document.getElementById('endExperimentConfirmModal');
+    if (existingModal) {
+        existingModal.remove();
     }
+
+    const modalHTML = `
+        <div id="endExperimentConfirmModal" style="
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(15px);
+            -webkit-backdrop-filter: blur(15px);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 10001;
+            animation: fadeIn 0.3s ease-out;
+        ">
+            <div style="
+                max-width: 520px;
+                width: 90%;
+                background: linear-gradient(145deg, 
+                    rgba(220, 38, 127, 0.98) 0%, 
+                    rgba(185, 28, 28, 0.95) 100%);
+                backdrop-filter: blur(25px);
+                -webkit-backdrop-filter: blur(25px);
+                border: 2px solid rgba(239, 68, 68, 0.4);
+                border-radius: 24px;
+                box-shadow: 
+                    0 30px 100px rgba(185, 28, 28, 0.8),
+                    0 15px 50px rgba(0, 0, 0, 0.6),
+                    inset 0 2px 0 rgba(255, 255, 255, 0.15);
+                padding: 48px;
+                text-align: center;
+                position: relative;
+                animation: modalSlideIn 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            ">
+                <!-- Danger gradient bar -->
+                <div style="
+                    position: absolute;
+                    top: -3px;
+                    left: -3px;
+                    right: -3px;
+                    height: 6px;
+                    background: linear-gradient(90deg, #ef4444, #dc2626, #b91c1c, #dc2626, #ef4444);
+                    border-radius: 24px 24px 0 0;
+                    opacity: 0.9;
+                    animation: dangerPulse 2s infinite;
+                "></div>
+                
+                <div style="
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    gap: 15px;
+                    margin-bottom: 30px;
+                ">
+                    <div style="
+                        width: 6px;
+                        height: 6px;
+                        background: linear-gradient(135deg, #fbbf24, #f59e0b);
+                        border-radius: 50%;
+                        animation: warningBlink 1.5s infinite;
+                    "></div>
+                    <h2 style="
+                        color: #fef2f2; 
+                        font-weight: 700; 
+                        margin: 0;
+                        font-size: 32px;
+                        letter-spacing: -0.5px;
+                        text-shadow: 0 4px 12px rgba(0,0,0,0.5);
+                    ">⚠️ End Experiment</h2>
+                    <div style="
+                        width: 6px;
+                        height: 6px;
+                        background: linear-gradient(135deg, #fbbf24, #f59e0b);
+                        border-radius: 50%;
+                        animation: warningBlink 1.5s infinite 0.75s;
+                    "></div>
+                </div>
+                
+                <div style="
+                    font-size: 64px;
+                    margin-bottom: 25px;
+                    opacity: 0.95;
+                    filter: drop-shadow(0 6px 12px rgba(0,0,0,0.4));
+                    animation: iconBounce 3s infinite;
+                ">🛑</div>
+                
+                <div style="
+                    background: rgba(15, 15, 15, 0.7);
+                    border: 2px solid rgba(239, 68, 68, 0.4);
+                    border-radius: 16px;
+                    padding: 24px;
+                    margin: 25px 0;
+                    backdrop-filter: blur(12px);
+                ">
+                    <p style="
+                        color: #fef2f2; 
+                        font-size: 18px; 
+                        margin: 0 0 15px 0; 
+                        line-height: 1.6;
+                        font-weight: 600;
+                    ">Are you sure you want to END the experiment?</p>
+                    
+                    <p style="
+                        color: #fca5a5; 
+                        font-size: 15px; 
+                        margin: 0;
+                        line-height: 1.5;
+                        font-style: italic;
+                    ">This will return all players to global chat and permanently end the room.</p>
+                </div>
+                
+                <div style="
+                    display: flex;
+                    gap: 16px;
+                    justify-content: center;
+                    margin-top: 35px;
+                ">
+                    <button onclick="cancelEndExperiment()" style="
+                        background: linear-gradient(135deg, rgba(75, 85, 99, 0.9) 0%, rgba(55, 65, 81, 0.9) 100%);
+                        color: #e5e7eb;
+                        padding: 16px 28px;
+                        border: 2px solid rgba(156, 163, 175, 0.3);
+                        border-radius: 12px;
+                        cursor: pointer;
+                        font-weight: 600;
+                        font-size: 16px;
+                        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+                        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+                        display: flex;
+                        align-items: center;
+                        gap: 10px;
+                    "
+                    onmouseover="
+                        this.style.background='linear-gradient(135deg, rgba(55, 65, 81, 0.95) 0%, rgba(31, 41, 55, 0.95) 100%)';
+                        this.style.transform='translateY(-2px)';
+                        this.style.boxShadow='0 6px 20px rgba(0, 0, 0, 0.4)';
+                    "
+                    onmouseout="
+                        this.style.background='linear-gradient(135deg, rgba(75, 85, 99, 0.9) 0%, rgba(55, 65, 81, 0.9) 100%)';
+                        this.style.transform='translateY(0)';
+                        this.style.boxShadow='0 4px 15px rgba(0, 0, 0, 0.3)';
+                    ">
+                        <span style="font-size: 14px;">❌</span>
+                        Cancel
+                    </button>
+                    
+                    <button onclick="confirmEndExperiment()" style="
+                        background: linear-gradient(135deg, rgba(239, 68, 68, 0.95) 0%, rgba(185, 28, 28, 0.95) 100%);
+                        color: white;
+                        padding: 16px 28px;
+                        border: 2px solid rgba(239, 68, 68, 0.6);
+                        border-radius: 12px;
+                        cursor: pointer;
+                        font-weight: 700;
+                        font-size: 16px;
+                        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+                        box-shadow: 
+                            0 6px 20px rgba(239, 68, 68, 0.6),
+                            0 3px 10px rgba(0, 0, 0, 0.3);
+                        display: flex;
+                        align-items: center;
+                        gap: 10px;
+                        animation: dangerButtonPulse 2s infinite;
+                    "
+                    onmouseover="
+                        this.style.background='linear-gradient(135deg, rgba(185, 28, 28, 1) 0%, rgba(153, 27, 27, 1) 100%)';
+                        this.style.transform='translateY(-3px)';
+                        this.style.boxShadow='0 8px 25px rgba(239, 68, 68, 0.7), 0 4px 15px rgba(0, 0, 0, 0.4)';
+                    "
+                    onmouseout="
+                        this.style.background='linear-gradient(135deg, rgba(239, 68, 68, 0.95) 0%, rgba(185, 28, 28, 0.95) 100%)';
+                        this.style.transform='translateY(0)';
+                        this.style.boxShadow='0 6px 20px rgba(239, 68, 68, 0.6), 0 3px 10px rgba(0, 0, 0, 0.3)';
+                    "
+                    onmousedown="this.style.transform='translateY(0) scale(0.97)'"
+                    onmouseup="this.style.transform='translateY(-3px) scale(1)'">
+                        <span style="font-size: 14px;">🛑</span>
+                        End Experiment
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <style>
+            @keyframes dangerPulse {
+                0%, 100% { opacity: 0.7; }
+                50% { opacity: 1; }
+            }
+            
+            @keyframes warningBlink {
+                0%, 100% { opacity: 0.5; transform: scale(1); }
+                50% { opacity: 1; transform: scale(1.3); }
+            }
+            
+            @keyframes iconBounce {
+                0%, 100% { transform: translateY(0) scale(1); }
+                50% { transform: translateY(-8px) scale(1.05); }
+            }
+            
+            @keyframes dangerButtonPulse {
+                0%, 100% { box-shadow: 0 6px 20px rgba(239, 68, 68, 0.6), 0 3px 10px rgba(0, 0, 0, 0.3); }
+                50% { box-shadow: 0 8px 30px rgba(239, 68, 68, 0.8), 0 4px 15px rgba(0, 0, 0, 0.4); }
+            }
+        </style>
+    `;
+    
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
+}
+
+// Function to cancel end experiment
+function cancelEndExperiment() {
+    const modal = document.getElementById('endExperimentConfirmModal');
+    if (modal) {
+        modal.style.animation = 'fadeOut 0.3s ease-in';
+        setTimeout(() => {
+            if (modal.parentNode) {
+                modal.remove();
+            }
+        }, 300);
+    }
+}
+
+// Function to confirm end experiment
+function confirmEndExperiment() {
+    console.log('🛑 Moderator ending experiment');
+    
+    // Close the confirmation modal
+    cancelEndExperiment();
+    
+    // Emit end experiment event to server
+    socket.emit('endExperiment', {
+        room: currentRoom,
+        moderatorAction: true
+    });
+    
+    // Don't redirect immediately - let the server's response events handle the transition
+    // The server will send 'experimentEnded' and 'leftRoom' events which will handle the cleanup
+    console.log('🛑 End experiment request sent, waiting for server response...');
 }
 
 function handlePauseExperiment() {

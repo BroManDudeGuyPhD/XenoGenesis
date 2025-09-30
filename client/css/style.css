@@ -411,6 +411,14 @@ button[onclick*="setPlayerIncentive"]:hover {
 	flex-wrap: wrap;
 }
 
+.status-pill-container-left {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	margin-left: 0;
+	flex-wrap: wrap;
+}
+
 .status-pill {
 	display: flex;
 	align-items: center;
