@@ -15,4 +15,4 @@ jobs:
       
     - name: Update service
       run: |
-        sudo ./setup/update_service.sh
+        sudo /opt/xenogenesis/setup/update_service.sh
