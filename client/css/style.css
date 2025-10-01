@@ -454,6 +454,31 @@ button[onclick*="setPlayerIncentive"]:hover {
 	transition: all 0.3s ease;
 }
 
+.admin-build-pill {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	background: linear-gradient(135deg, 
+		rgba(114, 137, 255, 0.2) 0%, 
+		rgba(99, 102, 241, 0.15) 100%);
+	backdrop-filter: blur(10px);
+	-webkit-backdrop-filter: blur(10px);
+	border: 1px solid rgba(114, 137, 255, 0.3);
+	border-radius: 20px;
+	padding: 8px 12px;
+	color: #7289da;
+	font-size: 13px;
+	font-weight: 500;
+	transition: all 0.3s ease;
+	cursor: pointer;
+}
+
+.admin-build-pill:hover {
+	transform: translateY(-2px);
+	box-shadow: 0 4px 20px rgba(114, 137, 255, 0.3);
+	border-color: rgba(114, 137, 255, 0.5);
+}
+
 .room-pill {
 	display: flex;
 	align-items: center;

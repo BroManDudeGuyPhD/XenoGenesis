@@ -89,6 +89,23 @@ function updateInviteVisibility() {
     if (inviteFab) {
         inviteFab.style.display = shouldShowInvite ? 'block' : 'none';
     }
+    
+    // Also update admin build status badge visibility
+    updateAdminStatusBadge();
+}
+
+// Function to show/hide admin build status badge
+function updateAdminStatusBadge() {
+    const adminBuildPill = document.getElementById('admin-build-pill');
+    
+    if (adminBuildPill) {
+        if (isGlobalAdmin) {
+            adminBuildPill.style.display = 'flex';
+            console.log('✅ Showing admin build status pill');
+        } else {
+            adminBuildPill.style.display = 'none';
+        }
+    }
 }
 
 // Function to check if current user is moderator of current room

@@ -1489,6 +1489,17 @@
                         <i class="fas fa-users"></i>
                         <span id="header-user-count-text">0 online</span>
                     </div>
+                    <div class="admin-build-pill" id="admin-build-pill" style="display:none;">
+                        <i class="fas fa-code-branch"></i>
+                        <a href="https://github.com/BroManDudeGuyPhD/XenoGenesis/actions/workflows/deploy-self-hosted.yml" 
+                           target="_blank" 
+                           style="text-decoration: none; color: inherit; display: flex; align-items: center; gap: 4px;">
+                            <span style="font-size: 11px;"></span>
+                            <img src="https://github.com/BroManDudeGuyPhD/XenoGenesis/actions/workflows/deploy-self-hosted.yml/badge.svg?branch=mave" 
+                                 alt="Deploy Status" 
+                                 style="height: 14px; border-radius: 2px;">
+                        </a>
+                    </div>
                     <div class="room-pill" id="room-pill" style="display:none;">
                         <i class="fas fa-home"></i>
                         <span id="room-pill-text">Global</span>
@@ -1611,6 +1622,14 @@
         // Immediately set admin status if available to reduce delay
         if (window.sessionData && window.sessionData.isAdmin !== undefined) {
             window.isGlobalAdmin = window.sessionData.isAdmin;
+            
+            // Show admin build status pill if admin
+            setTimeout(() => {
+                const adminBuildPill = document.getElementById('admin-build-pill');
+                if (adminBuildPill && window.isGlobalAdmin) {
+                    adminBuildPill.style.display = 'flex';
+                }
+            }, 100);
         }
         
         // Close invite options when clicking outside
