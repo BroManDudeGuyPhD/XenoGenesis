@@ -34,8 +34,8 @@ a {
 	cursor: pointer;
 	padding: 10px 20px;
 	background: linear-gradient(135deg, 
-		rgba(72, 47, 247, 0.9) 0%, 
-		rgba(92, 63, 255, 0.85) 100%);
+		rgba(128, 0, 230, 0.9) 0%, 
+		rgba(230, 25, 179, 0.85) 100%); /* Deep purple to neon pink gradient */
 	backdrop-filter: blur(12px);
 	-webkit-backdrop-filter: blur(12px);
 	color: white;
@@ -43,6 +43,8 @@ a {
 	border-radius: 8px;
 	font-size: 14px;
 	font-family: 'Inter', 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Roboto', sans-serif;
+	position: relative;
+	z-index: 10; /* Above dither animation */
 	font-weight: 500;
 	letter-spacing: -0.01em;
 	text-decoration: none;
@@ -51,8 +53,8 @@ a {
 	position: relative;
 	overflow: hidden;
 	box-shadow: 
-		0 4px 12px rgba(72, 47, 247, 0.2),
-		0 2px 6px rgba(72, 47, 247, 0.15),
+		0 4px 12px rgba(128, 0, 230, 0.2),
+		0 2px 6px rgba(128, 0, 230, 0.15),
 		inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 
@@ -1439,6 +1441,16 @@ a {
 
 .header {
 	border-bottom: 1px solid #E2E8F0;
+	position: relative;
+	z-index: 10; /* Above dither animation */
+}
+
+/* Mobile header transparency */
+@media (max-width: 768px) {
+	.header {
+		background: transparent;
+		border-bottom: none; /* Remove white border line on mobile */
+	}
 }
 
 .navbar {
@@ -1446,6 +1458,24 @@ a {
 	justify-content: space-between;
 	align-items: center;
 	padding: 1rem 1.5rem;
+	position: relative;
+	z-index: 10; /* Above dither animation */
+	background: transparent; /* Ensure transparent background */
+}
+
+/* Mobile glassmorphic navbar overlay */
+@media (max-width: 768px) {
+	.navbar {
+		background: rgba(25, 0, 51, 0.25); /* Darker purple-tinted glassmorphism */
+		backdrop-filter: blur(20px) saturate(180%);
+		-webkit-backdrop-filter: blur(20px) saturate(180%);
+		border-radius: 25px; /* More pill-shaped */
+		margin: 8px 12px; /* Add margin for pill effect */
+		border: none; /* Remove white line */
+		box-shadow: 
+			0 8px 32px rgba(0, 0, 0, 0.15),
+			inset 0 1px 0 rgba(255, 255, 255, 0.05);
+	}
 }
 
 
@@ -1474,30 +1504,47 @@ a {
 .nav-logo {
 	font-size: 3.7rem;
 	font-weight: 600;
-	color: #482ff7;
+	color: #8000E6; /* Deep purple to match dither effect */
 	font-family: 'Inter', 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Roboto', 'Helvetica Neue', Arial, sans-serif;
 	letter-spacing: -0.02em;
 	transition: all 0.3s ease;
 	cursor: pointer;
 	position: relative;
-	/* CRT base glow - subtle for logged-in state */
+	z-index: 10; /* Above dither animation */
+	/* CRT base glow - purple theme */
 	text-shadow: 
-		0 0 3px rgba(72, 47, 247, 0.4),
-		0 0 6px rgba(72, 47, 247, 0.2),
-		0 0 10px rgba(72, 47, 247, 0.1);
+		0 0 3px rgba(128, 0, 230, 0.4),
+		0 0 6px rgba(128, 0, 230, 0.2),
+		0 0 10px rgba(128, 0, 230, 0.1);
 }
 
 /* Enhanced glow for login screen - always on */
 body.login-page .nav-logo {
-	color: #5c3fff;
+	color: #E619B3; /* Neon pink for login page */
 	text-shadow: 
-		0 0 10px rgba(72, 47, 247, 0.8),
-		0 0 20px rgba(72, 47, 247, 0.6),
-		0 0 30px rgba(72, 47, 247, 0.4),
-		0 0 40px rgba(92, 63, 255, 0.3);
+		0 0 10px rgba(128, 0, 230, 0.8),
+		0 0 20px rgba(128, 0, 230, 0.6),
+		0 0 30px rgba(128, 0, 230, 0.4),
+		0 0 40px rgba(230, 25, 179, 0.3);
 	filter: 
-		drop-shadow(0 0 8px rgba(72, 47, 247, 0.6))
-		drop-shadow(0 0 15px rgba(72, 47, 247, 0.4));
+		drop-shadow(0 0 8px rgba(128, 0, 230, 0.6))
+		drop-shadow(0 0 15px rgba(128, 0, 230, 0.4));
+}
+
+/* Strong hover effect for login page */
+body.login-page .nav-logo:hover {
+	color: #FFFFFF; /* Bright white on hover */
+	text-shadow: 
+		0 0 12px rgba(230, 25, 179, 0.8),
+		0 0 25px rgba(230, 25, 179, 0.6),
+		0 0 40px rgba(230, 25, 179, 0.5),
+		0 0 55px rgba(128, 0, 230, 0.4),
+		0 0 70px rgba(128, 0, 230, 0.2);
+	transform: scale(1.02);
+	filter: 
+		drop-shadow(0 0 12px rgba(230, 25, 179, 0.7))
+		drop-shadow(0 0 22px rgba(230, 25, 179, 0.5))
+		drop-shadow(0 0 35px rgba(128, 0, 230, 0.4));
 }
 
 .nav-logo::before {
@@ -1532,17 +1579,19 @@ body.login-page .nav-logo::before {
 
 /* Hover effects only apply when NOT on login page */
 body:not(.login-page) .nav-logo:hover {
-	color: #5c3fff;
+	color: #E619B3; /* Bright neon pink on hover */
 	text-shadow: 
-		0 0 10px rgba(72, 47, 247, 0.8),
-		0 0 20px rgba(72, 47, 247, 0.6),
-		0 0 30px rgba(72, 47, 247, 0.4),
-		0 0 40px rgba(92, 63, 255, 0.3);
-	transform: scale(1.02);
-	/* Enhanced CRT effect on hover */
+		0 0 10px rgba(230, 25, 179, 0.8),
+		0 0 20px rgba(230, 25, 179, 0.6),
+		0 0 30px rgba(230, 25, 179, 0.4),
+		0 0 40px rgba(128, 0, 230, 0.3),
+		0 0 50px rgba(128, 0, 230, 0.2);
+	transform: scale(1.01);
+	/* Enhanced CRT effect on hover - more subtle */
 	filter: 
-		drop-shadow(0 0 8px rgba(72, 47, 247, 0.6))
-		drop-shadow(0 0 15px rgba(72, 47, 247, 0.4));
+		drop-shadow(0 0 10px rgba(230, 25, 179, 0.6))
+		drop-shadow(0 0 18px rgba(230, 25, 179, 0.4))
+		drop-shadow(0 0 25px rgba(128, 0, 230, 0.3));
 }
 
 body:not(.login-page) .nav-logo:hover::before {
@@ -2059,8 +2108,8 @@ span.psw a:hover {
 	/* Hidden by default */
 	position: fixed;
 	/* Stay in place */
-	z-index: 1;
-	/* Sit on top */
+	z-index: 1000;
+	/* Sit on top - above dither animation */
 	left: 0;
 	top: 0;
 	width: 100%;
@@ -2874,6 +2923,59 @@ span.psw a:hover {
 	100% {
 		opacity: 1;
 		transform: translate(-50%, -50%) scale(1);
+	}
+}
+
+/* Dither effect mobile fixes */
+@media only screen and (max-width: 768px) {
+	#dither-background {
+		position: fixed !important;
+		top: -20px !important;
+		left: -20px !important;
+		width: calc(100vw + 40px) !important;
+		height: calc(100vh + 40px) !important;
+		z-index: -2 !important;
+		background: transparent !important;
+		overflow: hidden !important;
+	}
+	
+	/* Ensure canvas fills extended viewport on mobile for full coverage */
+	#dither-background canvas {
+		position: fixed !important;
+		top: -20px !important;
+		left: -20px !important;
+		width: calc(100vw + 40px) !important;
+		height: calc(100vh + 40px) !important;
+		display: block !important;
+		z-index: -2 !important;
+		background: transparent !important;
+	}
+	
+	/* Mobile: Always-on logo glow effect */
+	.nav-logo {
+		color: #E619B3 !important; /* Bright neon pink always on mobile */
+		text-shadow: 
+			0 0 10px rgba(230, 25, 179, 0.8),
+			0 0 20px rgba(230, 25, 179, 0.6),
+			0 0 30px rgba(230, 25, 179, 0.4),
+			0 0 40px rgba(128, 0, 230, 0.3),
+			0 0 50px rgba(128, 0, 230, 0.2) !important;
+		transform: scale(1.01) !important;
+		filter: 
+			drop-shadow(0 0 10px rgba(230, 25, 179, 0.6))
+			drop-shadow(0 0 18px rgba(230, 25, 179, 0.4))
+			drop-shadow(0 0 25px rgba(128, 0, 230, 0.3)) !important;
+	}
+}
+
+/* Extra small mobile devices */
+@media only screen and (max-width: 480px) {
+	#dither-background {
+		position: fixed !important;
+		top: -20px !important;
+		left: -20px !important;
+		width: calc(100vw + 40px) !important;
+		height: calc(100vh + 40px) !important;
 	}
 }
 

@@ -892,10 +892,8 @@
     </div>
 
     <div id="landingPage">
-        <!-- Desktop background image -->
-        <img src="/client/img/meht-solar-pixels.jpg" id="backgroundIMG" class="desktop-bg">
-        <!-- Mobile background image (vertical space optimized) -->
-        <img src="/client/img/meht-solar-pixels-mobile.jpg" id="backgroundIMGMobile" class="mobile-bg">
+        <!-- Dither effect container - positioned below header -->
+        <div id="dither-background" style="position: fixed; top: 80px; left: 0; width: 100%; height: calc(100% - 80px); z-index: -2; pointer-events: auto;"></div>
     </div>
 
     <!-- Game Interface Container (initially hidden) -->
@@ -1613,6 +1611,13 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qs/6.9.2/qs.min.js"
         integrity="sha256-TDxXjkAUay70ae/QJBEpGKkpVslXaHHayklIVglFRT4=" crossorigin="anonymous"></script>
+    
+    <!-- React CDN for dither effect -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/three@0.155.0/build/three.min.js"></script>
+    <script src="/client/DitherEffect.js"></script>
+    
     <script src="/socket.io/socket.io.js"></script>
     <script src="/client/Inventory.js"></script>
     <script>
@@ -1710,20 +1715,14 @@
         function stopSpaceAnimations() {
             animationsActive = false;
             
-            // Clear intervals
-            if (starInterval) clearInterval(starInterval);
-            if (spacecraftInterval) clearInterval(spacecraftInterval);
-            if (spacecraftTimeout) clearTimeout(spacecraftTimeout);
-            
-            // Remove existing stars and spacecraft
-            document.querySelectorAll('.twinkle-star, .spacecraft').forEach(element => {
-                element.remove();
-            });
+            // Stop dither background effect
+            if (typeof window.stopDitherBackground === 'function') {
+                window.stopDitherBackground();
+                console.log('🌌 Dither background effect stopped - entering game mode');
+            }
             
             // Change background to Discord gray when entering game mode
             document.body.style.backgroundColor = '#2c2f33';
-            
-            console.log('🌌 Space animations stopped - entering game mode');
         }
         
         // Start space animations
@@ -1733,19 +1732,15 @@
             // Set background to black for space theme
             document.body.style.backgroundColor = '#000000';
             
-            // Create initial stars
-            for (let i = 0; i < 8; i++) {
-                setTimeout(() => createTwinklingStar(), i * 500);
+            // Initialize dither background effect
+            if (typeof window.initDitherBackground === 'function') {
+                window.initDitherBackground('dither-background');
+                console.log('🌌 Enhanced retro dither background effect initialized');
+            } else {
+                console.warn('Dither effect not loaded, using solid background');
+                // Fallback: solid dark background
+                document.body.style.background = 'linear-gradient(135deg, #0a0a0a 0%, #1a0a1a 50%, #0a0a2a 100%)';
             }
-            
-            // Continue creating stars periodically
-            starInterval = setInterval(createTwinklingStar, 2000 + Math.random() * 3000);
-            
-            // Create spacecraft occasionally
-            spacecraftTimeout = setTimeout(() => {
-                createSpacecraft();
-                spacecraftInterval = setInterval(createSpacecraft, 15000 + Math.random() * 10000);
-            }, 5000);
         }
         
         // Global function to stop animations (can be called from client.js)
@@ -1952,6 +1947,28 @@
                 confirmField.style.borderColor = 'rgba(240, 71, 71, 0.6)';
             }
         }
+
+        // Close modals when clicking outside
+        document.addEventListener('DOMContentLoaded', function() {
+            // Get all modals
+            const modals = document.querySelectorAll('.modal');
+            
+            modals.forEach(modal => {
+                modal.addEventListener('click', function(event) {
+                    // If the click is on the modal background (not the content), close the modal
+                    if (event.target === modal) {
+                        modal.style.display = 'none';
+                    }
+                });
+                
+                // Also handle touch events for mobile
+                modal.addEventListener('touchstart', function(event) {
+                    if (event.target === modal) {
+                        modal.style.display = 'none';
+                    }
+                });
+            });
+        });
     </script>
     
     <!-- Moderator Context Menu -->
