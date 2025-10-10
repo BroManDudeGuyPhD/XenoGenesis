@@ -4898,46 +4898,43 @@ function initializePlayerNamesInTracker(players) {
     playerNameMapping.clear();
     nextPlayerIndex = 0;
     
-    // Create mapping for all players - but keep their REAL names, don't map to Player A/B/C
-    // CRITICAL: Filter out moderators using proper detection methods
-    players.forEach((player, index) => {
-        if (index < 3) {
-            // Proper moderator detection based on player properties
-            const isModerator = player.isModerator || false;
-            
-            if (isModerator) {
-                console.warn(`🚫 BLOCKED: Preventing moderator "${player.name}" from being added to LED tracker`);
-                return; // Skip this player completely
-            }
-            
-            // Map real name to real name (no conversion to Player A/B/C)
-            playerNameMapping.set(player.name, player.name);
+    // SMART PARTICIPANT SELECTION: Filter out moderators and get actual participants
+    // Get current moderator name from DOM for additional safety
+    const moderatorDiv = document.getElementById('moderatorPosition');
+    const moderatorNameDiv = moderatorDiv?.querySelector('.moderator-name');
+    const currentModerator = moderatorNameDiv?.textContent;
+    
+    // Filter to get only actual participants (not moderators)
+    const actualParticipants = players.filter(player => {
+        const isModerator = player.isModerator || player.name === currentModerator;
+        if (isModerator) {
+            console.warn(`🚫 FILTERED OUT: Moderator "${player.name}" excluded from LED tracker`);
+            return false;
         }
+        return true;
     });
     
-    // Initialize all player counters for all conditions using REAL names
+    console.log(`✅ Found ${actualParticipants.length} actual participants:`, actualParticipants.map(p => p.name));
+    
+    // Map up to 3 actual participants (not just first 3 positions)
+    actualParticipants.slice(0, 3).forEach((player, index) => {
+        playerNameMapping.set(player.name, player.name);
+        console.log(`🔗 Mapped participant ${index + 1}: ${player.name}`);
+    });
+    
+    // Initialize all player counters for all conditions using REAL participant names
     const allConditions = ['HIGH_CULTURANT', 'HIGH_OPERANT', 'EQUAL_CULTURANT_OPERANT'];
     
     allConditions.forEach(conditionKey => {
-        players.forEach((player, index) => {
-            if (index < 3) {
-                // Proper moderator detection (duplicate check for safety)
-                const isModerator = player.isModerator || false;
-                
-                if (isModerator) {
-                    console.warn(`🚫 BLOCKED: Preventing counter creation for moderator "${player.name}"`);
-                    return; // Skip this player completely
-                }
-                
-                const success = createDynamicPlayerCounter(conditionKey, player.name);
-                if (!success) {
-                    console.error(`❌ Failed to create counter for ${player.name} in ${conditionKey}`);
-                }
+        actualParticipants.slice(0, 3).forEach((player, index) => {
+            const success = createDynamicPlayerCounter(conditionKey, player.name);
+            if (!success) {
+                console.error(`❌ Failed to create counter for ${player.name} in ${conditionKey}`);
             }
         });
     });
     
-    console.log(`✅ Initialized LED tracker for ${players.filter((p, i) => i < 3).length} players`);
+    console.log(`✅ Initialized LED tracker for ${actualParticipants.slice(0, 3).length} actual participants`);
     console.log(`🔍 Final player mapping:`, Array.from(playerNameMapping.entries()));
     
     // Debug: Check what counters were actually created
