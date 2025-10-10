@@ -161,6 +161,31 @@ app.get('/globalChat', function(req, res) {
     res.render('globalChat');
 });
 
+// Debug route to test LED tracker
+app.get('/debug/test-led-tracker', function(req, res) {
+    const testData = {
+        condition: 'High Culturant',
+        round: 15,
+        blockNumber: 3,
+        players: [
+            { name: 'Player A', id: 'player1' },
+            { name: 'Player B', id: 'player2' },
+            { name: 'Player C', id: 'player3' }
+        ]
+    };
+    
+    console.log('🧪 Testing LED tracker with data:', testData);
+    
+    // Emit to all connected sockets
+    io.emit('conditionUpdate', testData);
+    
+    res.json({ 
+        message: 'LED tracker test data sent', 
+        data: testData,
+        socketCount: Object.keys(SOCKET_LIST).length
+    });
+});
+
 server.listen(2000, () => {
     console.log("------------ Server started ------------");
     

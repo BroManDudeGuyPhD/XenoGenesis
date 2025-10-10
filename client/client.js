@@ -1,5 +1,61 @@
+// Token Pool Configuration Constants (must match server-side)
+const TOKEN_CONFIG = {
+    BASELINE_TOKENS: 100,
+    CONDITIONS_TOKENS: 2500,
+    MAX_TOKENS: 2500  // Maximum for validation and UI limits
+};
+
 // Store user admin status globally so we can use it for invite visibility
 let isGlobalAdmin = false;
+
+// Global function to update token pool display with comprehensive debugging
+function updateTokenPoolDisplay(currentTokens, maxTokens) {
+    console.log(`🎯 updateTokenPoolDisplay called with: currentTokens=${currentTokens}, maxTokens=${maxTokens}`);
+    
+    // Ensure gameDiv is visible so we can access the token pool elements
+    const gameDiv = document.getElementById('gameDiv');
+    if (gameDiv && (gameDiv.style.display === 'none' || gameDiv.style.display === '')) {
+        gameDiv.style.display = 'inline-block';
+        console.log('🎯 Made gameDiv visible to access token pool elements');
+    }
+    
+    const globalTokenPoolElement = document.getElementById('globalTokenPool');
+    const tokenPoolMaxElement = document.getElementById('tokenPoolMax');
+    const tokenPoolBar = document.getElementById('tokenPoolBar');
+    
+    console.log(`🎯 DOM elements found:`, {
+        globalTokenPool: !!globalTokenPoolElement,
+        tokenPoolMax: !!tokenPoolMaxElement,
+        tokenPoolBar: !!tokenPoolBar,
+        globalTokenPoolValue: globalTokenPoolElement ? globalTokenPoolElement.textContent : 'NOT_FOUND',
+        tokenPoolMaxValue: tokenPoolMaxElement ? tokenPoolMaxElement.textContent : 'NOT_FOUND',
+        gameDivVisible: gameDiv ? gameDiv.style.display : 'NOT_FOUND'
+    });
+    
+    if (globalTokenPoolElement) {
+        const oldValue = globalTokenPoolElement.textContent;
+        globalTokenPoolElement.textContent = currentTokens;
+        console.log(`🎯 Updated token pool display: ${oldValue} → ${currentTokens}`);
+    } else {
+        console.error('🎯 globalTokenPool element not found!');
+    }
+    
+    if (tokenPoolMaxElement && maxTokens) {
+        const oldValue = tokenPoolMaxElement.textContent;
+        tokenPoolMaxElement.textContent = `/${maxTokens}`;
+        console.log(`🎯 Updated token pool max: ${oldValue} → /${maxTokens}`);
+    }
+    
+    // Update progress bar if it exists
+    if (tokenPoolBar && maxTokens > 0) {
+        const percentage = (currentTokens / maxTokens) * 100;
+        const oldWidth = tokenPoolBar.style.width;
+        tokenPoolBar.style.width = `${percentage}%`;
+        console.log(`🎯 Updated token pool bar: ${oldWidth} → ${percentage.toFixed(1)}%`);
+    } else if (!tokenPoolBar) {
+        console.error('🎯 tokenPoolBar element not found!');
+    }
+}
 
 // Function to determine current menu context
 function getMenuContext() {
@@ -1578,8 +1634,8 @@ function highlightSelectedColumn(column) {
 // Function to add column hover effects for moderators
 function addColumnHoverEffects() {
     // Check if user is moderator
-    const moderatorColumnControl = document.getElementById('moderatorColumnControl');
-    const isModerator = moderatorColumnControl && moderatorColumnControl.style.display === 'block';
+    const moderatorSwitchboard = document.getElementById('moderatorSwitchboard');
+    const isModerator = moderatorSwitchboard && moderatorSwitchboard.style.display === 'block';
     
     if (!isModerator) return;
     
@@ -1588,7 +1644,7 @@ function addColumnHoverEffects() {
         
         header.addEventListener('mouseenter', function() {
             // Only show hover effect if in manual mode or if no column is selected
-            const autoColumnToggle = document.getElementById('autoColumnToggle');
+            const autoColumnToggle = document.getElementById('autoColumnToggleSwitch');
             const isManualMode = autoColumnToggle && !autoColumnToggle.checked;
             
             if (isManualMode) {
@@ -1913,6 +1969,68 @@ socket.on('signInResponse', function (data) {
     }
 });
 
+// EARLY REGISTRATION: LED Condition Tracker Event Handler
+console.log('🔵 EARLY: Registering conditionUpdate handler...');
+socket.on('conditionUpdate', function(data) {
+    console.log('🚨 🚨 🚨 EARLY conditionUpdate handler called! 🚨 🚨 🚨');
+    console.log('🧪 EARLY conditionUpdate event received:', JSON.stringify(data, null, 2));
+    
+    // Call the LED tracker functionality
+    if (typeof updateConditionLED === 'function') {
+        try {
+            console.log('🔍 EARLY: Processing conditionUpdate data');
+            
+            // Extract condition info for LED tracker
+            const condition = data.condition || 0;
+            const round = data.round || 0;
+            const blockNumber = data.blockNumber || 0;
+            // Filter out moderators from players array
+            const allPlayers = data.players || [];
+            console.log('🔍 EARLY: All players from server:', allPlayers);
+            
+            // Get moderator name from DOM
+            const moderatorDiv = document.getElementById('moderatorPosition');
+            const moderatorNameDiv = moderatorDiv?.querySelector('.moderator-name');
+            const currentModerator = moderatorNameDiv?.textContent;
+            
+            // Filter out the moderator by name (since server doesn't send isModerator field)
+            const players = allPlayers.filter(p => p.name !== currentModerator);
+            console.log('🔍 EARLY: Filtered players (no moderators):', players);
+            console.log('🔍 EARLY: Current moderator detected:', currentModerator);
+            
+            // Initialize player names if we have a players array and haven't done so yet
+            if (players && players.length > 0 && playerNameMapping.size === 0) {
+                console.log('🎯 EARLY: Moderator was filtered out:', currentModerator);
+                initializePlayerNamesInTracker(players);
+            }
+            
+            // Update LED matrix - use REAL player names (no A/B/C mapping)
+            let playerName = data.player;
+            
+            // Skip moderator check for player assignment tracking
+            if (playerName) {
+                const moderatorDiv = document.getElementById('moderatorPosition');
+                const moderatorNameDiv = moderatorDiv?.querySelector('.moderator-name');
+                const currentModerator = moderatorNameDiv?.textContent;
+                
+                if (playerName === currentModerator) {
+                    playerName = null; // Skip tracking for moderator
+                }
+            }
+            
+            console.log(`🔗 EARLY: Using real player name: ${playerName} (no A/B/C mapping)`);
+            
+            updateConditionLED(condition, round, blockNumber, playerName);
+            console.log('✅ EARLY: Successfully processed conditionUpdate');
+            
+        } catch (error) {
+            console.error('❌ EARLY: Error processing conditionUpdate:', error);
+        }
+    } else {
+        console.warn('⚠️ EARLY: updateConditionLED function not yet available');
+    }
+});
+
 socket.on('signUpResponse', function (data) {
     console.log('📝 Received signUpResponse:', data);
     console.log('📝 Data success value:', data.success, 'Type:', typeof data.success);
@@ -2111,6 +2229,15 @@ socket.on('playersInRoom', function(data) {
             allPlayersInData: data.players.map(p => ({username: p.username, isModerator: p.isModerator, isAI: p.isAI}))
         });
         
+        // EARLY INITIALIZATION: Initialize player names in LED tracker as soon as we have players
+        // Filter out moderators and only include actual participants
+        const trackerPlayers = data.players.filter(p => p.username !== newModerator?.username).map(p => ({ name: p.username, isAI: p.isAI }));
+        if (trackerPlayers.length > 0 && (!playerNameMapping || playerNameMapping.size === 0)) {
+            console.log('🎯 EARLY: Initializing player names from playersInRoom event');
+            console.log('🎯 EARLY: Participant players:', trackerPlayers);
+            initializePlayerNamesInTracker(trackerPlayers);
+        }
+        
         // Compare lists to see if there's an actual change
         const moderatorChanged = currentModerator !== newModerator?.username;
         const participantsChanged = JSON.stringify(currentPlayers.sort()) !== JSON.stringify(newParticipants.sort());
@@ -2143,13 +2270,20 @@ socket.on('playersInRoom', function(data) {
         
         // Show/hide "Start Experiment" button based on moderator status
         const startExperimentBtn = document.getElementById('startExperimentBtn');
+        const experimentModeSelector = document.getElementById('experimentModeSelector');
         if (startExperimentBtn) {
             if (newModerator && isCurrentUserModerator) {
                 startExperimentBtn.style.display = 'block';
-                console.log('✅ Showing Start Experiment button for moderator');
+                if (experimentModeSelector) {
+                    experimentModeSelector.style.display = 'block';
+                }
+                console.log('✅ Showing Start Experiment button and mode selector for moderator');
             } else {
                 startExperimentBtn.style.display = 'none';
-                console.log('❌ Hiding Start Experiment button - not moderator');
+                if (experimentModeSelector) {
+                    experimentModeSelector.style.display = 'none';
+                }
+                console.log('❌ Hiding Start Experiment button and mode selector - not moderator');
             }
         }
         
@@ -2160,7 +2294,7 @@ socket.on('playersInRoom', function(data) {
             if (!addAIBtn && startExperimentBtn) {
                 addAIBtn = document.createElement('button');
                 addAIBtn.id = 'addAIBtn';
-                addAIBtn.textContent = 'Add AI Players for Testing';
+                addAIBtn.textContent = 'Fill Room with AI Players (3-Player Triad)';
                 addAIBtn.style.cssText = 'background-color: #7289da; color: white; padding: 10px 20px; font-size: 16px; border: none; border-radius: 5px; cursor: pointer; margin-left: 10px;';
                 startExperimentBtn.parentNode.appendChild(addAIBtn);
                 
@@ -2428,7 +2562,7 @@ socket.on('playersInRoom', function(data) {
 
 // Function to update the incentive player dropdown
 function updateIncentivePlayerDropdown(players) {
-    const dropdown = document.getElementById('incentivePlayer');
+    const dropdown = document.getElementById('incentivePlayerSwitch');
     if (!dropdown) return;
     
     // Store the current selection
@@ -2437,12 +2571,12 @@ function updateIncentivePlayerDropdown(players) {
     // Clear existing options
     dropdown.innerHTML = '<option value="">Select a player...</option>';
     
-    // Add player options (exclude AI players for incentives)
+    // Add player options (exclude AI players and moderators for incentives)
     players.forEach(player => {
-        if (!player.isAI) {
+        if (!player.isAI && !player.isModerator) {
             const option = document.createElement('option');
             option.value = player.username;
-            option.textContent = `${player.username}${player.isModerator ? ' (Moderator)' : ''}`;
+            option.textContent = player.username;
             dropdown.appendChild(option);
         }
     });
@@ -3106,6 +3240,27 @@ socket.on('init', function(data) {
             new Player(data.player[i]);
         }
         
+        // EARLY INITIALIZATION: Initialize LED tracker with real player names at game start
+        if (data.player && data.player.length > 0) {
+            console.log('🎯 INIT: Initializing LED tracker with players from init event');
+            
+            // Filter out moderators from init event players
+            const allPlayers = data.player.map(p => ({ 
+                name: p.username, 
+                isAI: p.id && p.id.startsWith('AI_'),
+                isModerator: p.isModerator || false
+            }));
+            
+            // Filter out moderators - only include actual participants
+            const players = allPlayers.filter(p => !p.isModerator);
+            
+            if (players.length > 0) {
+                initializePlayerNamesInTracker(players);
+            } else {
+                console.warn('⚠️ No non-moderator players found for LED tracker');
+            }
+        }
+        
         // Update poker table with current players (preserve active player highlighting)
         updatePokerTable(data.gameSession || {}, currentActivePlayer);
         
@@ -3192,6 +3347,10 @@ socket.on('triadComplete', function(data) {
     
     // Show start button and add AI button if needed
     document.getElementById('startExperimentBtn').style.display = 'block';
+    const experimentModeSelector = document.getElementById('experimentModeSelector');
+    if (experimentModeSelector) {
+        experimentModeSelector.style.display = 'block';
+    }
     
     // Show "Add AI Players" button if not at capacity
     if (data.gameSession && data.gameSession.canAddAI) {
@@ -3199,7 +3358,7 @@ socket.on('triadComplete', function(data) {
         if (!addAIBtn) {
             addAIBtn = document.createElement('button');
             addAIBtn.id = 'addAIBtn';
-            addAIBtn.textContent = 'Add AI Players for Testing';
+            addAIBtn.textContent = 'Fill Room with AI Players (3-Player Triad)';
             addAIBtn.style.cssText = 'background-color: #7289da; color: white; padding: 10px 20px; font-size: 16px; border: none; border-radius: 5px; cursor: pointer; margin-left: 10px;';
             document.getElementById('startExperimentBtn').parentNode.appendChild(addAIBtn);
             
@@ -3219,7 +3378,7 @@ socket.on('triadComplete', function(data) {
                 
                 // Re-enable after a short delay
                 setTimeout(() => {
-                    addAIBtn.textContent = 'Add AI Players for Testing';
+                    addAIBtn.textContent = 'Fill Room with AI Players (3-Player Triad)';
                     addAIBtn.disabled = false;
                 }, 2000);
             });
@@ -3228,8 +3387,8 @@ socket.on('triadComplete', function(data) {
     }
     
     // Update condition info (only for moderators)
-    const moderatorColumnControl = document.getElementById('moderatorColumnControl');
-    const isModerator = moderatorColumnControl && moderatorColumnControl.style.display === 'block';
+    const moderatorSwitchboard = document.getElementById('moderatorSwitchboard');
+    const isModerator = moderatorSwitchboard && moderatorSwitchboard.style.display === 'block';
     const conditionInfoElement = document.getElementById('conditionInfo');
     if (conditionInfoElement && isModerator) {
         conditionInfoElement.textContent = `Condition: ${data.gameSession.condition}`;
@@ -3433,22 +3592,17 @@ socket.on('yourTurn', function(data) {
         }
     }
     
-    // Show/hide moderator column control
-    const moderatorColumnControl = document.getElementById('moderatorColumnControl');
-    if (moderatorColumnControl) {
-        moderatorColumnControl.style.display = data.isModerator ? 'block' : 'none';
+    // Show/hide moderator switchboard control
+    const moderatorSwitchboard = document.getElementById('moderatorSwitchboard');
+    if (moderatorSwitchboard) {
+        moderatorSwitchboard.style.display = data.isModerator ? 'block' : 'none';
         
-        // Show/hide testing panel for moderators only
-        const testingPanel = document.getElementById('testingPanel');
-        if (testingPanel) {
-            testingPanel.style.display = data.isModerator ? 'block' : 'none';
-        }
-        
-        // Initialize column hover effects for moderators
+        // Initialize switchboard functionality for moderators
         if (data.isModerator) {
             // Add a small delay to ensure DOM is fully updated
             setTimeout(() => {
                 addColumnHoverEffects();
+                initializeSwitchboardFunctions();
             }, 100);
         }
     }
@@ -3498,6 +3652,13 @@ socket.on('yourTurn', function(data) {
     if (startBtn) startBtn.style.display = 'none';
     if (addAIBtn) addAIBtn.style.display = 'none';
     
+    // Update token pool display if data is available
+    if (data.whiteTokensRemaining !== undefined) {
+        const totalTokens = data.initialWhiteTokens || TOKEN_CONFIG.CONDITIONS_TOKENS;
+        updateTokenPoolDisplay(data.whiteTokensRemaining, totalTokens);
+        console.log('🎯 yourTurn: Token pool updated:', data.whiteTokensRemaining, '/', totalTokens);
+    }
+    
     // Final gameDiv protection at yourTurn end
     const gameDivEnd = document.getElementById('gameDiv');
     if (gameDivEnd) {
@@ -3536,28 +3697,26 @@ socket.on('newRound', function(data) {
     if (tableRound) tableRound.textContent = data.round;
     
     // Only show condition to moderators
-    const moderatorColumnControl = document.getElementById('moderatorColumnControl');
-    const isModerator = moderatorColumnControl && moderatorColumnControl.style.display === 'block';
+    const moderatorSwitchboard = document.getElementById('moderatorSwitchboard');
+    const isModerator = moderatorSwitchboard && moderatorSwitchboard.style.display === 'block';
     const conditionInfoElement = document.getElementById('conditionInfo');
     if (conditionInfoElement && isModerator) {
         conditionInfoElement.textContent = `Condition: ${data.condition}`;
     }
     
-    const globalTokenPoolElement = document.getElementById('globalTokenPool');
     console.log('🔄 NEW ROUND - Token pool update data:', {
         whiteTokensRemaining: data.whiteTokensRemaining,
+        initialWhiteTokens: data.initialWhiteTokens,
         dataKeys: Object.keys(data),
-        elementExists: !!globalTokenPoolElement,
-        currentTextContent: globalTokenPoolElement ? globalTokenPoolElement.textContent : 'N/A'
+        elementExists: !!document.getElementById('globalTokenPool'),
+        currentTextContent: document.getElementById('globalTokenPool') ? document.getElementById('globalTokenPool').textContent : 'N/A'
     });
     
-    if (globalTokenPoolElement) {
-        const oldValue = globalTokenPoolElement.textContent;
-        globalTokenPoolElement.textContent = data.whiteTokensRemaining;
-        console.log('🔄 NewRound: Token pool updated:', oldValue, '→', data.whiteTokensRemaining);
-        console.log('🔄 NewRound: Element after update:', globalTokenPoolElement.textContent);
-    } else {
-        console.error('❌ NewRound: globalTokenPool element not found!');
+    // Update token pool display with dynamic max value
+    if (data.whiteTokensRemaining !== undefined) {
+        const maxTokens = data.initialWhiteTokens || TOKEN_CONFIG.CONDITIONS_TOKENS; // fallback to CONDITIONS_TOKENS if not provided
+        updateTokenPoolDisplay(data.whiteTokensRemaining, maxTokens);
+        console.log('🔄 NewRound: Token pool updated:', data.whiteTokensRemaining, '/', maxTokens);
     }
     
     // Update culturant count from server data
@@ -3603,14 +3762,593 @@ function updateTokenConversionDisplay(whiteValue, blackValue) {
     }
 }
 
+// LED Condition Tracker Management
+let conditionTracker = {
+    // Track occurrences per block: condition -> round -> count
+    currentBlock: 1,
+    occurrences: {},
+    // Track player assignments per condition: condition -> player -> count
+    playerCounts: {}
+};
+
+function initializeConditionTracker() {
+    // Reset tracker for new block
+    conditionTracker.occurrences = {};
+    conditionTracker.playerCounts = {};
+    
+    // Reset all LEDs to off state
+    const allLEDs = document.querySelectorAll('.led-indicator');
+    allLEDs.forEach(led => {
+        led.className = 'led-indicator off';
+    });
+    
+    // Reset all player counters
+    const allCounters = document.querySelectorAll('.player-counter .count');
+    allCounters.forEach(counter => {
+        counter.textContent = '0';
+    });
+    
+    // Remove active state from player counters
+    const allPlayerCounters = document.querySelectorAll('.player-counter');
+    allPlayerCounters.forEach(counter => {
+        counter.classList.remove('active');
+    });
+    
+    console.log('🔵 LED Condition Tracker initialized for new block');
+}
+
+// Test function for debugging player counter creation
+function debugPlayerCounterState(playerName, conditionKey) {
+    console.log(`🔍 DEBUGGING COUNTER STATE for ${playerName} in ${conditionKey}`);
+    
+    // Check if the player counter element exists
+    const playerCounter = document.querySelector(`[data-player="${playerName}"][data-condition="${conditionKey}"]`);
+    console.log(`🔍 Player counter element:`, playerCounter);
+    if (playerCounter) {
+        console.log(`🔍 Player counter details:`, {
+            tagName: playerCounter.tagName,
+            className: playerCounter.className,
+            dataPlayer: playerCounter.getAttribute('data-player'),
+            dataCondition: playerCounter.getAttribute('data-condition'),
+            innerHTML: playerCounter.innerHTML,
+            style: playerCounter.style.cssText
+        });
+        
+        // Check for the count span inside
+        const countSpan = playerCounter.querySelector('.count');
+        console.log(`🔍 Count span element:`, countSpan);
+        if (countSpan) {
+            console.log(`🔍 Count span details:`, {
+                tagName: countSpan.tagName,
+                className: countSpan.className,
+                textContent: countSpan.textContent,
+                innerHTML: countSpan.innerHTML
+            });
+        } else {
+            console.error(`❌ Count span not found inside player counter for ${playerName}`);
+        }
+    } else {
+        console.error(`❌ Player counter element not found for ${playerName} in ${conditionKey}`);
+        
+        // Check what similar elements exist
+        const allPlayerElements = document.querySelectorAll(`[data-player="${playerName}"]`);
+        console.log(`🔍 All elements with data-player="${playerName}":`, allPlayerElements.length);
+        allPlayerElements.forEach((el, i) => {
+            console.log(`  ${i+1}:`, {
+                tagName: el.tagName,
+                dataCondition: el.getAttribute('data-condition'),
+                innerHTML: el.innerHTML
+            });
+        });
+        
+        const allConditionElements = document.querySelectorAll(`[data-condition="${conditionKey}"]`);
+        console.log(`🔍 All elements with data-condition="${conditionKey}":`, allConditionElements.length);
+        allConditionElements.forEach((el, i) => {
+            console.log(`  ${i+1}:`, {
+                tagName: el.tagName,
+                dataPlayer: el.getAttribute('data-player'),
+                innerHTML: el.innerHTML
+            });
+        });
+    }
+}
+window.testPlayerCounter = function(conditionKey, playerName) {
+    console.log(`🧪 Testing player counter creation...`);
+    console.log(`Condition: ${conditionKey}, Player: ${playerName}`);
+    
+    // Simulate the data that would come from conditionUpdate
+    const testData = {
+        condition: conditionKey === 'HIGH_CULTURANT' ? 'High Culturant' : 
+                  conditionKey === 'HIGH_OPERANT' ? 'High Operant' : 'Equal Culturant–Operant',
+        round: 1,
+        blockNumber: 1,
+        player: playerName,
+        incentive: 'Culturant Incentive'
+    };
+    
+    console.log(`🧪 Simulating conditionUpdate with:`, testData);
+    updateExperimentalHUD(testData);
+};
+
+// Test function to manually trigger LED update
+window.testLEDUpdate = function() {
+    console.log(`🧪 Testing LED update with sample data...`);
+    updateConditionLED('High Culturant', 1, 1, 'TestPlayer');
+};
+
+// Debug function to manually test tom counter
+window.testTomCounter = function() {
+    console.log(`🧪 Testing tom counter specifically...`);
+    
+    // First, create counter for tom
+    const success = createDynamicPlayerCounter('HIGH_CULTURANT', 'tom');
+    console.log(`🧪 Tom counter creation success: ${success}`);
+    
+    // Then test updating it
+    setTimeout(() => {
+        updateConditionLED('High Culturant', 1, 1, 'tom');
+    }, 500);
+};
+
+// Debug function to show all current counters
+window.showAllCounters = function() {
+    console.log(`🔍 === COUNTER DEBUG REPORT ===`);
+    
+    const allCounters = document.querySelectorAll('[data-player]:not([data-player=""])');
+    console.log(`📊 Found ${allCounters.length} total counters:`);
+    
+    allCounters.forEach((counter, index) => {
+        console.log(`  ${index + 1}. Player: "${counter.getAttribute('data-player')}", Condition: "${counter.getAttribute('data-condition')}", Display: "${counter.style.display}", Content: "${counter.innerHTML}"`);
+    });
+    
+    const placeholders = document.querySelectorAll('.dynamic-player');
+    console.log(`📝 Found ${placeholders.length} remaining placeholders:`);
+    
+    placeholders.forEach((placeholder, index) => {
+        console.log(`  ${index + 1}. Condition: "${placeholder.getAttribute('data-condition')}", Player: "${placeholder.getAttribute('data-player') || 'NONE'}", Display: "${placeholder.style.display}"`);
+    });
+};
+
+function createDynamicPlayerCounter(conditionKey, playerName) {
+    // CRITICAL: Final safeguard - never create counters for moderators
+    // Check if player name matches current moderator
+    const moderatorDiv = document.getElementById('moderatorPosition');
+    const moderatorNameDiv = moderatorDiv?.querySelector('.moderator-name');
+    const currentModerator = moderatorNameDiv?.textContent;
+    
+    if (playerName === currentModerator) {
+        console.warn(`🚫 FINAL BLOCK: Refusing to create counter for moderator "${playerName}"`);
+        return false;
+    }
+    
+    console.log(`🎯 createDynamicPlayerCounter called:`, {
+        conditionKey: conditionKey,
+        playerName: playerName
+    });
+    
+    // Find all placeholder elements for this condition
+    const placeholderElements = document.querySelectorAll(`span.dynamic-player[data-condition="${conditionKey}"]`);
+    
+    if (placeholderElements.length === 0) {
+        console.error(`❌ No placeholder elements found for condition: ${conditionKey}`);
+        console.log(`🔍 Available placeholders:`, Array.from(document.querySelectorAll('.dynamic-player')).map(el => el.getAttribute('data-condition')));
+        return false;
+    }
+    
+    console.log(`✅ Found ${placeholderElements.length} placeholder elements for ${conditionKey}`);
+    
+    // Check if this player counter already exists for this condition
+    const existingCounter = document.querySelector(`[data-player="${playerName}"][data-condition="${conditionKey}"]`);
+    if (existingCounter) {
+        console.log(`⚠️ Player counter already exists for ${playerName} in ${conditionKey}`);
+        // Make sure it's visible
+        existingCounter.style.display = 'inline-block';
+        return true;
+    }
+    
+    // Find the first available placeholder that hasn't been assigned yet
+    let availablePlaceholder = null;
+    for (let placeholder of placeholderElements) {
+        if (!placeholder.hasAttribute('data-player') || placeholder.getAttribute('data-player') === '') {
+            availablePlaceholder = placeholder;
+            break;
+        }
+    }
+    
+    if (!availablePlaceholder) {
+        console.warn(`⚠️ No available placeholders for ${playerName} in condition ${conditionKey}`);
+        return false;
+    }
+    
+    console.log(`🔧 Converting placeholder to player counter for ${playerName}`);
+    
+    // Convert the placeholder to a player counter
+    availablePlaceholder.setAttribute('data-player', playerName);
+    availablePlaceholder.setAttribute('title', `${playerName} assignments`);
+    availablePlaceholder.innerHTML = `${playerName}:<span class="count">0</span>`;
+    
+    // CRITICAL: Make it visible and style it properly
+    availablePlaceholder.style.display = 'inline-block';
+    availablePlaceholder.style.visibility = 'visible';
+    availablePlaceholder.style.opacity = '1';
+    availablePlaceholder.style.marginLeft = '8px';
+    availablePlaceholder.style.padding = '2px 6px';
+    availablePlaceholder.style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
+    availablePlaceholder.style.borderRadius = '3px';
+    availablePlaceholder.style.border = '1px solid rgba(255, 255, 255, 0.2)';
+    
+    // Keep both classes for styling and identification
+    // availablePlaceholder.classList.remove('dynamic-player'); // Keep this for CSS styling
+    
+    console.log(`✅ Successfully created player counter for ${playerName} in ${conditionKey}`);
+    console.log(`🔍 Element after creation:`, {
+        dataPlayer: availablePlaceholder.getAttribute('data-player'),
+        dataCondition: availablePlaceholder.getAttribute('data-condition'),
+        innerHTML: availablePlaceholder.innerHTML,
+        classes: availablePlaceholder.className,
+        display: availablePlaceholder.style.display,
+        visibility: availablePlaceholder.style.visibility
+    });
+    
+    // Debug: Verify the counter can be found immediately after creation
+    debugPlayerCounterState(playerName, conditionKey);
+    
+    return true;
+}
+
+function updateConditionLED(condition, round, blockNumber, player) {
+    console.log(`🔍 updateConditionLED called with:`, {
+        condition: condition,
+        round: round,
+        blockNumber: blockNumber,
+        player: player,
+        playerType: typeof player
+    });
+    
+    // Only track conditions mode (not baseline)
+    if (!condition || condition === 'Baseline') {
+        console.log(`🔍 Skipping LED update - condition is baseline or empty`);
+        return;
+    }
+    
+    // Skip tracking for moderators - check if this player is the moderator
+    const moderatorDiv = document.getElementById('moderatorPosition');
+    const moderatorNameDiv = moderatorDiv?.querySelector('.moderator-name');
+    const currentModerator = moderatorNameDiv?.textContent;
+    
+    // Also check if we have stored moderator information from playersInRoom
+    const storedUsername = localStorage.getItem('username');
+    const effectiveUsername = currentUsername || storedUsername;
+    const isPlayerTheModerator = (player === effectiveUsername && window.currentUserIsModerator);
+    
+    console.log(`🔍 Moderator check debug:`, {
+        player: player,
+        moderatorDiv: !!moderatorDiv,
+        moderatorNameDiv: !!moderatorNameDiv,
+        currentModerator: currentModerator,
+        storedUsername: storedUsername,
+        effectiveUsername: effectiveUsername,
+        isPlayerTheModerator: isPlayerTheModerator,
+        currentUserIsModerator: window.currentUserIsModerator,
+        isDOMMatch: player === currentModerator,
+        shouldSkip: (player && currentModerator && player === currentModerator) || isPlayerTheModerator
+    });
+    
+    if ((player && currentModerator && player === currentModerator) || isPlayerTheModerator) {
+        console.log(`🚫 Skipping LED update - ${player} is the moderator, not a participant`);
+        return;
+    }
+    
+    // Convert display name to constant name for HTML data attributes
+    let conditionKey;
+    console.log(`🔍 Condition matching debug: received="${condition}" (length: ${condition ? condition.length : 0})`);
+    switch(condition) {
+        case 'High Culturant':
+            conditionKey = 'HIGH_CULTURANT';
+            console.log(`✅ Matched High Culturant → ${conditionKey}`);
+            break;
+        case 'High Operant':
+            conditionKey = 'HIGH_OPERANT';
+            console.log(`✅ Matched High Operant → ${conditionKey}`);
+            break;
+        case 'Equal Culturant–Operant':
+            conditionKey = 'EQUAL_CULTURANT_OPERANT';
+            console.log(`✅ Matched Equal Culturant–Operant → ${conditionKey}`);
+            break;
+        default:
+            console.warn(`⚠️ Unknown condition: "${condition}" (chars: ${condition ? Array.from(condition).map(c => `${c}(${c.charCodeAt(0)})`).join(' ') : 'null'})`);
+            return;
+    }
+    
+    // Reset tracker if new block started
+    if (blockNumber && blockNumber !== conditionTracker.currentBlock) {
+        conditionTracker.currentBlock = blockNumber;
+        initializeConditionTracker();
+    }
+    
+    // Initialize condition tracking if not exists
+    if (!conditionTracker.occurrences[conditionKey]) {
+        conditionTracker.occurrences[conditionKey] = {};
+    }
+    if (!conditionTracker.playerCounts[conditionKey]) {
+        conditionTracker.playerCounts[conditionKey] = { None: 0 };
+    }
+    
+    // For conditions mode, each condition gets exactly 21 rounds per block
+    // The round number should be 1-21 within each condition, not global
+    let conditionRound = round;
+    
+    // If this is a global round number > 21, we need to calculate which round within this condition
+    if (typeof round === 'number') {
+        // In a 63-round block: rounds 1-21 = condition 1, rounds 22-42 = condition 2, rounds 43-63 = condition 3
+        // But we don't know which condition this is, so we'll use a different approach
+        // We'll just track each unique round-condition pair once
+        conditionRound = round;
+    }
+    
+    // Create a unique key for this condition-round pair within the block
+    const uniqueKey = `${conditionKey}-${conditionRound}`;
+    
+    // Check if we've already processed this exact condition-round combination
+    if (conditionTracker.occurrences[conditionKey][uniqueKey]) {
+        console.warn(`⚠️ Duplicate processing detected for ${condition} round ${conditionRound} - skipping to prevent false error`);
+        return;
+    }
+    
+    // Mark this condition-round as processed
+    conditionTracker.occurrences[conditionKey][uniqueKey] = 1;
+    
+    // Calculate which LED position to light (1-7 for each condition)
+    // We need to determine which of the 7 LEDs within this condition to light
+    // For now, we'll use a simple counter approach
+    const processedRounds = Object.keys(conditionTracker.occurrences[conditionKey]).length;
+    const ledPosition = Math.min(processedRounds, 7); // Cap at 7 LEDs per condition
+    
+    // Update player count
+    const playerKey = player || 'None';
+    
+    console.log(`🔍 LED Update Debug: condition=${condition}, player=${player}, playerKey=${playerKey}`);
+    console.log(`🔍 conditionKey=${conditionKey}, conditionTracker.playerCounts:`, conditionTracker.playerCounts);
+    
+    // Create dynamic player counter if it doesn't exist
+    if (playerKey !== 'None' && !conditionTracker.playerCounts[conditionKey][playerKey]) {
+        conditionTracker.playerCounts[conditionKey][playerKey] = 0;
+        createDynamicPlayerCounter(conditionKey, playerKey);
+        console.log(`🆕 Created new player counter for ${playerKey} in ${conditionKey}`);
+    }
+    
+    // Increment player count
+    if (conditionTracker.playerCounts[conditionKey][playerKey] !== undefined) {
+        const oldCount = conditionTracker.playerCounts[conditionKey][playerKey];
+        conditionTracker.playerCounts[conditionKey][playerKey]++;
+        const newCount = conditionTracker.playerCounts[conditionKey][playerKey];
+        console.log(`📊 Updated counter: ${playerKey} in ${conditionKey}: ${oldCount} → ${newCount}`);
+        
+        // Update player counter display
+        const playerCounterSelector = `[data-player="${playerKey}"][data-condition="${conditionKey}"] .count`;
+        console.log(`🎯 Looking for counter element with selector: ${playerCounterSelector}`);
+        
+        const playerCounterElement = document.querySelector(playerCounterSelector);
+        if (playerCounterElement) {
+            const oldValue = playerCounterElement.textContent;
+            playerCounterElement.textContent = newCount;
+            console.log(`✅ Updated counter display for ${playerKey}: ${oldValue} → ${newCount}`);
+            
+            // Add visual feedback for the update
+            playerCounterElement.style.fontWeight = 'bold';
+            playerCounterElement.style.color = '#4CAF50';
+            setTimeout(() => {
+                playerCounterElement.style.fontWeight = '';
+                playerCounterElement.style.color = '';
+            }, 1000);
+        } else {
+            console.error(`❌ Counter element not found for ${playerKey} in ${conditionKey}`);
+            
+            // Call debug function to analyze the issue
+            debugPlayerCounterState(playerKey, conditionKey);
+            
+            // Enhanced debugging: Check what elements exist
+            console.log(`🔍 Debug: Looking for elements with data-player="${playerKey}"`);
+            const playerElements = document.querySelectorAll(`[data-player="${playerKey}"]`);
+            console.log(`🔍 Found ${playerElements.length} elements with data-player="${playerKey}":`, 
+                Array.from(playerElements).map(el => ({
+                    tagName: el.tagName,
+                    dataCondition: el.getAttribute('data-condition'),
+                    innerHTML: el.innerHTML,
+                    classes: el.className
+                }))
+            );
+            
+            console.log(`🔍 Debug: Looking for elements with data-condition="${conditionKey}"`);
+            const conditionElements = document.querySelectorAll(`[data-condition="${conditionKey}"]`);
+            console.log(`🔍 Found ${conditionElements.length} elements with data-condition="${conditionKey}":`,
+                Array.from(conditionElements).map(el => ({
+                    tagName: el.tagName,
+                    dataPlayer: el.getAttribute('data-player'),
+                    innerHTML: el.innerHTML,
+                    classes: el.className
+                }))
+            );
+            
+            // Try alternative selectors
+            const altSelector1 = `[data-condition="${conditionKey}"][data-player="${playerKey}"] .count`;
+            const altElement1 = document.querySelector(altSelector1);
+            console.log(`🔍 Alternative selector "${altSelector1}" found:`, !!altElement1);
+            
+            if (altElement1) {
+                altElement1.textContent = newCount;
+                console.log(`✅ Updated counter using alternative selector!`);
+            }
+        }
+        
+        // Highlight current player
+        const allPlayerCounters = document.querySelectorAll(`[data-condition="${conditionKey}"] .player-counter`);
+        allPlayerCounters.forEach(counter => counter.classList.remove('active'));
+        
+        const currentPlayerCounter = document.querySelector(
+            `[data-player="${playerKey}"][data-condition="${conditionKey}"]`
+        );
+        if (currentPlayerCounter) {
+            currentPlayerCounter.classList.add('active');
+        }
+    }
+    
+    // Find the LED element for this condition and LED position
+    const ledElement = document.querySelector(
+        `[data-condition="${conditionKey}"][data-round="${ledPosition}"] .led-indicator`
+    );
+    
+    if (ledElement) {
+        // Always show green for normal processing (no duplicates since we prevent them above)
+        ledElement.className = 'led-indicator green';
+        console.log(`🟢 LED updated: ${condition} position ${ledPosition} - Normal occurrence (Player ${playerKey})`);
+    } else {
+        console.warn(`⚠️ LED not found for condition: ${conditionKey}, position: ${ledPosition}`);
+    }
+}
+
+// Function to update experimental HUD with condition and incentive information
+function updateExperimentalHUD(data) {
+    // Update LED tracker for conditions mode
+    if (data.condition && data.condition !== 'Baseline' && data.round) {
+        updateConditionLED(data.condition, data.round, data.blockNumber, data.player);
+    }
+    
+    // Update condition display
+    const conditionDisplay = document.getElementById('currentCondition');
+    if (conditionDisplay) {
+        conditionDisplay.textContent = data.condition;
+        conditionDisplay.className = 'condition-' + data.condition.toLowerCase().replace(/\s+/g, '-').replace(/–/g, '-');
+    }
+    
+    // Update incentive display
+    const incentiveDisplay = document.getElementById('currentIncentive');
+    if (incentiveDisplay) {
+        const displayText = data.incentiveDisplay || data.incentive;
+        incentiveDisplay.textContent = displayText;
+        incentiveDisplay.className = 'incentive-' + data.incentive.toLowerCase().replace(/\s+/g, '-');
+    }
+    
+    // Update block progress if in conditions mode
+    if (data.blockNumber) {
+        const blockDisplay = document.getElementById('blockProgress');
+        if (blockDisplay) {
+            blockDisplay.textContent = `Block ${data.blockNumber}/7`;
+        }
+    }
+    
+    // Update assigned player if applicable
+    if (data.player) {
+        const playerDisplay = document.getElementById('assignedPlayer');
+        if (playerDisplay) {
+            playerDisplay.textContent = `Player: ${data.player}`;
+        }
+    }
+    
+    // Check if current user is moderator
+    const isModerator = window.currentUserIsModerator || false;
+    
+    if (!isModerator) {
+        // Non-moderators don't get the experimental info panel - only incentive notifications
+        const hasIncentive = data.incentive && data.incentive !== 'No Incentive';
+        
+        // Remove any existing experimental panel for non-moderators
+        const existingPanel = document.getElementById('experimentalInfo');
+        if (existingPanel) {
+            existingPanel.remove();
+        }
+        
+        // Show prominent incentive notification ONLY to the target player
+        if (hasIncentive && data.player) {
+            const incentiveDisplay = data.incentiveDisplay || data.incentive;
+            
+            // Get current username from multiple sources
+            const storedUsername = localStorage.getItem('username');
+            const effectiveUsername = currentUsername || storedUsername;
+            
+            console.log(`🎁 Incentive check: player=${data.player}, currentUser=${effectiveUsername}, incentive=${incentiveDisplay}`);
+            
+            if (effectiveUsername === data.player) {
+                console.log(`🎁 Active incentive for current player: ${incentiveDisplay}`);
+                
+                // Create or update prominent incentive banner
+                showIncentiveBanner(incentiveDisplay);
+            } else {
+                console.log(`🎁 Incentive not for current player (${effectiveUsername}), hiding banner`);
+                hideIncentiveBanner();
+            }
+        } else {
+            // Remove incentive banner if no incentive or not the target player
+            hideIncentiveBanner();
+        }
+        return; // Exit early for non-moderators
+    }
+    
+    // MODERATOR STATUS UPDATES - Update fixed status panel in control board
+    
+    // Update current phase display
+    const phaseDisplay = document.getElementById('currentPhaseDisplay');
+    if (phaseDisplay && data.phase) {
+        phaseDisplay.textContent = data.phase.charAt(0).toUpperCase() + data.phase.slice(1);
+    }
+    
+    // Update current condition display
+    const conditionStatusDisplay = document.getElementById('currentConditionDisplay');
+    if (conditionStatusDisplay) {
+        conditionStatusDisplay.textContent = data.condition;
+    }
+    
+    // Update current round display with round count in phase (x/21 format)
+    const roundDisplay = document.getElementById('currentRoundDisplay');
+    if (roundDisplay) {
+        if (data.phase === 'baseline') {
+            roundDisplay.textContent = `Baseline Round ${data.round || 0}`;
+        } else if (data.blockNumber) {
+            // Calculate round within current block (1-21)
+            const roundInBlock = ((data.round - 1) % 21) + 1;
+            roundDisplay.textContent = `${roundInBlock}/21`;
+        } else {
+            roundDisplay.textContent = `Round ${data.round || 0}`;
+        }
+    }
+    
+    // Update incentive player display
+    const incentivePlayerDisplay = document.getElementById('currentIncentivePlayerDisplay');
+    if (incentivePlayerDisplay) {
+        if (data.player && data.incentive !== 'No Incentive') {
+            incentivePlayerDisplay.textContent = `${data.player} (${data.incentiveDisplay || data.incentive})`;
+        } else {
+            incentivePlayerDisplay.textContent = 'None';
+        }
+    }
+    
+    // Update block display
+    const blockStatusDisplay = document.getElementById('currentBlockDisplay');
+    if (blockStatusDisplay) {
+        if (data.blockNumber && data.phase !== 'baseline') {
+            blockStatusDisplay.textContent = `${data.blockNumber}/7`;
+        } else {
+            blockStatusDisplay.textContent = 'N/A';
+        }
+    }
+    
+    // Remove any existing floating experimental panel since we now have fixed display
+    const existingPanel = document.getElementById('experimentalInfo');
+    if (existingPanel) {
+        existingPanel.remove();
+    }
+    
+    console.log('🧪 Updated experimental status display in moderator control panel');
+}
+
 // Function to update all player wallet displays
 function updateAllWalletDisplays(playersData) {
     console.log('💰 Updating wallet displays for all players');
     console.log('💰 Players data received:', playersData);
     
     // Check moderator status
-    const moderatorColumnControl = document.getElementById('moderatorColumnControl');
-    const isModerator = moderatorColumnControl && moderatorColumnControl.style.display === 'block';
+    const moderatorSwitchboard = document.getElementById('moderatorSwitchboard');
+    const isModerator = moderatorSwitchboard && moderatorSwitchboard.style.display === 'block';
     console.log('💰 Current user is moderator:', isModerator);
     
     SEAT_IDS.forEach(seatId => {
@@ -3652,8 +4390,8 @@ socket.on('roundResult', function(data) {
     }
     
     // Detect if user is moderator (used throughout this handler)
-    const moderatorColumnControl = document.getElementById('moderatorColumnControl');
-    const isModerator = moderatorColumnControl && moderatorColumnControl.style.display === 'block';
+    const moderatorSwitchboard = document.getElementById('moderatorSwitchboard');
+    const isModerator = moderatorSwitchboard && moderatorSwitchboard.style.display === 'block';
     
     // Ensure gameDiv is visible at start of round result processing
     const gameDiv = document.getElementById('gameDiv');
@@ -3731,22 +4469,19 @@ socket.on('roundResult', function(data) {
             gameDiv.style.display = 'inline-block';
         }
         
-        // Update global token pool (everyone sees this)
-        const globalTokenPoolElement = document.getElementById('globalTokenPool');
         console.log('🎯 ROUND RESULT - Token pool update data:', {
             whiteTokensRemaining: data.whiteTokensRemaining,
+            initialWhiteTokens: data.initialWhiteTokens,
             dataKeys: Object.keys(data),
-            elementExists: !!globalTokenPoolElement,
-            currentTextContent: globalTokenPoolElement ? globalTokenPoolElement.textContent : 'N/A'
+            elementExists: !!document.getElementById('globalTokenPool'),
+            currentTextContent: document.getElementById('globalTokenPool') ? document.getElementById('globalTokenPool').textContent : 'N/A'
         });
         
-        if (globalTokenPoolElement) {
-            const oldValue = globalTokenPoolElement.textContent;
-            globalTokenPoolElement.textContent = data.whiteTokensRemaining;
-            console.log('🎯 Token pool updated:', oldValue, '→', data.whiteTokensRemaining);
-            console.log('🎯 Element after update:', globalTokenPoolElement.textContent);
-        } else {
-            console.error('❌ globalTokenPool element not found!');
+        // Update token pool display with dynamic max value
+        if (data.whiteTokensRemaining !== undefined) {
+            const totalTokens = data.initialWhiteTokens || TOKEN_CONFIG.CONDITIONS_TOKENS;
+            updateTokenPoolDisplay(data.whiteTokensRemaining, totalTokens);
+            console.log('🎯 Token pool updated:', data.whiteTokensRemaining, '/', totalTokens);
         }
         
         // Update token pool progress bar
@@ -3754,10 +4489,12 @@ socket.on('roundResult', function(data) {
         console.log('🎯 Token pool bar element found:', !!tokenPoolBar);
         
         if (tokenPoolBar) {
-            const percentage = Math.max(0, (data.whiteTokensRemaining / 2500) * 100);
+            // Use dynamic total based on experiment phase - default to CONDITIONS_TOKENS if not provided
+            const totalTokens = data.initialWhiteTokens || TOKEN_CONFIG.CONDITIONS_TOKENS;
+            const percentage = Math.max(0, (data.whiteTokensRemaining / totalTokens) * 100);
             const oldWidth = tokenPoolBar.style.width;
             tokenPoolBar.style.width = `${percentage}%`;
-            console.log(`🎯 Token pool bar updated: ${oldWidth} → ${percentage}% (${data.whiteTokensRemaining}/2500)`);
+            console.log(`🎯 Token pool bar updated: ${oldWidth} → ${percentage}% (${data.whiteTokensRemaining}/${totalTokens})`);
             
             // Change color based on remaining tokens
             let gradient;
@@ -3929,9 +4666,9 @@ socket.on('roundResult', function(data) {
     if (data.culturantProduced) {
         const culturantStatusElement = document.getElementById('culturantStatus');
         
-        // Only show culturant production message to moderators
+        // Only show cooperation event message to moderators
         if (culturantStatusElement && isModerator) {
-            culturantStatusElement.textContent = '🎯 Culturant Produced! All players chose even rows.';
+            culturantStatusElement.textContent = '🎯 Cooperation Event! All players chose even rows.';
             culturantStatusElement.style.color = '#43b581';
         } else if (culturantStatusElement) {
             culturantStatusElement.textContent = '';
@@ -3995,46 +4732,24 @@ socket.on('columnModeChanged', function(data) {
     console.log(`🎛️ Column mode changed to: ${data.mode} by ${data.moderator}`);
     
     // Update UI based on mode change
-    const moderatorColumnControl = document.getElementById('moderatorColumnControl');
-    if (moderatorColumnControl && moderatorColumnControl.style.display === 'block') {
-        const autoColumnToggle = document.getElementById('autoColumnToggle');
+    const moderatorSwitchboard = document.getElementById('moderatorSwitchboard');
+    if (moderatorSwitchboard && moderatorSwitchboard.style.display === 'block') {
+        const autoColumnToggle = document.getElementById('autoColumnToggleSwitch');
         if (autoColumnToggle) {
             autoColumnToggle.checked = (data.mode === 'auto');
             // Don't trigger change event - this would cause infinite loop!
             // Instead, manually update UI elements
-            const manualColumnSelection = document.getElementById('manualColumnSelection');
-            const autoColumnDisplay = document.getElementById('autoColumnDisplay');
+            const manualColumnGrid = document.getElementById('manualColumnGrid');
+            const selectedColumnIndicator = document.getElementById('selectedColumnIndicator');
             
             if (autoColumnToggle.checked) {
                 // Auto mode UI
-                if (manualColumnSelection) manualColumnSelection.style.display = 'none';
-                if (autoColumnDisplay) autoColumnDisplay.style.display = 'block';
+                if (manualColumnGrid) manualColumnGrid.style.display = 'none';
+                if (selectedColumnIndicator) selectedColumnIndicator.textContent = 'AUTO MODE';
             } else {
                 // Manual mode UI
-                if (manualColumnSelection) manualColumnSelection.style.display = 'block';
-                if (autoColumnDisplay) autoColumnDisplay.style.display = 'none';
-            }
-        }
-        
-        // Show pending change notification
-        const pendingInfo = document.getElementById('pendingModeInfo');
-        if (data.immediate === false && data.pendingMode && data.pendingRound) {
-            if (pendingInfo) {
-                pendingInfo.textContent = `Mode will change to ${data.pendingMode} starting Round ${data.pendingRound}`;
-                pendingInfo.style.display = 'block';
-                pendingInfo.style.color = '#ffa500';
-            }
-        } else if (data.applied) {
-            if (pendingInfo) {
-                pendingInfo.textContent = `Mode changed to ${data.mode}`;
-                pendingInfo.style.color = '#4CAF50';
-                setTimeout(() => {
-                    pendingInfo.style.display = 'none';
-                }, 3000);
-            }
-        } else if (data.immediate) {
-            if (pendingInfo) {
-                pendingInfo.style.display = 'none';
+                if (manualColumnGrid) manualColumnGrid.style.display = 'block';
+                if (selectedColumnIndicator) selectedColumnIndicator.textContent = 'MANUAL MODE';
             }
         }
     }
@@ -4043,8 +4758,8 @@ socket.on('columnModeChanged', function(data) {
 // Function to show baseline exit notification to moderators
 function showBaselineExitNotification(turnNumber) {
     // Check if user is moderator
-    const moderatorColumnControl = document.getElementById('moderatorColumnControl');
-    const isModerator = moderatorColumnControl && moderatorColumnControl.style.display === 'block';
+    const moderatorSwitchboard = document.getElementById('moderatorSwitchboard');
+    const isModerator = moderatorSwitchboard && moderatorSwitchboard.style.display === 'block';
     
     if (!isModerator) return;
     
@@ -4118,6 +4833,330 @@ socket.on('conditionChanged', function(data) {
     // No notification to players - they don't need to see condition changes
 });
 
+// Handle automatic condition updates based on experimental schedule
+// Test function for LED tracker (for debugging)
+window.testLEDTrackerWithPlayers = function() {
+    console.log('🧪 Testing LED tracker with players array...');
+    const testData = {
+        condition: 'High Culturant',
+        round: 1,
+        blockNumber: 1,
+        player: 'tom',
+        players: [
+            { name: 'tom', id: 'test1', isAI: false },
+            { name: 'AI Player 1', id: 'test2', isAI: true },
+            { name: 'AI Player 2', id: 'test3', isAI: true }
+        ],
+        tokenValues: { white: 0.03, black: 0.01 },
+        incentive: 'Culturant Incentive'
+    };
+    
+    // Simulate the conditionUpdate event
+    console.log('🔍 Triggering test conditionUpdate with:', testData);
+    updateConditionLED(testData.condition, testData.round, testData.blockNumber, testData.player);
+};
+
+window.testLEDTrackerWithoutPlayers = function() {
+    console.log('🧪 Testing LED tracker without players array...');
+    const testData = {
+        condition: 'High Operant',
+        round: 2,
+        blockNumber: 1,
+        player: 'AI Player 1',
+        tokenValues: { white: 0.03, black: 0.01 },
+        incentive: 'Operant Incentive'
+    };
+    
+    // Simulate the conditionUpdate event
+    console.log('🔍 Triggering test conditionUpdate without players array:', testData);
+    updateConditionLED(testData.condition, testData.round, testData.blockNumber, testData.player);
+};
+
+// Initialize dynamic player mapping for when players array isn't available
+let playerNameMapping = new Map();
+let nextPlayerIndex = 0;
+
+// Function to initialize all player names in the LED tracker
+function initializePlayerNamesInTracker(players) {
+    console.log(`🎯 Initializing player names in LED tracker with ${players.length} players`);
+    
+    // FIRST: Clear any existing player assignments from placeholders
+    console.log('🧹 Clearing existing player assignments from placeholders...');
+    const allPlaceholders = document.querySelectorAll('.dynamic-player');
+    console.log(`🔍 Found ${allPlaceholders.length} total placeholder elements in DOM`);
+    
+    allPlaceholders.forEach(placeholder => {
+        // Reset placeholder to its original state
+        placeholder.removeAttribute('data-player');
+        placeholder.innerHTML = '';
+        placeholder.style.display = 'none';
+        placeholder.style.visibility = 'hidden';
+        placeholder.style.opacity = '0';
+    });
+    
+    // Clear existing mapping
+    playerNameMapping.clear();
+    nextPlayerIndex = 0;
+    
+    // Create mapping for all players - but keep their REAL names, don't map to Player A/B/C
+    // CRITICAL: Filter out moderators using proper detection methods
+    players.forEach((player, index) => {
+        if (index < 3) {
+            // Proper moderator detection based on player properties
+            const isModerator = player.isModerator || false;
+            
+            if (isModerator) {
+                console.warn(`🚫 BLOCKED: Preventing moderator "${player.name}" from being added to LED tracker`);
+                return; // Skip this player completely
+            }
+            
+            // Map real name to real name (no conversion to Player A/B/C)
+            playerNameMapping.set(player.name, player.name);
+        }
+    });
+    
+    // Initialize all player counters for all conditions using REAL names
+    const allConditions = ['HIGH_CULTURANT', 'HIGH_OPERANT', 'EQUAL_CULTURANT_OPERANT'];
+    
+    allConditions.forEach(conditionKey => {
+        players.forEach((player, index) => {
+            if (index < 3) {
+                // Proper moderator detection (duplicate check for safety)
+                const isModerator = player.isModerator || false;
+                
+                if (isModerator) {
+                    console.warn(`🚫 BLOCKED: Preventing counter creation for moderator "${player.name}"`);
+                    return; // Skip this player completely
+                }
+                
+                const success = createDynamicPlayerCounter(conditionKey, player.name);
+                if (!success) {
+                    console.error(`❌ Failed to create counter for ${player.name} in ${conditionKey}`);
+                }
+            }
+        });
+    });
+    
+    console.log(`✅ Initialized LED tracker for ${players.filter((p, i) => i < 3).length} players`);
+    console.log(`🔍 Final player mapping:`, Array.from(playerNameMapping.entries()));
+    
+    // Debug: Check what counters were actually created
+    setTimeout(() => {
+        const createdCounters = document.querySelectorAll('[data-player]:not([data-player="None"]):not([data-player=""])');
+        console.log(`🔍 POST-INIT: Found ${createdCounters.length} created player counters:`);
+        createdCounters.forEach(counter => {
+            console.log(`  - ${counter.getAttribute('data-player')} in ${counter.getAttribute('data-condition')}: "${counter.innerHTML}"`);
+        });
+    }, 100);
+}
+
+// Test socket connection and event handlers
+console.log('🔵 Initializing socket event handlers...');
+console.log('🔵 Socket object:', socket);
+console.log('🔵 Socket connected:', socket.connected);
+
+// Test handler to verify socket is working
+socket.on('test-conditionUpdate-handler', function(data) {
+    console.log('🧪 TEST: conditionUpdate test handler called!', data);
+});
+
+socket.on('conditionUpdate', function(data) {
+    console.log('🚨 🚨 🚨 conditionUpdate handler called! 🚨 🚨 🚨');
+    console.log('🧪 conditionUpdate event received:', JSON.stringify(data, null, 2));
+    console.log(`🔄 Experimental condition updated for round ${data.round}: ${data.condition}`);
+    console.log(`💰 Token values - White: $${data.tokenValues.white}, Black: $${data.tokenValues.black}`);
+    console.log(`🎯 Incentive: ${data.incentive}`);
+    if (data.player) {
+        console.log(`👤 Assigned player: "${data.player}" (type: ${typeof data.player})`);
+    } else {
+        console.log(`👤 No player assigned (data.player = ${data.player})`);
+    }
+    if (data.blockNumber) {
+        console.log(`📦 Block: ${data.blockNumber}/7`);
+    }
+    
+    // Update token conversion display for all players
+    updateTokenConversionDisplay(data.tokenValues.white, data.tokenValues.black);
+    
+    // Update HUD with experimental information
+    updateExperimentalHUD(data);
+    
+    // Update previous condition tracking
+    previousCondition = data.condition;
+    
+    // *** LED TRACKER FUNCTIONALITY ***
+    try {        
+        // Extract condition info for LED tracker
+        const condition = data.condition || 0;
+        const round = data.round || 0;
+        const blockNumber = data.blockNumber || 0;
+        const allPlayers = data.players || [];
+        
+        // Defensive filter - remove any moderators that might have slipped through
+        const players = allPlayers.filter(p => !p.isModerator);
+        
+        // Update LED matrix - use real player names, not Player A/B/C mapping
+        let mappedPlayerName = data.player;
+        
+        if (data.players && data.players.length > 0 && data.player) {
+            // Method 1: Use real player name directly (for moderators)
+            mappedPlayerName = data.player; // Use real name directly
+        } else if (data.player) {
+            // Method 2: Use real name when players array isn't available
+            mappedPlayerName = data.player; // Use real name directly
+        } else {
+            console.warn(`⚠️ No player to map (data.player = ${data.player})`);
+        }
+        
+        updateConditionLED(condition, round, blockNumber, mappedPlayerName);
+        
+        // Update player counters - ensure ALL players have counters in ALL conditions
+        let conditionKey;
+        if (typeof condition === 'string') {
+            // Real game sends condition names
+            switch(condition) {
+                case 'High Culturant':
+                    conditionKey = 'HIGH_CULTURANT';
+                    break;
+                case 'High Operant':
+                    conditionKey = 'HIGH_OPERANT';
+                    break;
+                case 'Equal Culturant–Operant':
+                    conditionKey = 'EQUAL_CULTURANT_OPERANT';
+                    break;
+                default:
+                    conditionKey = condition; // fallback
+            }
+        } else {
+            // Test data sends condition numbers
+            conditionKey = condition;
+        }
+        
+        // Create player counters based on available data
+        if (players && players.length > 0) {
+            // Method 1: Use players array when available (moderators)
+            // Check if we need to force re-initialization due to moderator counters
+            const moderatorDiv = document.getElementById('moderatorPosition');
+            const moderatorNameDiv = moderatorDiv?.querySelector('.moderator-name');
+            const currentModerator = moderatorNameDiv?.textContent;
+            
+            const moderatorCounters = currentModerator ? 
+                document.querySelectorAll(`[data-player="${currentModerator}"]`) : 
+                [];
+            const needsReinit = moderatorCounters.length > 0;
+            
+            if (playerNameMapping.size === 0 || needsReinit) {
+                if (needsReinit) {
+                    console.log(`🧹 Clearing existing moderator counters for "${currentModerator}" and re-initializing`);
+                    // Clear existing mapping and counters
+                    playerNameMapping.clear();
+                    nextPlayerIndex = 0;
+                    // Remove any existing counters
+                    document.querySelectorAll('.player-counter').forEach(counter => {
+                        if (counter.hasAttribute('data-player')) {
+                            counter.remove();
+                        }
+                    });
+                }
+                initializePlayerNamesInTracker(players);
+            }
+        } else {
+            // Method 2: Create counters for discovered players when no players array
+            console.log('🎯 LED TRACKER: No players array, using real names');
+            const allConditions = ['HIGH_CULTURANT', 'HIGH_OPERANT', 'EQUAL_CULTURANT_OPERANT'];
+            
+            // Create counter for the current player
+            if (data.player) {
+                allConditions.forEach(condKey => {
+                    createDynamicPlayerCounter(condKey, data.player);
+                });
+            }
+        }
+        
+    } catch (error) {
+        console.error('❌ LED TRACKER: Error processing conditionUpdate:', error);
+    }
+});
+
+// Handle baseline to conditions phase transition
+socket.on('phaseTransition', function(data) {
+    console.log('🔄 Phase transition event received:', data);
+    
+    // Update token pool display
+    if (data.newTokenPool !== undefined) {
+        // For phase transitions, use CONDITIONS_TOKENS as max since we're transitioning to conditions phase
+        const maxTokens = TOKEN_CONFIG.CONDITIONS_TOKENS;
+        updateTokenPoolDisplay(data.newTokenPool, maxTokens);
+        console.log(`🪙 Token pool updated for phase transition: ${data.newTokenPool}/${maxTokens}`);
+    }
+    
+    // Update token pool bar with new total
+    const tokenPoolBar = document.getElementById('tokenPoolBar');
+    if (tokenPoolBar && data.initialWhiteTokens) {
+        const percentage = Math.max(0, (data.newTokenPool / data.initialWhiteTokens) * 100);
+        tokenPoolBar.style.width = `${percentage}%`;
+        console.log(`🎯 Token pool bar updated for transition: ${percentage}% (${data.newTokenPool}/${data.initialWhiteTokens})`);
+    }
+    
+    // Show phase transition notification
+    showNotification('phase-transition', data.message, 'Phase Transition', 8000);
+    
+    // Update moderator status panel if user is moderator
+    const isModerator = window.currentUserIsModerator || false;
+    if (isModerator) {
+        // Update phase display in status panel
+        const phaseDisplay = document.getElementById('currentPhaseDisplay');
+        if (phaseDisplay) {
+            phaseDisplay.textContent = data.to.charAt(0).toUpperCase() + data.to.slice(1);
+        }
+        
+        // If we have moderator info from the transition, update all status displays
+        if (data.moderatorInfo) {
+            const conditionDisplay = document.getElementById('currentConditionDisplay');
+            const roundDisplay = document.getElementById('currentRoundDisplay');
+            const incentivePlayerDisplay = document.getElementById('currentIncentivePlayerDisplay');
+            const blockDisplay = document.getElementById('currentBlockDisplay');
+            
+            if (conditionDisplay) {
+                conditionDisplay.textContent = data.moderatorInfo.currentCondition;
+            }
+            
+            if (roundDisplay) {
+                roundDisplay.textContent = '1/21'; // First round of conditions phase
+            }
+            
+            if (incentivePlayerDisplay) {
+                if (data.moderatorInfo.incentivePlayer && data.moderatorInfo.currentIncentive !== 'No Incentive') {
+                    incentivePlayerDisplay.textContent = `${data.moderatorInfo.incentivePlayer} (${data.moderatorInfo.incentiveDisplay})`;
+                } else {
+                    incentivePlayerDisplay.textContent = 'None';
+                }
+            }
+            
+            if (blockDisplay) {
+                if (data.moderatorInfo.blockNumber) {
+                    blockDisplay.textContent = `${data.moderatorInfo.blockNumber}/7`;
+                } else {
+                    blockDisplay.textContent = 'N/A';
+                }
+            }
+        }
+    }
+    
+    // Update experimental HUD if it exists (legacy support)
+    const expPanel = document.getElementById('experimentalInfo');
+    if (expPanel) {
+        const phaseDisplay = expPanel.querySelector('.phase-display') || document.createElement('div');
+        if (!expPanel.querySelector('.phase-display')) {
+            phaseDisplay.className = 'phase-display';
+            expPanel.appendChild(phaseDisplay);
+        }
+        phaseDisplay.innerHTML = `<strong>Phase:</strong> ${data.to.charAt(0).toUpperCase() + data.to.slice(1)}`;
+    }
+    
+    console.log(`🎯 Transitioned from ${data.from} to ${data.to} phase with ${data.newTokenPool} tokens`);
+});
+
 // Column selected notification
 socket.on('columnSelected', function(data) {
     console.log(`📌 Column selected: ${data.column} by ${data.moderator}`);
@@ -4132,21 +5171,23 @@ socket.on('columnSelected', function(data) {
     }
     
     // Update manual button selection for moderator
-    const moderatorColumnControl = document.getElementById('moderatorColumnControl');
-    if (moderatorColumnControl && moderatorColumnControl.style.display === 'block') {
+    const moderatorSwitchboard = document.getElementById('moderatorSwitchboard');
+    if (moderatorSwitchboard && moderatorSwitchboard.style.display === 'block') {
         // Clear previous selections
-        document.querySelectorAll('.column-select-btn').forEach(btn => {
-            btn.style.backgroundColor = '#7289da';
-            btn.style.transform = 'scale(1)';
-            btn.style.boxShadow = 'none';
+        document.querySelectorAll('.column-btn').forEach(btn => {
+            btn.classList.remove('active');
         });
         
         // Highlight selected button
-        const correspondingBtn = document.querySelector(`.column-select-btn[data-column="${data.column}"]`);
+        const correspondingBtn = document.querySelector(`.column-btn[data-column="${data.column}"]`);
         if (correspondingBtn) {
-            correspondingBtn.style.backgroundColor = '#43b581';
-            correspondingBtn.style.transform = 'scale(1.1)';
-            correspondingBtn.style.boxShadow = '0 0 10px rgba(67, 181, 129, 0.5)';
+            correspondingBtn.classList.add('active');
+        }
+        
+        // Update indicator
+        const indicator = document.getElementById('selectedColumnIndicator');
+        if (indicator) {
+            indicator.textContent = `SELECTED: ${data.column}`;
         }
     }
 });
@@ -4159,9 +5200,9 @@ socket.on('autoColumnSelected', function(data) {
     attemptColumnHighlight(data.column);
     
     // Show which column was automatically selected
-    const autoColumnDisplay = document.getElementById('autoColumnDisplay');
-    if (autoColumnDisplay && autoColumnDisplay.style.display !== 'none') {
-        autoColumnDisplay.innerHTML = `System automatically selected: <strong>Column ${data.column}</strong> (Round ${data.round})`;
+    const selectedColumnIndicator = document.getElementById('selectedColumnIndicator');
+    if (selectedColumnIndicator) {
+        selectedColumnIndicator.textContent = `AUTO: COLUMN ${data.column}`;
     }
 });
 
@@ -4265,6 +5306,30 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Initialize leave button visibility (hidden by default for Global)
     updateLeaveButtonVisibility();
+    
+    // Initialize LED condition tracker
+    initializeConditionTracker();
+    
+    console.log('🔵 Page loaded, LED tracker initialized');
+    console.log('🔵 Testing if conditionUpdate handler will work...');
+    
+    // Test the createDynamicPlayerCounter function after page loads
+    // DISABLED: This was consuming placeholders before real player names could be assigned
+    /*
+    setTimeout(() => {
+        console.log('🧪 Running automatic test of createDynamicPlayerCounter...');
+        // Test all players for all conditions
+        const conditions = ['HIGH_CULTURANT', 'HIGH_OPERANT', 'EQUAL_CULTURANT_OPERANT'];
+        const players = ['Player A', 'Player B', 'Player C'];
+        
+        conditions.forEach(condition => {
+            players.forEach(player => {
+                createDynamicPlayerCounter(condition, player);
+            });
+        });
+        console.log('✅ Automatic test completed - all players added to all conditions');
+    }, 2000);
+    */
     
     // Ensure cards are visible by default (unless in active game)
     if (!gameActive && currentRoom === 'Global') {
@@ -5118,12 +6183,25 @@ document.addEventListener('DOMContentLoaded', function() {
             e.preventDefault();
             console.log('🚀 Starting behavioral experiment');
             
-            // This button is now for starting the actual experiment
-            // Could emit a startExperiment event or trigger existing startGame logic
-            socket.emit('startGame', {room: currentRoom});
+            // Check for experiment mode selection
+            const experimentModeSelect = document.getElementById('experimentMode');
+            const experimentMode = experimentModeSelect ? experimentModeSelect.value : 'baseline';
+            
+            console.log('🧪 Selected experiment mode:', experimentMode);
+            
+            // Emit startGame with experiment mode
+            socket.emit('startGame', {
+                room: currentRoom,
+                experimentMode: experimentMode
+            });
             
             // Hide this button since experiment is starting
             this.style.display = 'none';
+            
+            // Hide experiment mode selector
+            if (experimentModeSelect && experimentModeSelect.parentElement) {
+                experimentModeSelect.parentElement.style.display = 'none';
+            }
             
             // Hide Add AI button if it exists
             const addAIBtn = document.getElementById('addAIBtn');
@@ -5334,34 +6412,33 @@ document.addEventListener('DOMContentLoaded', function() {
         // Column header clicks (for moderators in manual mode)
         if (e.target.classList.contains('column-header')) {
             // Only allow moderators to click column headers
-            const moderatorColumnControl = document.getElementById('moderatorColumnControl');
-            const autoColumnToggle = document.getElementById('autoColumnToggle');
+            const moderatorSwitchboard = document.getElementById('moderatorSwitchboard');
+            const autoColumnToggle = document.getElementById('autoColumnToggleSwitch');
             
-            if (moderatorColumnControl && moderatorColumnControl.style.display === 'block' && 
+            if (moderatorSwitchboard && moderatorSwitchboard.style.display === 'block' && 
                 autoColumnToggle && !autoColumnToggle.checked) {
                 e.preventDefault();
                 const column = e.target.getAttribute('data-column');
                 
                 // Clear manual column button selections
-                document.querySelectorAll('.column-select-btn').forEach(btn => {
-                    btn.style.backgroundColor = '#7289da';
-                    btn.style.transform = 'scale(1)';
-                    btn.style.boxShadow = 'none';
+                document.querySelectorAll('.column-btn').forEach(btn => {
+                    btn.classList.remove('active');
                 });
                 
-                // Highlight the corresponding manual button
-                const correspondingBtn = document.querySelector(`.column-select-btn[data-column="${column}"]`);
+                // Highlight the selected column button
+                const correspondingBtn = document.querySelector(`.column-btn[data-column="${column}"]`);
                 if (correspondingBtn) {
-                    correspondingBtn.style.backgroundColor = '#43b581';
-                    correspondingBtn.style.transform = 'scale(1.1)';
-                    correspondingBtn.style.boxShadow = '0 0 10px rgba(67, 181, 129, 0.5)';
+                    correspondingBtn.classList.add('active');
                 }
                 
-                // Update display
-                const selectedColumnDisplay = document.getElementById('selectedColumnDisplay');
-                if (selectedColumnDisplay) {
-                    selectedColumnDisplay.textContent = `Selected: Column ${column}`;
+                // Update indicator
+                const indicator = document.getElementById('selectedColumnIndicator');
+                if (indicator) {
+                    indicator.textContent = `SELECTED: ${column}`;
                 }
+                
+                // Notify server of column selection
+                socket.emit('selectColumn', { column: column });
                 
                 // Highlight in the main grid
                 highlightSelectedColumn(column);
@@ -5444,7 +6521,7 @@ function toggleTestingPanel() {
 }
 
 function sendSystemMessage() {
-    const messageText = document.getElementById('systemMessageText').value.trim();
+    const messageText = document.getElementById('systemMessageTextSwitch').value.trim();
     if (!messageText) {
         showGlassmorphismAlert('Missing Message', 'Please enter a message to send.', 'warning');
         return;
@@ -5457,7 +6534,7 @@ function sendSystemMessage() {
     });
     
     // Clear the input
-    document.getElementById('systemMessageText').value = '';
+    document.getElementById('systemMessageTextSwitch').value = '';
     
     // Show confirmation
     const statusDiv = document.getElementById('experimentStatus');
@@ -5534,13 +6611,13 @@ function setCondition() {
 }
 
 function setPlayerIncentive() {
-    const playerSelect = document.getElementById('incentivePlayer');
-    const typeSelect = document.getElementById('incentiveType');
+    const playerSelect = document.getElementById('incentivePlayerSwitch');
+    const typeSelect = document.getElementById('incentiveTypeSwitch');
     const selectedPlayer = playerSelect.value;
     const selectedType = typeSelect.value;
     
     if (!selectedPlayer) {
-        const statusDiv = document.getElementById('incentiveStatus');
+        const statusDiv = document.getElementById('incentiveStatusSwitch');
         statusDiv.textContent = 'Please select a player first';
         statusDiv.style.color = '#e74c3c';
         setTimeout(() => statusDiv.textContent = '', 3000);
@@ -5557,7 +6634,7 @@ function setPlayerIncentive() {
 
 // Handle incentive set result
 socket.on('incentiveSetResult', function(data) {
-    const statusDiv = document.getElementById('incentiveStatus');
+    const statusDiv = document.getElementById('incentiveStatusSwitch');
     if (data.success) {
         const incentiveText = data.incentiveType ? data.incentiveType : 'removed';
         statusDiv.textContent = `${data.playerName}: ${incentiveText}`;
@@ -5609,9 +6686,147 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
+// Show system message in poker table notification area
+function showSystemNotification(title, message, type = 'info') {
+    // Get or create notification area
+    const notificationArea = getNotificationArea();
+    if (!notificationArea) {
+        console.error('📢 Cannot show system notification: poker table not found, falling back to modal');
+        showGlassmorphismAlert(title, message, type);
+        return;
+    }
+    
+    // Set colors and icons based on type
+    let gradient, icon, borderColor;
+    switch(type) {
+        case 'success':
+            gradient = 'linear-gradient(135deg, #27ae60, #2ecc71)';
+            borderColor = '#27ae60';
+            icon = '✅';
+            break;
+        case 'error':
+            gradient = 'linear-gradient(135deg, #e74c3c, #c0392b)';
+            borderColor = '#e74c3c';
+            icon = '❌';
+            break;
+        case 'warning':
+            gradient = 'linear-gradient(135deg, #f39c12, #e67e22)';
+            borderColor = '#f39c12';
+            icon = '⚠️';
+            break;
+        default:
+            gradient = 'linear-gradient(135deg, #667aff, #7386ff)';
+            borderColor = '#667aff';
+            icon = '📢';
+            break;
+    }
+    
+    // Create notification
+    const notification = document.createElement('div');
+    notification.className = 'system-notification';
+    
+    // Create content
+    const content = document.createElement('div');
+    content.className = 'notification-content';
+    
+    const titleElement = document.createElement('h4');
+    titleElement.innerHTML = `${icon} ${title}`;
+    titleElement.className = 'notification-title';
+    
+    const messageElement = document.createElement('p');
+    messageElement.textContent = message;
+    messageElement.className = 'notification-message';
+    
+    content.appendChild(titleElement);
+    content.appendChild(messageElement);
+    notification.appendChild(content);
+    
+    // Style the notification
+    notification.style.cssText = `
+        position: relative;
+        width: 100%;
+        background: ${gradient};
+        color: white;
+        padding: 12px 16px;
+        border-radius: 8px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+        font-family: Arial, sans-serif;
+        text-align: left;
+        border: 2px solid ${borderColor};
+        animation: slideInRight 0.5s ease-out;
+        margin-bottom: 10px;
+        pointer-events: auto;
+        cursor: pointer;
+    `;
+    
+    titleElement.style.cssText = `
+        margin: 0 0 4px 0;
+        font-size: 13px;
+        font-weight: bold;
+        text-shadow: 1px 1px 2px rgba(0,0,0,0.2);
+    `;
+    
+    messageElement.style.cssText = `
+        margin: 0;
+        font-size: 12px;
+        line-height: 1.3;
+        font-weight: 400;
+        opacity: 0.95;
+    `;
+    
+    // Add click to close functionality
+    notification.onclick = function() {
+        notification.remove();
+    };
+    
+    // Auto-remove after 8 seconds for info messages, longer for errors
+    const autoRemoveTime = type === 'error' ? 12000 : (type === 'warning' ? 10000 : 8000);
+    setTimeout(() => {
+        if (notification.parentNode) {
+            notification.style.animation = 'slideOutRight 0.3s ease-in';
+            setTimeout(() => {
+                if (notification.parentNode) {
+                    notification.remove();
+                }
+            }, 300);
+        }
+    }, autoRemoveTime);
+    
+    notificationArea.appendChild(notification);
+    
+    console.log('📢 System notification displayed in poker table area:', title, message);
+}
+
 // Socket event handlers for testing features
 socket.on('systemMessageSent', function(data) {
     console.log('📢 System message confirmed sent:', data.message);
+    
+    // Check if we're in game and should use notification area
+    const pokerTable = document.getElementById('pokerTable');
+    const isInGame = pokerTable && pokerTable.style.display !== 'none';
+    
+    if (isInGame) {
+        showSystemNotification(data.title || '📢 System Announcement', data.message, data.type || 'info');
+    } else {
+        // Fall back to modal for non-game contexts
+        showGlassmorphismAlert(data.title || '📢 System Announcement', data.message, data.type || 'info');
+    }
+});
+
+// Handle system notification popups
+socket.on('systemNotification', function(data) {
+    console.log('📢 System notification received:', data);
+    
+    // Check if we're in game and should use notification area
+    const pokerTable = document.getElementById('pokerTable');
+    const isInGame = pokerTable && pokerTable.style.display !== 'none';
+    
+    if (isInGame) {
+        showSystemNotification(data.title || '📢 System Announcement', data.message, data.type || 'info');
+    } else {
+        // Fall back to modal for non-game contexts
+        showGlassmorphismAlert(data.title || '📢 System Announcement', data.message, data.type || 'info');
+    }
 });
 
 socket.on('playerStatusUpdate', function(data) {
@@ -5625,8 +6840,8 @@ socket.on('playerStatusUpdate', function(data) {
     
     // Update condition display if available (only for moderators)
     if (data.condition) {
-        const moderatorColumnControl = document.getElementById('moderatorColumnControl');
-        const isModerator = moderatorColumnControl && moderatorColumnControl.style.display === 'block';
+        const moderatorSwitchboard = document.getElementById('moderatorSwitchboard');
+        const isModerator = moderatorSwitchboard && moderatorSwitchboard.style.display === 'block';
         const conditionInfoElement = document.getElementById('conditionInfo');
         if (conditionInfoElement && isModerator) {
             conditionInfoElement.textContent = `Condition: ${data.condition}`;
@@ -5689,8 +6904,8 @@ socket.on('playerStatusUpdate', function(data) {
     
     // Only update wallet displays immediately for moderators, avoid delayed updates during gameplay
     // to prevent interference with animations
-    const moderatorColumnControl = document.getElementById('moderatorColumnControl');
-    const isModerator = moderatorColumnControl && moderatorColumnControl.style.display === 'block';
+    const moderatorSwitchboard = document.getElementById('moderatorSwitchboard');
+    const isModerator = moderatorSwitchboard && moderatorSwitchboard.style.display === 'block';
     
     if (isModerator && data.players && data.players.length > 0) {
         // Update immediately for moderators, without delay to avoid animation conflicts
@@ -5703,23 +6918,29 @@ socket.on('playerStatusUpdate', function(data) {
 
 // Handle incentive changes
 socket.on('incentiveChanged', function(data) {
-    const incentiveElement = document.getElementById('activeIncentive');
-    if (incentiveElement) {
-        if (isModerator && data.incentiveType) {
-            incentiveElement.textContent = `${data.incentiveType.charAt(0).toUpperCase() + data.incentiveType.slice(1)}`;
-            incentiveElement.style.color = '#faa61a';
-        } else if (isModerator && !data.incentiveType) {
-            incentiveElement.textContent = 'No Active Incentive';
-            incentiveElement.style.color = '#72767d';
-        } else {
-            // Hide incentive info for non-moderators
-            incentiveElement.textContent = '';
+    console.log('🎁 Incentive changed:', data);
+    
+    // Show prominent incentive banner to the player who received the incentive
+    if (data.incentiveType && data.incentiveDisplay) {
+        showIncentiveBanner(data.incentiveDisplay);
+        showNotification('incentive-set', data.message, 'Incentive Active', 5000);
+    } else {
+        hideIncentiveBanner();
+        if (data.message) {
+            showNotification('incentive-removed', data.message, 'Incentive Removed', 3000);
         }
     }
     
-    // Show notification only to moderators
-    if (isModerator) {
-        console.log(`🎯 Incentive changed: ${data.incentiveType || 'none'}`);
+    // Update incentive element for moderators (legacy support)
+    const incentiveElement = document.getElementById('activeIncentive');
+    if (incentiveElement && window.currentUserIsModerator) {
+        if (data.incentiveType) {
+            incentiveElement.textContent = data.incentiveDisplay || data.incentiveType;
+            incentiveElement.style.color = '#faa61a';
+        } else {
+            incentiveElement.textContent = 'No Active Incentive';
+            incentiveElement.style.color = '#72767d';
+        }
     }
 });
 
@@ -6525,33 +7746,8 @@ socket.on('playerLockedIn', function(data) {
         }
     }
     
-    // 3. COLUMN SELECTION DISPLAY (now visible to ALL players)
+    // 3. COLUMN SELECTION DISPLAY (popup removed per user request)
     if (data.column) {
-        // Find or create column display element
-        let columnDisplay = document.getElementById('selectedColumnDisplay');
-        if (!columnDisplay) {
-            columnDisplay = document.createElement('div');
-            columnDisplay.id = 'selectedColumnDisplay';
-            columnDisplay.style.cssText = `
-                position: fixed;
-                top: 20px;
-                right: 20px;
-                background: rgba(92, 63, 255, 0.9);
-                color: white;
-                padding: 12px 20px;
-                border-radius: 8px;
-                font-family: 'Inter', sans-serif;
-                font-size: 16px;
-                z-index: 1000;
-                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-                border: 2px solid rgba(72, 47, 247, 0.8);
-                font-weight: 600;
-            `;
-            document.body.appendChild(columnDisplay);
-        }
-        
-        columnDisplay.innerHTML = `📍 Selected Column: <span style="color: #faa61a; font-size: 18px;">${data.column}</span>`;
-        
         // Highlight the selected column in the grid
         highlightSelectedColumn(data.column);
     }
@@ -6581,23 +7777,24 @@ socket.on('gameStateRestore', function(data) {
     
     // Update global token pool display
     if (data.globalTokenPool) {
-        const globalTokenPoolElement = document.getElementById('globalTokenPool');
         const tokenPoolBar = document.getElementById('tokenPoolBar');
+        const totalTokens = data.globalTokenPool.initialWhiteTokens || TOKEN_CONFIG.CONDITIONS_TOKENS;
         
+        // Update token pool display with dynamic max value
+        updateTokenPoolDisplay(data.globalTokenPool.whiteTokens, totalTokens);
+        console.log(`🎯 Token pool restored: ${data.globalTokenPool.whiteTokens}/${totalTokens}`);
+        
+        // Update token pool bar if it exists
+        if (tokenPoolBar) {
+            const percentage = (data.globalTokenPool.whiteTokens / totalTokens) * 100;
+            tokenPoolBar.style.width = `${percentage}%`;
+            tokenPoolBar.style.background = 'linear-gradient(90deg, #faa61a 0%, #ffcc4d 50%, #f1c40f 100%)';
+            console.log(`🎯 Token pool bar restored: ${percentage}% (${data.globalTokenPool.whiteTokens}/${totalTokens})`);
+        }
+        
+        // Add brief highlight effect to show restoration
+        const globalTokenPoolElement = document.getElementById('globalTokenPool');
         if (globalTokenPoolElement) {
-            const oldValue = globalTokenPoolElement.textContent;
-            globalTokenPoolElement.textContent = data.globalTokenPool.whiteTokens;
-            console.log(`🎯 Token pool restored: ${oldValue} → ${data.globalTokenPool.whiteTokens}`);
-            
-            // Update token pool bar if it exists
-            if (tokenPoolBar) {
-                const percentage = (data.globalTokenPool.whiteTokens / 2500) * 100;
-                tokenPoolBar.style.width = `${percentage}%`;
-                tokenPoolBar.style.background = 'linear-gradient(90deg, #faa61a 0%, #ffcc4d 50%, #f1c40f 100%)';
-                console.log(`🎯 Token pool bar restored: ${percentage}%`);
-            }
-            
-            // Add brief highlight effect to show restoration
             globalTokenPoolElement.style.backgroundColor = 'rgba(250, 166, 26, 0.2)';
             globalTokenPoolElement.style.transition = 'background-color 0.5s ease';
             setTimeout(() => {
@@ -6727,15 +7924,24 @@ socket.on('allPlayersWalletRestore', function(data) {
 socket.on('unifiedGameStateRestore', function(data) {
     console.log(`🎮 UNIFIED: Comprehensive game state restoration received:`, data);
     
+    // Ensure gameDiv is visible for token pool updates
+    const gameDiv = document.getElementById('gameDiv');
+    if (gameDiv) {
+        console.log(`🎮 UNIFIED: gameDiv current display: ${gameDiv.style.display}`);
+        if (gameDiv.style.display === 'none' || gameDiv.style.display === '') {
+            gameDiv.style.display = 'inline-block';
+            console.log(`🎮 UNIFIED: Made gameDiv visible for token pool access`);
+        }
+    }
+    
     // 1. Game Session Restoration
     if (data.gameSession) {
         // Update token pool
         if (data.globalTokenPool) {
-            const globalTokenPoolElement = document.getElementById('globalTokenPool');
-            if (globalTokenPoolElement) {
-                globalTokenPoolElement.textContent = data.globalTokenPool.whiteTokens;
-                console.log(`🎯 UNIFIED: Token pool restored: ${data.globalTokenPool.whiteTokens}`);
-            }
+            const totalTokens = data.globalTokenPool.initialWhiteTokens || TOKEN_CONFIG.CONDITIONS_TOKENS;
+            console.log(`🎯 UNIFIED: About to update token pool: ${data.globalTokenPool.whiteTokens}/${totalTokens}`);
+            updateTokenPoolDisplay(data.globalTokenPool.whiteTokens, totalTokens);
+            console.log(`🎯 UNIFIED: Token pool restored: ${data.globalTokenPool.whiteTokens}/${totalTokens}`);
         }
         
         // Update culturant count
@@ -7832,5 +9038,413 @@ function handlePauseExperiment() {
         // Regular leave room behavior for moderator
         socket.emit('leaveRoom', "Global");
         window.location.href = '/';
+    }
+}
+
+// Experiment Fast-Forward Controls (Moderator Only)
+document.addEventListener('DOMContentLoaded', function() {
+    // Apply Fast-Forward Token Setting
+    const applyFastForwardBtn = document.getElementById('applyFastForward');
+    if (applyFastForwardBtn) {
+        applyFastForwardBtn.addEventListener('click', function() {
+            const tokenInput = document.getElementById('fastForwardTokens');
+            const tokenValue = parseInt(tokenInput.value);
+            
+            if (isNaN(tokenValue) || tokenValue < 0 || tokenValue > TOKEN_CONFIG.MAX_TOKENS) {
+                alert(`Please enter a valid token amount between 0 and ${TOKEN_CONFIG.MAX_TOKENS}`);
+                return;
+            }
+            
+            if (confirm(`Set token pool to ${tokenValue} tokens? This will affect experiment pacing.`)) {
+                socket.emit('setTokenPool', { tokens: tokenValue });
+                console.log(`⚡ Fast-forward: Setting token pool to ${tokenValue}`);
+                tokenInput.value = '';
+            }
+        });
+    }
+    
+    // Force Baseline to Conditions Transition
+    const forceTransitionBtn = document.getElementById('forceBaselineTransition');
+    if (forceTransitionBtn) {
+        forceTransitionBtn.addEventListener('click', function() {
+            if (confirm('Force transition from baseline to conditions phase?')) {
+                socket.emit('forcePhaseTransition');
+                console.log('⚡ Forcing baseline to conditions transition');
+            }
+        });
+    }
+    
+    // Set Low Tokens (50)
+    const setLowTokensBtn = document.getElementById('setLowTokens');
+    if (setLowTokensBtn) {
+        setLowTokensBtn.addEventListener('click', function() {
+            if (confirm('Set token pool to 50 tokens? This will likely trigger experiment end conditions soon.')) {
+                socket.emit('setTokenPool', { tokens: 50 });
+                console.log('⚡ Fast-forward: Setting token pool to 50 (low tokens)');
+            }
+        });
+    }
+    
+    // End Experiment
+    const endExperimentBtn = document.getElementById('endExperiment');
+    if (endExperimentBtn) {
+        endExperimentBtn.addEventListener('click', function() {
+            if (confirm('End the experiment immediately? This will stop the current session.')) {
+                socket.emit('forceEndExperiment');
+                console.log('⚡ Forcing experiment end');
+            }
+        });
+    }
+});
+
+// Update experiment status display
+socket.on('experimentStatusUpdate', function(data) {
+    const statusDisplay = document.getElementById('experimentStatus');
+    if (statusDisplay) {
+        statusDisplay.textContent = `Phase: ${data.phase || 'Unknown'} | Tokens: ${data.tokens || 'Unknown'} | Round: ${data.round || 'Unknown'}`;
+    }
+});
+
+// Initialize switchboard functionality
+function initializeSwitchboardFunctions() {
+    // Update switchboard clock
+    updateSwitchboardClock();
+    setInterval(updateSwitchboardClock, 1000);
+    
+    // Auto column toggle functionality
+    const autoToggle = document.getElementById('autoColumnToggleSwitch');
+    const manualGrid = document.getElementById('manualColumnGrid');
+    const indicator = document.getElementById('selectedColumnIndicator');
+    
+    if (autoToggle && manualGrid && indicator) {
+        autoToggle.addEventListener('change', function() {
+            if (this.checked) {
+                manualGrid.style.display = 'none';
+                indicator.textContent = 'AUTO MODE';
+                socket.emit('setColumnMode', { mode: 'auto' });
+            } else {
+                manualGrid.style.display = 'block';
+                indicator.textContent = 'MANUAL MODE';
+                socket.emit('setColumnMode', { mode: 'manual' });
+            }
+        });
+    }
+    
+    // Column button functionality
+    document.querySelectorAll('.column-btn').forEach(button => {
+        button.addEventListener('click', function() {
+            const column = this.getAttribute('data-column');
+            // Remove active class from all buttons
+            document.querySelectorAll('.column-btn').forEach(btn => btn.classList.remove('active'));
+            // Add active class to clicked button
+            this.classList.add('active');
+            // Update indicator
+            if (indicator) indicator.textContent = `SELECTED: ${column}`;
+            // Notify server
+            socket.emit('selectColumn', { column: column });
+        });
+    });
+    
+    // Experiment control buttons
+    const applyButton = document.getElementById('applyFastForwardSwitch');
+    const statusDisplay = document.getElementById('experimentStatusSwitch');
+    const phaseStatus = document.getElementById('phaseStatusSwitch');
+    
+    if (applyButton) {
+        applyButton.addEventListener('click', function() {
+            const tokensInput = document.getElementById('fastForwardTokensSwitch');
+            const tokens = parseInt(tokensInput.value);
+            if (tokens >= 0 && tokens <= TOKEN_CONFIG.MAX_TOKENS) {
+                socket.emit('setTokenPool', { tokens: tokens });
+                if (statusDisplay) statusDisplay.textContent = `Token pool set to ${tokens}`;
+            }
+        });
+    }
+    
+    // Quick token buttons
+    const setLowTokensBtn = document.getElementById('setLowTokensSwitch');
+    const setMidTokensBtn = document.getElementById('setMidTokensSwitch');
+    const setHighTokensBtn = document.getElementById('setHighTokensSwitch');
+    
+    if (setLowTokensBtn) {
+        setLowTokensBtn.addEventListener('click', function() {
+            socket.emit('setTokenPool', { tokens: 50 });
+            if (statusDisplay) statusDisplay.textContent = 'Token pool set to 50 (low)';
+        });
+    }
+    
+    if (setMidTokensBtn) {
+        setMidTokensBtn.addEventListener('click', function() {
+            socket.emit('setTokenPool', { tokens: 500 });
+            if (statusDisplay) statusDisplay.textContent = 'Token pool set to 500 (medium)';
+        });
+    }
+    
+    if (setHighTokensBtn) {
+        setHighTokensBtn.addEventListener('click', function() {
+            socket.emit('setTokenPool', { tokens: 1500 });
+            if (statusDisplay) statusDisplay.textContent = 'Token pool set to 1500 (high)';
+        });
+    }
+    
+    const forceTransitionBtn = document.getElementById('forceBaselineTransitionSwitch');
+    if (forceTransitionBtn) {
+        forceTransitionBtn.addEventListener('click', function() {
+            socket.emit('forcePhaseTransition');
+            if (phaseStatus) phaseStatus.textContent = 'Forcing baseline → conditions transition...';
+        });
+    }
+    
+    const endExperimentBtn = document.getElementById('endExperimentSwitch');
+    if (endExperimentBtn) {
+        endExperimentBtn.addEventListener('click', function() {
+            handleEndExperiment(); // Use the same function as the leave room menu
+        });
+    }
+    
+    // AI behavior control
+    const aiBehaviorSelect = document.getElementById('aiBehaviorModeSwitch');
+    const specificRowInput = document.getElementById('specificRowNumberSwitch');
+    
+    if (aiBehaviorSelect && specificRowInput) {
+        aiBehaviorSelect.addEventListener('change', function() {
+            const mode = this.value;
+            console.log(`🤖 AI behavior mode changed to: ${mode}`);
+            
+            if (this.value === 'specific_row') {
+                specificRowInput.style.display = 'block';
+            } else {
+                specificRowInput.style.display = 'none';
+            }
+            
+            // Send behavior change to server
+            const rowNumber = mode === 'specific_row' ? parseInt(specificRowInput.value) || 1 : null;
+            socket.emit('setAIBehavior', {
+                room: currentRoom,
+                mode: mode,
+                specificRow: rowNumber
+            });
+        });
+        
+        // Handle specific row input changes
+        specificRowInput.addEventListener('input', function() {
+            if (aiBehaviorSelect.value === 'specific_row') {
+                const rowNumber = parseInt(this.value) || 1;
+                console.log(`🤖 AI specific row changed to: ${rowNumber}`);
+                socket.emit('setAIBehavior', {
+                    room: currentRoom,
+                    mode: 'specific_row',
+                    specificRow: rowNumber
+                });
+            }
+        });
+    }
+    
+    // Preset message buttons
+    document.querySelectorAll('.preset-msg-btn').forEach(button => {
+        button.addEventListener('click', function() {
+            const message = this.getAttribute('data-msg');
+            const messageInput = document.getElementById('systemMessageTextSwitch');
+            if (messageInput) {
+                messageInput.value = message;
+            }
+        });
+    });
+    
+    // Info button functionality
+    initializeInfoTooltips();
+}
+
+// Initialize info tooltip system
+function initializeInfoTooltips() {
+    const tooltip = document.getElementById('infoTooltip');
+    const tooltipText = document.getElementById('tooltipText');
+    const closeBtn = document.querySelector('.tooltip-close');
+    
+    const infoContent = {
+        'game-controls': 'Control core game mechanics including column selection mode (auto/manual) and experiment phase transitions. Use these controls to manage the flow of the experiment.',
+        'column-selection': 'AUTO MODE: System randomly selects columns each round. MANUAL MODE: You choose which column is active for each round using the buttons below.',
+        'phase-control': 'Manage experiment phases. BASELINE→CONDITIONS forces transition from baseline phase to conditions phase. END EXPERIMENT terminates the current session.',
+        'experiment-controls': 'Manage token pools and experimental conditions. Lower token counts advance phases faster. Different conditions have different payment structures.',
+        'token-pool': 'Adjust the global token pool to control experiment pacing. Lower values (50-500) speed up transitions between phases. Higher values (1000+) slow down progression.',
+        'conditions': 'Payment structures: Baseline (standard), High Culturant (higher group bonus), High Operant (higher individual bonus), Equal C-O (balanced bonuses).',
+        'system-debug': 'Advanced system controls for testing and debugging. Use preset messages for common announcements.',
+        'ai-behavior': 'Control how AI players make decisions. Use for testing specific scenarios or forcing particular behavioral patterns.',
+        'system-messages': 'Send messages to all players. Use preset buttons for common messages or type custom announcements.',
+        'system-controls': 'PAUSE: Stops AI decision-making. RESUME: Restarts AI. RESET: Restarts the current round.',
+        'incentives': 'Set special bonus conditions for players. Performance, collaboration, consistency, and leadership bonuses available.'
+    };
+    
+    document.querySelectorAll('.info-btn').forEach(button => {
+        button.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            const infoKey = this.getAttribute('data-info');
+            const content = infoContent[infoKey] || 'Information not available.';
+            
+            if (tooltipText) tooltipText.textContent = content;
+            if (tooltip) {
+                // Position tooltip near the clicked button
+                const rect = this.getBoundingClientRect();
+                tooltip.style.position = 'fixed';
+                tooltip.style.left = (rect.left + rect.width + 10) + 'px';
+                tooltip.style.top = rect.top + 'px';
+                tooltip.style.transform = 'none';
+                tooltip.style.display = 'block';
+            }
+        });
+    });
+    
+    if (closeBtn) {
+        closeBtn.addEventListener('click', function() {
+            if (tooltip) tooltip.style.display = 'none';
+        });
+    }
+    
+    // Close tooltip when clicking anywhere outside of it
+    document.addEventListener('click', function(e) {
+        if (tooltip && tooltip.style.display === 'block') {
+            if (!tooltip.contains(e.target) && !e.target.classList.contains('info-btn')) {
+                tooltip.style.display = 'none';
+            }
+        }
+    });
+}
+
+// Update switchboard clock
+function updateSwitchboardClock() {
+    const clock = document.getElementById('switchboardClock');
+    if (clock) {
+        const now = new Date();
+        const timeString = now.toLocaleTimeString('en-US', { 
+            hour12: false,
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit'
+        });
+        clock.textContent = timeString;
+    }
+}
+
+// Create or get notification area anchored to poker table
+function getNotificationArea() {
+    let notificationArea = document.getElementById('pokerTableNotifications');
+    if (!notificationArea) {
+        const pokerTable = document.getElementById('pokerTable');
+        if (pokerTable) {
+            notificationArea = document.createElement('div');
+            notificationArea.id = 'pokerTableNotifications';
+            notificationArea.style.cssText = `
+                position: absolute;
+                top: 10px;
+                right: 10px;
+                width: 280px;
+                z-index: 1000;
+                pointer-events: none;
+            `;
+            pokerTable.appendChild(notificationArea);
+        }
+    }
+    return notificationArea;
+}
+
+// Show prominent incentive banner for players anchored to poker table
+function showIncentiveBanner(incentiveText) {
+    // Remove existing banner
+    hideIncentiveBanner();
+    
+    // Get or create notification area
+    const notificationArea = getNotificationArea();
+    if (!notificationArea) {
+        console.error('🎁 Cannot show incentive banner: poker table not found');
+        return;
+    }
+    
+    // Create incentive banner
+    const banner = document.createElement('div');
+    banner.id = 'incentiveBanner';
+    banner.className = 'incentive-banner';
+    
+    // Create content
+    const content = document.createElement('div');
+    content.className = 'incentive-content';
+    
+    const title = document.createElement('h3');
+    title.textContent = '🎁 BONUS OPPORTUNITY';
+    title.className = 'incentive-title';
+    
+    const description = document.createElement('p');
+    description.textContent = incentiveText;
+    description.className = 'incentive-description';
+    
+    content.appendChild(title);
+    content.appendChild(description);
+    banner.appendChild(content);
+    
+    // Style the banner to fit in notification area
+    banner.style.cssText = `
+        position: relative;
+        width: 100%;
+        background: linear-gradient(135deg, #ff6b6b, #ffd93d);
+        color: #333;
+        padding: 12px 16px;
+        border-radius: 8px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+        font-family: Arial, sans-serif;
+        text-align: center;
+        border: 2px solid #ff6b6b;
+        animation: slideInRight 0.5s ease-out;
+        margin-bottom: 10px;
+        pointer-events: auto;
+        cursor: pointer;
+    `;
+    
+    title.style.cssText = `
+        margin: 0 0 6px 0;
+        font-size: 14px;
+        font-weight: bold;
+        text-shadow: 1px 1px 2px rgba(0,0,0,0.1);
+    `;
+    
+    description.style.cssText = `
+        margin: 0;
+        font-size: 12px;
+        line-height: 1.3;
+        font-weight: 500;
+    `;
+    
+    // Add click to close functionality
+    banner.onclick = function() {
+        hideIncentiveBanner();
+    };
+    
+    // Add animation styles
+    const style = document.createElement('style');
+    style.textContent = `
+        @keyframes slideInRight {
+            0% { transform: translateX(100%); opacity: 0; }
+            100% { transform: translateX(0); opacity: 1; }
+        }
+        @keyframes slideOutRight {
+            0% { transform: translateX(0); opacity: 1; }
+            100% { transform: translateX(100%); opacity: 0; }
+        }
+    `;
+    if (!document.querySelector('#notificationAreaStyles')) {
+        style.id = 'notificationAreaStyles';
+        document.head.appendChild(style);
+    }
+    
+    notificationArea.appendChild(banner);
+    
+    console.log('🎁 Incentive banner displayed in poker table area:', incentiveText);
+}
+
+// Hide incentive banner
+function hideIncentiveBanner() {
+    const existingBanner = document.getElementById('incentiveBanner');
+    if (existingBanner) {
+        existingBanner.remove();
     }
 }

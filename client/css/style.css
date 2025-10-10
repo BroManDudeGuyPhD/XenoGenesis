@@ -19,7 +19,9 @@ body {
 	font-family: 'Roboto', sans-serif;
 	font-size: 16px;
 	background: #000000;
-	margin: 20px;
+	margin: 0; /* Remove margin to ensure header positions correctly */
+	padding: 0;
+	overflow-x: hidden;
 }
 
 ul {
@@ -1440,16 +1442,43 @@ a {
 }
 
 .header {
-	border-bottom: 1px solid #E2E8F0;
+	border-bottom: none; /* Remove white border on desktop */
 	position: relative;
-	z-index: 10; /* Above dither animation */
+	z-index: 1000; /* Very high z-index */
+	/* Modern glassmorphic header - updated design */
+	background: linear-gradient(135deg, 
+		rgba(15, 5, 35, 0.85) 0%, 
+		rgba(25, 10, 45, 0.9) 50%, 
+		rgba(35, 15, 55, 0.85) 100%) !important;
+	backdrop-filter: blur(20px) saturate(180%) !important;
+	-webkit-backdrop-filter: blur(20px) saturate(180%) !important;
+	min-height: 80px; /* Ensure minimum height */
+	width: 100%;
+	top: 0;
+	left: 0;
+	border-bottom: 2px solid rgba(230, 25, 179, 0.4) !important; /* Bright pink border for visibility */
+	box-shadow: 
+		0 4px 20px rgba(0, 0, 0, 0.3),
+		0 1px 0 rgba(255, 255, 255, 0.1) inset,
+		0 -1px 0 rgba(0, 0, 0, 0.2) inset,
+		0 0 30px rgba(230, 25, 179, 0.2) !important; /* Glow effect */
 }
 
 /* Mobile header transparency */
 @media (max-width: 768px) {
 	.header {
-		background: transparent;
-		border-bottom: none; /* Remove white border line on mobile */
+		/* Enhanced mobile glassmorphism */
+		background: linear-gradient(135deg, 
+			rgba(15, 5, 35, 0.9) 0%, 
+			rgba(25, 10, 45, 0.95) 50%, 
+			rgba(35, 15, 55, 0.9) 100%) !important;
+		backdrop-filter: blur(25px) saturate(200%);
+		-webkit-backdrop-filter: blur(25px) saturate(200%);
+		border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+		min-height: 80px;
+		box-shadow: 
+			0 6px 25px rgba(0, 0, 0, 0.4),
+			0 1px 0 rgba(255, 255, 255, 0.12) inset;
 	}
 }
 
@@ -1459,22 +1488,43 @@ a {
 	align-items: center;
 	padding: 1rem 1.5rem;
 	position: relative;
-	z-index: 10; /* Above dither animation */
-	background: transparent; /* Ensure transparent background */
+	z-index: 1001; /* Higher than header */
+	/* Enhanced glassmorphic navbar */
+	background: linear-gradient(135deg, 
+		rgba(20, 10, 40, 0.6) 0%, 
+		rgba(30, 15, 50, 0.7) 50%, 
+		rgba(25, 12, 45, 0.6) 100%);
+	backdrop-filter: blur(15px) saturate(150%);
+	-webkit-backdrop-filter: blur(15px) saturate(150%);
+	min-height: 60px; /* Ensure minimum height */
+	width: 100%;
+	box-sizing: border-box;
+	border-radius: 0;
+	/* Subtle inner glow */
+	box-shadow: 
+		0 2px 15px rgba(128, 0, 230, 0.15),
+		inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
 /* Mobile glassmorphic navbar overlay */
 @media (max-width: 768px) {
 	.navbar {
-		background: rgba(25, 0, 51, 0.25); /* Darker purple-tinted glassmorphism */
-		backdrop-filter: blur(20px) saturate(180%);
-		-webkit-backdrop-filter: blur(20px) saturate(180%);
-		border-radius: 25px; /* More pill-shaped */
+		/* Premium mobile glassmorphism */
+		background: linear-gradient(135deg, 
+			rgba(20, 10, 40, 0.8) 0%, 
+			rgba(30, 15, 50, 0.85) 50%, 
+			rgba(25, 12, 45, 0.8) 100%) !important;
+		backdrop-filter: blur(30px) saturate(180%);
+		-webkit-backdrop-filter: blur(30px) saturate(180%);
+		border-radius: 20px; /* Rounded for mobile */
 		margin: 8px 12px; /* Add margin for pill effect */
-		border: none; /* Remove white line */
+		border: 1px solid rgba(255, 255, 255, 0.12);
 		box-shadow: 
-			0 8px 32px rgba(0, 0, 0, 0.15),
-			inset 0 1px 0 rgba(255, 255, 255, 0.05);
+			0 8px 32px rgba(0, 0, 0, 0.2),
+			0 4px 16px rgba(128, 0, 230, 0.1),
+			inset 0 1px 0 rgba(255, 255, 255, 0.1),
+			inset 0 -1px 0 rgba(0, 0, 0, 0.1);
+		width: calc(100% - 24px); /* Account for margin */
 	}
 }
 
@@ -1484,11 +1534,22 @@ a {
 	display: flex;
 	justify-content: space-between;
 	align-items: center;
-	
+	z-index: 100; /* Ensure visibility */
+	position: relative;
 }
 
 .nav-item {
 	margin-left: 5rem;
+	z-index: 100;
+	position: relative;
+}
+
+/* Ensure login button is visible when logged out */
+#loginNav {
+	visibility: visible;
+	opacity: 1;
+	z-index: 200;
+	position: relative;
 }
 
 .nav-link {
@@ -1504,18 +1565,23 @@ a {
 .nav-logo {
 	font-size: 3.7rem;
 	font-weight: 600;
-	color: #8000E6; /* Deep purple to match dither effect */
+	color: #E619B3; /* Bright neon pink for glassmorphic theme */
 	font-family: 'Inter', 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Roboto', 'Helvetica Neue', Arial, sans-serif;
 	letter-spacing: -0.02em;
 	transition: all 0.3s ease;
 	cursor: pointer;
 	position: relative;
-	z-index: 10; /* Above dither animation */
-	/* CRT base glow - purple theme */
+	z-index: 100; /* Higher z-index to ensure visibility */
+	display: block;
+	/* Enhanced glassmorphic glow */
 	text-shadow: 
-		0 0 3px rgba(128, 0, 230, 0.4),
-		0 0 6px rgba(128, 0, 230, 0.2),
-		0 0 10px rgba(128, 0, 230, 0.1);
+		0 0 5px rgba(230, 25, 179, 0.6),
+		0 0 10px rgba(230, 25, 179, 0.4),
+		0 0 20px rgba(230, 25, 179, 0.3),
+		0 0 30px rgba(128, 0, 230, 0.2);
+	filter: 
+		drop-shadow(0 2px 8px rgba(230, 25, 179, 0.4))
+		drop-shadow(0 0 12px rgba(128, 0, 230, 0.3));
 }
 
 /* Enhanced glow for login screen - always on */
@@ -1695,13 +1761,18 @@ body:not(.login-page) .nav-logo:hover::before {
 		margin-left: 1rem; /* Reduced margin for mobile */
 	}
 
-	/* Mobile login button - enhanced and beautiful */
+	/* Mobile login button - enhanced glassmorphic design */
 	#loginNav {
-		background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%) !important;
+		/* Modern glassmorphic login button */
+		background: linear-gradient(135deg, 
+			rgba(34, 197, 94, 0.9) 0%, 
+			rgba(22, 163, 74, 0.95) 100%) !important;
+		backdrop-filter: blur(15px) saturate(150%) !important;
+		-webkit-backdrop-filter: blur(15px) saturate(150%) !important;
 		color: white !important;
-		border: none !important;
+		border: 1px solid rgba(255, 255, 255, 0.2) !important;
 		padding: 14px 24px !important;
-		border-radius: 12px !important;
+		border-radius: 16px !important;
 		cursor: pointer !important;
 		font-size: 16px !important;
 		font-weight: 700 !important;
@@ -1713,27 +1784,27 @@ body:not(.login-page) .nav-logo:hover::before {
 		-webkit-user-select: none !important;
 		user-select: none !important;
 		transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
-		box-shadow: 0 4px 12px rgba(34, 197, 94, 0.4) !important;
-		backdrop-filter: blur(8px) !important;
-		-webkit-backdrop-filter: blur(8px) !important;
-		border: 1px solid rgba(255, 255, 255, 0.2) !important;
 		letter-spacing: 0.5px !important;
-		text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1) !important;
-		border: 1px solid rgba(255, 255, 255, 0.12) !important;
+		text-shadow: 0 1px 3px rgba(0, 0, 0, 0.2) !important;
 		box-shadow: 
-			0 6px 24px rgba(72, 47, 247, 0.2),
-			0 3px 12px rgba(72, 47, 247, 0.15),
-			inset 0 1px 0 rgba(255, 255, 255, 0.15) !important;
+			0 6px 20px rgba(34, 197, 94, 0.3),
+			0 2px 8px rgba(34, 197, 94, 0.2),
+			inset 0 1px 0 rgba(255, 255, 255, 0.2),
+			inset 0 -1px 0 rgba(0, 0, 0, 0.1) !important;
 	}
 
 	#loginNav:hover {
-		transform: translateY(-2px) scale(1.02) !important;
+		transform: translateY(-3px) scale(1.05) !important;
+		background: linear-gradient(135deg, 
+			rgba(34, 197, 94, 0.95) 0%, 
+			rgba(22, 163, 74, 1) 100%) !important;
 		box-shadow: 
-			0 8px 32px rgba(72, 47, 247, 0.3),
-			0 4px 16px rgba(72, 47, 247, 0.2),
-			0 0 20px rgba(92, 63, 255, 0.15),
-			inset 0 1px 0 rgba(255, 255, 255, 0.2) !important;
-		border-color: rgba(255, 255, 255, 0.2) !important;
+			0 10px 35px rgba(34, 197, 94, 0.4),
+			0 6px 20px rgba(34, 197, 94, 0.3),
+			0 0 25px rgba(34, 197, 94, 0.2),
+			inset 0 1px 0 rgba(255, 255, 255, 0.25),
+			inset 0 -1px 0 rgba(0, 0, 0, 0.1) !important;
+		border-color: rgba(255, 255, 255, 0.3) !important;
 	}
 
 	.hamburger {
@@ -1929,16 +2000,16 @@ button:hover {
 /* Login Navigation Button - Ultra Modern Glass Morphism Style */
 #loginNav {
 	background: linear-gradient(135deg, 
-		rgba(72, 47, 247, 0.9) 0%, 
-		rgba(92, 63, 255, 0.85) 50%, 
-		rgba(109, 74, 255, 0.9) 100%) !important;
-	backdrop-filter: blur(15px) !important;
-	-webkit-backdrop-filter: blur(15px) !important;
+		rgba(34, 197, 94, 0.9) 0%, 
+		rgba(22, 163, 74, 0.85) 50%, 
+		rgba(16, 185, 129, 0.9) 100%) !important;
+	backdrop-filter: blur(15px) saturate(150%) !important;
+	-webkit-backdrop-filter: blur(15px) saturate(150%) !important;
 	color: white !important;
 	padding: 14px 28px !important;
 	margin: 0 !important;
-	border: 1px solid rgba(255, 255, 255, 0.15) !important;
-	border-radius: 12px !important;
+	border: 1px solid rgba(255, 255, 255, 0.2) !important;
+	border-radius: 16px !important;
 	cursor: pointer !important;
 	width: auto !important;
 	font-family: 'Inter', 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Roboto', 'Helvetica Neue', Arial, sans-serif !important;
@@ -1948,11 +2019,12 @@ button:hover {
 	transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94) !important;
 	position: relative !important;
 	overflow: hidden !important;
+	text-shadow: 0 1px 3px rgba(0, 0, 0, 0.2) !important;
 	/* Modern glass morphism shadow */
 	box-shadow: 
-		0 8px 32px rgba(72, 47, 247, 0.25),
-		0 4px 16px rgba(72, 47, 247, 0.15),
-		inset 0 1px 0 rgba(255, 255, 255, 0.2),
+		0 8px 32px rgba(34, 197, 94, 0.3),
+		0 4px 16px rgba(34, 197, 94, 0.2),
+		inset 0 1px 0 rgba(255, 255, 255, 0.25),
 		inset 0 -1px 0 rgba(0, 0, 0, 0.1) !important;
 }
 
@@ -1999,17 +2071,17 @@ button:hover {
 #loginNav:hover {
 	opacity: 1 !important;
 	background: linear-gradient(135deg, 
-		rgba(92, 63, 255, 0.95) 0%, 
-		rgba(109, 74, 255, 0.9) 50%, 
-		rgba(138, 96, 255, 0.95) 100%) !important;
-	transform: translateY(-3px) scale(1.03) !important;
+		rgba(34, 197, 94, 0.95) 0%, 
+		rgba(22, 163, 74, 0.9) 50%, 
+		rgba(16, 185, 129, 0.95) 100%) !important;
+	transform: translateY(-3px) scale(1.05) !important;
 	box-shadow: 
-		0 12px 40px rgba(72, 47, 247, 0.35),
-		0 6px 20px rgba(72, 47, 247, 0.25),
-		0 0 30px rgba(92, 63, 255, 0.2),
+		0 12px 40px rgba(34, 197, 94, 0.4),
+		0 6px 20px rgba(34, 197, 94, 0.3),
+		0 0 30px rgba(34, 197, 94, 0.25),
 		inset 0 1px 0 rgba(255, 255, 255, 0.3),
 		inset 0 -1px 0 rgba(0, 0, 0, 0.15) !important;
-	border-color: rgba(255, 255, 255, 0.25) !important;
+	border-color: rgba(255, 255, 255, 0.3) !important;
 }
 
 #loginNav:hover::before {
@@ -2982,4 +3054,336 @@ span.psw a:hover {
 @keyframes fadeIn {
 	0% { opacity: 0; }
 	100% { opacity: 1; }
+}
+
+/* Experimental Info Panel Styles */
+.experimental-info-panel {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: rgba(0, 0, 0, 0.85);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    padding: 12px 16px;
+    color: #e6e9ff;
+    font-family: 'Inter', 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Roboto', sans-serif;
+    font-size: 14px;
+    min-width: 200px;
+    z-index: 1000;
+    transition: all 0.3s ease;
+}
+
+.experimental-info-panel:hover {
+    background: rgba(0, 0, 0, 0.9);
+    border-color: rgba(255, 255, 255, 0.2);
+}
+
+.exp-info-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.exp-info-row:last-child {
+    margin-bottom: 0;
+}
+
+.exp-label {
+    font-weight: 600;
+    color: #b9bbbe;
+    margin-right: 12px;
+}
+
+.exp-value {
+    font-weight: 500;
+    color: #ffffff;
+    text-align: right;
+}
+
+/* Condition-specific colors */
+.condition-baseline { color: #5cb85c; }
+.condition-high-culturant { color: #667aff; }
+.condition-high-operant { color: #ff6b6b; }
+.condition-equal-culturant-operant { color: #ffd93d; }
+
+/* Incentive-specific colors */
+.incentive-no-incentive { color: #b9bbbe; }
+.incentive-culturant-incentive { color: #667aff; }
+.incentive-operant-incentive { color: #ff6b6b; }
+
+/* Info button styles */
+.info-btn {
+    background: #4070f4;
+    color: white;
+    border: none;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%; /* Make it perfectly circular */
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: bold;
+    margin-left: 8px;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    vertical-align: middle;
+}
+
+.info-btn:hover {
+    background: #5a7ff8;
+    transform: scale(1.1);
+}
+
+.info-btn.mini {
+    width: 20px;
+    height: 20px;
+    font-size: 12px;
+    margin-left: 6px;
+}
+
+/* Increase text size in mod control panel */
+.control-group {
+    font-size: 16px; /* Increased from default */
+}
+
+.control-label {
+    font-size: 16px; /* Increased from default */
+    font-weight: 600;
+}
+
+.toggle-label {
+    font-size: 14px; /* Increased from default */
+}
+
+.dropdown-container select,
+.input-container input,
+.textarea-container textarea {
+    font-size: 15px; /* Increased from default */
+}
+
+.section-header {
+    font-size: 18px; /* Increased from default */
+}
+
+.section-content {
+    font-size: 15px; /* Increased from default */
+}
+
+/* LED Condition Tracker Styles */
+.led-array-container {
+    background: rgba(43, 45, 59, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    padding: 12px;
+    margin-top: 8px;
+}
+
+.led-array-header {
+    margin-bottom: 12px;
+}
+
+.led-legend {
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    font-size: 12px;
+    color: #b9bbbe;
+}
+
+.led-legend-item {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.led-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.led-condition-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.led-group-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: #7289da;
+    text-align: center;
+    margin-bottom: 4px;
+}
+
+.led-row {
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    gap: 4px;
+}
+
+.led-item {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 4px;
+    transition: background-color 0.3s ease;
+    position: relative;
+}
+
+.led-item:hover {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.led-indicator {
+    width: 16px;
+    height: 16px;
+    border-radius: 2px; /* Square with slight rounding */
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    position: relative;
+    transition: all 0.3s ease;
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.led-indicator.off {
+    background: rgba(72, 76, 81, 0.8);
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+.led-indicator.green {
+    background: radial-gradient(circle, #00ff41 20%, #00cc33 80%);
+    border-color: #00ff41;
+    box-shadow: 
+        0 0 12px rgba(0, 255, 65, 0.8),
+        0 0 6px rgba(0, 255, 65, 0.6),
+        inset 0 1px 2px rgba(255, 255, 255, 0.4);
+    animation: pulse-green 2s infinite ease-in-out;
+}
+
+.led-indicator.green::before {
+    content: '';
+    position: absolute;
+    top: -4px;
+    left: -4px;
+    right: -4px;
+    bottom: -4px;
+    background: radial-gradient(circle, rgba(0, 255, 65, 0.3) 0%, transparent 70%);
+    border-radius: 4px;
+    z-index: -1;
+}
+
+.led-indicator.red {
+    background: radial-gradient(circle, #ff4444 20%, #cc1111 80%);
+    border-color: #ff4444;
+    box-shadow: 
+        0 0 12px rgba(255, 68, 68, 0.8),
+        0 0 6px rgba(255, 68, 68, 0.6),
+        inset 0 1px 2px rgba(255, 255, 255, 0.4);
+    animation: pulse-red 1.5s infinite ease-in-out;
+}
+
+.led-indicator.red::before {
+    content: '';
+    position: absolute;
+    top: -4px;
+    left: -4px;
+    right: -4px;
+    bottom: -4px;
+    background: radial-gradient(circle, rgba(255, 68, 68, 0.3) 0%, transparent 70%);
+    border-radius: 4px;
+    z-index: -1;
+}
+
+.led-label {
+    display: none; /* Hidden - no numbers shown */
+}
+
+/* Player Counter Styles */
+.player-counter-row {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 6px;
+    padding-top: 4px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.player-counter {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    font-size: 10px;
+    font-weight: 600;
+    color: #b9bbbe;
+    background: rgba(54, 57, 63, 0.6);
+    padding: 2px 6px;
+    border-radius: 3px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    min-width: 24px;
+    justify-content: center;
+    transition: all 0.3s ease;
+}
+
+.player-counter.active {
+    background: rgba(114, 137, 218, 0.3);
+    border-color: rgba(114, 137, 218, 0.5);
+    color: #7289da;
+}
+
+.player-counter .count {
+    color: #faa61a;
+    font-weight: 700;
+}
+
+/* LED Animation Effects */
+@keyframes pulse-green {
+    0%, 100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+    50% {
+        opacity: 0.7;
+        transform: scale(1.1);
+    }
+}
+
+@keyframes pulse-red {
+    0%, 100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+    50% {
+        opacity: 0.7;
+        transform: scale(1.1);
+    }
+}
+
+/* Responsive adjustments for LED array */
+@media (max-width: 768px) {
+    .led-legend {
+        font-size: 10px;
+        gap: 4px;
+    }
+    
+    .led-indicator {
+        width: 10px;
+        height: 10px;
+    }
+    
+    .led-label {
+        font-size: 8px;
+    }
+    
+    .led-row {
+        gap: 2px;
+    }
 }

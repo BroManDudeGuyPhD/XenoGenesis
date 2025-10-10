@@ -27,9 +27,8 @@
     
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.12.1/css/all.min.css"
         integrity="sha256-mmgLkCYLUQbXn0B1SRqzHar6dCnv9oZFPEC1g1cwlkk=" crossorigin="anonymous" />
-    <link rel="stylesheet" href="../../css/style.css" />
+    <link rel="stylesheet" href="/client/css/style.css?v=2025100701">
     <title>X</title>
-    <link rel="stylesheet" href="/client/css/style.css">
     <link rel="icon" type="image/x-icon" href="../client/img/favicon.png">
 </head>
 
@@ -52,24 +51,7 @@
                     <a href="#" class="nav-link">About</a>
                 </li> -->
                 <li class="nav-item">
-                    <button id="loginNav" style="
-                        background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
-                        color: white;
-                        border: none;
-                        padding: 12px 20px;
-                        border-radius: 8px;
-                        cursor: pointer;
-                        font-size: 16px;
-                        font-weight: 600;
-                        min-height: 44px;
-                        min-width: 80px;
-                        touch-action: manipulation;
-                        -webkit-tap-highlight-color: transparent;
-                        -webkit-touch-callout: none;
-                        -webkit-user-select: none;
-                        user-select: none;
-                        transition: all 0.2s ease;
-                    "><span>Login</span></button>
+                    <button id="loginNav"><span>Login</span></button>
                 </li>
                 <li class="nav-item profile-menu-container" style="display: none; position: relative;">
                     <button id="profileMenuBtn" style="
@@ -893,7 +875,7 @@
 
     <div id="landingPage">
         <!-- Dither effect container - positioned below header -->
-        <div id="dither-background" style="position: fixed; top: 80px; left: 0; width: 100%; height: calc(100% - 80px); z-index: -2; pointer-events: auto;"></div>
+        <div id="dither-background" style="position: fixed; top: 100px; left: 0; width: 100%; height: calc(100% - 100px); z-index: -100; pointer-events: none;"></div>
     </div>
 
     <!-- Game Interface Container (initially hidden) -->
@@ -928,8 +910,8 @@
                 <!-- White Token Pool Visual -->
                 <div style="text-align: center; margin-bottom: 10px;">
                     <span style="color: #ffffff; margin-right: 10px;">Global White Token Pool:</span>
-                    <span id="globalTokenPool" style="color: #faa61a; font-size: 18px; font-weight: bold;">2500</span>
-                    <span style="color: #b9bbbe; margin-left: 5px;">/2500</span>
+                    <span id="globalTokenPool" style="color: #faa61a; font-size: 18px; font-weight: bold;">--</span>
+                    <span id="tokenPoolMax" style="color: #b9bbbe; margin-left: 5px;">/--</span>
                 </div>
                 
                 <!-- Token Pool Progress Bar -->
@@ -940,9 +922,9 @@
                     </div>
                 </div>
                 
-                <!-- Culturant Counter -->
+                <!-- Cooperation Counter -->
                 <div style="text-align: center; margin-top: 10px;">
-                    <span style="color: #b9bbbe; margin-right: 10px;">Culturants Produced:</span>
+                    <span style="color: #b9bbbe; margin-right: 10px;">Cooperation Events:</span>
                     <span id="culturantCount" style="color: #7289da; font-size: 16px; font-weight: bold;">0</span>
                 </div>
             </div>
@@ -993,6 +975,16 @@
                     <h2 style="color: #ffffff; margin-bottom: 20px;">Waiting for Triad Formation</h2>
                     <p style="color: #b9bbbe; font-size: 18px; margin-bottom: 30px;">Moderator ready - need 3 more players to begin the experiment</p>
                     <div id="playerList" style="color: #7289da; font-size: 16px;"></div>
+                    
+                    <!-- Experiment Mode Selection -->
+                    <div id="experimentModeSelector" style="display: none; margin: 20px 0;">
+                        <label for="experimentMode" style="color: #ffffff; font-size: 16px; margin-right: 10px;">Experiment Mode:</label>
+                        <select id="experimentMode" style="padding: 8px 12px; font-size: 16px; border-radius: 5px; border: 1px solid #7289da; background-color: #2f3136; color: #ffffff;">
+                            <option value="baseline">Baseline (100 tokens, max 500 rounds)</option>
+                            <option value="conditions">Conditions (2500 tokens, 441 rounds)</option>
+                        </select>
+                    </div>
+                    
                     <button id="startExperimentBtn" style="display: none; background-color: #43b581; color: white; padding: 15px 30px; font-size: 18px; border: none; border-radius: 5px; cursor: pointer; margin-top: 20px;">
                         Start Experiment
                     </button>
@@ -1158,114 +1150,954 @@
                             }
                         </style>
                         
-                        <!-- Moderator Column Selection (only visible to moderator) -->
-                        <div id="moderatorColumnControl" style="display: none; margin-top: 20px; padding: 15px; background-color: #40444b; border-radius: 8px; border: 2px solid #7289da; width: 480px; box-sizing: border-box;">
-                            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px;">
-                                <h4 style="color: #7289da; margin: 0; font-size: 16px;">🎛️ Moderator Column Control</h4>
-                                <label style="color: #b9bbbe; font-size: 14px; display: flex; align-items: center; cursor: pointer;">
-                                    <input type="checkbox" id="autoColumnToggle" checked style="margin-right: 8px; transform: scale(1.2);">
-                                    Auto-select random column
-                                </label>
-                            </div>
-                            
-                            <!-- Pending mode change notification -->
-                            <div id="pendingModeInfo" style="display: none; background-color: #2f3136; padding: 8px 12px; border-radius: 4px; font-size: 12px; text-align: center; margin-bottom: 10px; border-left: 3px solid #ffa500;"></div>
-                            
-                            <div id="manualColumnSelection" style="display: none;">
-                                <div style="color: #ffffff; margin-bottom: 10px; font-size: 14px; text-align: center;">Select Column for This Round:</div>
-                                <div style="display: flex; gap: 8px; justify-content: center;">
-                                    <button class="column-select-btn clickable-column" data-column="A" style="width: 45px; height: 45px; background-color: #7289da; color: white; border: 2px solid #5b6eae; border-radius: 6px; font-weight: bold; cursor: pointer; transition: all 0.3s ease;">A</button>
-                                    <button class="column-select-btn clickable-column" data-column="B" style="width: 45px; height: 45px; background-color: #7289da; color: white; border: 2px solid #5b6eae; border-radius: 6px; font-weight: bold; cursor: pointer; transition: all 0.3s ease;">B</button>
-                                    <button class="column-select-btn clickable-column" data-column="C" style="width: 45px; height: 45px; background-color: #7289da; color: white; border: 2px solid #5b6eae; border-radius: 6px; font-weight: bold; cursor: pointer; transition: all 0.3s ease;">C</button>
-                                    <button class="column-select-btn clickable-column" data-column="D" style="width: 45px; height: 45px; background-color: #7289da; color: white; border: 2px solid #5b6eae; border-radius: 6px; font-weight: bold; cursor: pointer; transition: all 0.3s ease;">D</button>
-                                    <button class="column-select-btn clickable-column" data-column="E" style="width: 45px; height: 45px; background-color: #7289da; color: white; border: 2px solid #5b6eae; border-radius: 6px; font-weight: bold; cursor: pointer; transition: all 0.3s ease;">E</button>
-                                    <button class="column-select-btn clickable-column" data-column="F" style="width: 45px; height: 45px; background-color: #7289da; color: white; border: 2px solid #5b6eae; border-radius: 6px; font-weight: bold; cursor: pointer; transition: all 0.3s ease;">F</button>
-                                    <button class="column-select-btn clickable-column" data-column="G" style="width: 45px; height: 45px; background-color: #7289da; color: white; border: 2px solid #5b6eae; border-radius: 6px; font-weight: bold; cursor: pointer; transition: all 0.3s ease;">G</button>
-                                    <button class="column-select-btn clickable-column" data-column="H" style="width: 45px; height: 45px; background-color: #7289da; color: white; border: 2px solid #5b6eae; border-radius: 6px; font-weight: bold; cursor: pointer; transition: all 0.3s ease;">H</button>
+                        <!-- Unified Moderator Switchboard Control (only visible to moderator) -->
+                        <div id="moderatorSwitchboard" style="display: none; margin: 20px auto 0 auto; padding: 0; width: 1200px; box-sizing: border-box;">
+                            <!-- Switchboard Header -->
+                            <div class="switchboard-header">
+                                <div class="header-lights">
+                                    <div class="status-light power-light"></div>
+                                    <div class="status-light experiment-light"></div>
+                                    <div class="status-light testing-light"></div>
                                 </div>
-                                <div id="selectedColumnDisplay" style="margin-top: 10px; color: #43b581; font-weight: bold; text-align: center; font-size: 14px;"></div>
+                                <h3 class="switchboard-title">MODERATOR CONTROL PANEL</h3>
+                                <div class="header-display">
+                                    <span id="switchboardClock"></span>
+                                </div>
                             </div>
                             
-                            <div id="autoColumnDisplay" style="color: #b9bbbe; text-align: center; font-size: 14px; margin-top: 10px;">
-                                System will automatically select a random column each round
+                            <!-- Main Control Grid -->
+                            <div class="switchboard-grid">
+                                <!-- Left Column: Game Controls -->
+                                <div class="control-column left-column">
+                                    <div class="section-header">
+                                        <span class="section-icon">🎮</span>
+                                        <span class="section-title">GAME CONTROLS</span>
+                                    </div>
+                                    
+                                    <!-- Column Selection -->
+                                    <div class="control-group">
+                                        <div class="control-label">
+                                            Column Selection 
+                                            <button class="info-btn mini" data-info="column-selection" title="How column selection works">i</button>
+                                        </div>
+                                        <div class="toggle-switch-container">
+                                            <label class="toggle-switch">
+                                                <input type="checkbox" id="autoColumnToggleSwitch" checked>
+                                                <span class="slider round"></span>
+                                                <span class="toggle-label">AUTO MODE</span>
+                                            </label>
+                                        </div>
+                                        <div id="manualColumnGrid" class="manual-controls" style="display: none;">
+                                            <div class="column-buttons">
+                                                <button class="switchboard-btn column-btn" data-column="A">A</button>
+                                                <button class="switchboard-btn column-btn" data-column="B">B</button>
+                                                <button class="switchboard-btn column-btn" data-column="C">C</button>
+                                                <button class="switchboard-btn column-btn" data-column="D">D</button>
+                                                <button class="switchboard-btn column-btn" data-column="E">E</button>
+                                                <button class="switchboard-btn column-btn" data-column="F">F</button>
+                                                <button class="switchboard-btn column-btn" data-column="G">G</button>
+                                                <button class="switchboard-btn column-btn" data-column="H">H</button>
+                                            </div>
+                                            <div id="selectedColumnIndicator" class="status-indicator">AUTO MODE</div>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- System Controls -->
+                                    <div class="control-group">
+                                        <div class="control-label">
+                                            System Control 
+                                            <button class="info-btn mini" data-info="system-controls" title="Pause, resume, reset and end experiment">i</button>
+                                        </div>
+                                        <div class="system-control-buttons">
+                                            <button id="pauseExperimentBtnSwitch" onclick="pauseExperiment()" class="switchboard-btn pause-btn">⏸️ PAUSE</button>
+                                            <button id="resumeExperimentBtnSwitch" onclick="resumeExperiment()" class="switchboard-btn resume-btn" style="display: none;">▶️ RESUME</button>
+                                            <button onclick="resetExperiment()" class="switchboard-btn reset-btn">🔄 RESET</button>
+                                            <button id="endExperimentSwitch" class="switchboard-btn critical-btn">END EXPERIMENT</button>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Token Pool Control -->
+                                    <div class="control-group">
+                                        <div class="control-label">
+                                            Token Pool Management 
+                                            <button class="info-btn mini" data-info="token-pool" title="Adjust token pool to control experiment pacing">i</button>
+                                        </div>
+                                        <div class="input-control-row">
+                                            <input type="number" id="fastForwardTokensSwitch" placeholder="Enter tokens (0-2500)" min="0" max="2500" class="switchboard-input token-input">
+                                            <button id="applyFastForwardSwitch" class="switchboard-btn action-btn">SET TOKENS</button>
+                                        </div>
+                                        <div class="quick-token-buttons">
+                                            <button id="setLowTokensSwitch" class="switchboard-btn danger-btn">50 TOKENS</button>
+                                            <button id="setMidTokensSwitch" class="switchboard-btn warning-btn">500 TOKENS</button>
+                                            <button id="setHighTokensSwitch" class="switchboard-btn safe-btn">1500 TOKENS</button>
+                                        </div>
+                                        <div id="experimentStatusSwitch" class="status-display">
+                                            Token pool status will appear here
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Center Column: Experiment Controls -->
+                                <div class="control-column center-column">
+                                    <div class="section-header">
+                                        <span class="section-icon">⚗️</span>
+                                        <span class="section-title">EXPERIMENT CONTROLS</span>
+                                    </div>
+                                    
+                                    <!-- Current Experiment Status - Fixed Phase Info Panel -->
+                                    <div class="control-group">
+                                        <div class="control-label">
+                                            Current Experiment Status 
+                                            <button class="info-btn mini" data-info="experiment-status" title="Current phase, condition, and round information">i</button>
+                                        </div>
+                                        <div id="experimentStatusDisplay" class="status-display-panel">
+                                            <div class="status-row">
+                                                <span class="status-label">Phase:</span>
+                                                <span id="currentPhaseDisplay" class="status-value">Baseline</span>
+                                            </div>
+                                            <div class="status-row">
+                                                <span class="status-label">Condition:</span>
+                                                <span id="currentConditionDisplay" class="status-value">Baseline</span>
+                                            </div>
+                                            <div class="status-row">
+                                                <span class="status-label">Round:</span>
+                                                <span id="currentRoundDisplay" class="status-value">0/21</span>
+                                            </div>
+                                            <div class="status-row">
+                                                <span class="status-label">Incentive Player:</span>
+                                                <span id="currentIncentivePlayerDisplay" class="status-value">None</span>
+                                            </div>
+                                            <div class="status-row">
+                                                <span class="status-label">Block:</span>
+                                                <span id="currentBlockDisplay" class="status-value">N/A</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Condition Tracker LED Array -->
+                                    <div class="control-group">
+                                        <div class="control-label">
+                                            Condition Tracker 
+                                            <button class="info-btn mini" data-info="condition-tracker" title="Quality control tracker - each condition should occur exactly once per round position within each block. Red LEDs indicate scheduling errors.">i</button>
+                                        </div>
+                                        <div id="conditionLEDArray" class="led-array-container">
+                                            <div class="led-array-header">
+                                                <div class="led-legend">
+                                                    <span class="led-legend-item">
+                                                        <span class="led-indicator green"></span> Normal occurrence
+                                                    </span>
+                                                    <span class="led-legend-item">
+                                                        <span class="led-indicator red"></span> ERROR - Duplicate!
+                                                    </span>
+                                                    <span class="led-legend-item">
+                                                        <span class="led-indicator off"></span> Not yet occurred
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            <div class="led-grid">
+                                                <!-- High Culturant Condition (7 LEDs) -->
+                                                <div class="led-condition-group">
+                                                    <div class="led-group-label">High Culturant</div>
+                                                    <div class="led-row">
+                                                        <span class="led-item" data-condition="HIGH_CULTURANT" data-round="1" title="High Culturant - Round 1">
+                                                            <span class="led-indicator off"></span>
+                                                            <span class="led-label">1</span>
+                                                        </span>
+                                                        <span class="led-item" data-condition="HIGH_CULTURANT" data-round="2" title="High Culturant - Round 2">
+                                                            <span class="led-indicator off"></span>
+                                                            <span class="led-label">2</span>
+                                                        </span>
+                                                        <span class="led-item" data-condition="HIGH_CULTURANT" data-round="3" title="High Culturant - Round 3">
+                                                            <span class="led-indicator off"></span>
+                                                            <span class="led-label">3</span>
+                                                        </span>
+                                                        <span class="led-item" data-condition="HIGH_CULTURANT" data-round="4" title="High Culturant - Round 4">
+                                                            <span class="led-indicator off"></span>
+                                                            <span class="led-label">4</span>
+                                                        </span>
+                                                        <span class="led-item" data-condition="HIGH_CULTURANT" data-round="5" title="High Culturant - Round 5">
+                                                            <span class="led-indicator off"></span>
+                                                            <span class="led-label">5</span>
+                                                        </span>
+                                                        <span class="led-item" data-condition="HIGH_CULTURANT" data-round="6" title="High Culturant - Round 6">
+                                                            <span class="led-indicator off"></span>
+                                                            <span class="led-label">6</span>
+                                                        </span>
+                                                        <span class="led-item" data-condition="HIGH_CULTURANT" data-round="7" title="High Culturant - Round 7">
+                                                            <span class="led-indicator off"></span>
+                                                            <span class="led-label">7</span>
+                                                        </span>
+                                                    </div>
+                                                    <div class="player-counter-row">
+                                                        <span class="player-counter" data-player="None" data-condition="HIGH_CULTURANT" title="Rounds with no player incentive">None:<span class="count">0</span></span>
+                                                        <span class="player-counter dynamic-player" data-condition="HIGH_CULTURANT" title="Player A assignments will appear here" style="display: none;"></span>
+                                                        <span class="player-counter dynamic-player" data-condition="HIGH_CULTURANT" title="Player B assignments will appear here" style="display: none;"></span>
+                                                        <span class="player-counter dynamic-player" data-condition="HIGH_CULTURANT" title="Player C assignments will appear here" style="display: none;"></span>
+                                                    </div>
+                                                </div>
+                                                
+                                                <!-- High Operant Condition (7 LEDs) -->
+                                                <div class="led-condition-group">
+                                                    <div class="led-group-label">High Operant</div>
+                                                    <div class="led-row">
+                                                        <span class="led-item" data-condition="HIGH_OPERANT" data-round="1" title="High Operant - Round 1">
+                                                            <span class="led-indicator off"></span>
+                                                            <span class="led-label">1</span>
+                                                        </span>
+                                                        <span class="led-item" data-condition="HIGH_OPERANT" data-round="2" title="High Operant - Round 2">
+                                                            <span class="led-indicator off"></span>
+                                                            <span class="led-label">2</span>
+                                                        </span>
+                                                        <span class="led-item" data-condition="HIGH_OPERANT" data-round="3" title="High Operant - Round 3">
+                                                            <span class="led-indicator off"></span>
+                                                            <span class="led-label">3</span>
+                                                        </span>
+                                                        <span class="led-item" data-condition="HIGH_OPERANT" data-round="4" title="High Operant - Round 4">
+                                                            <span class="led-indicator off"></span>
+                                                            <span class="led-label">4</span>
+                                                        </span>
+                                                        <span class="led-item" data-condition="HIGH_OPERANT" data-round="5" title="High Operant - Round 5">
+                                                            <span class="led-indicator off"></span>
+                                                            <span class="led-label">5</span>
+                                                        </span>
+                                                        <span class="led-item" data-condition="HIGH_OPERANT" data-round="6" title="High Operant - Round 6">
+                                                            <span class="led-indicator off"></span>
+                                                            <span class="led-label">6</span>
+                                                        </span>
+                                                        <span class="led-item" data-condition="HIGH_OPERANT" data-round="7" title="High Operant - Round 7">
+                                                            <span class="led-indicator off"></span>
+                                                            <span class="led-label">7</span>
+                                                        </span>
+                                                    </div>
+                                                    <div class="player-counter-row">
+                                                        <span class="player-counter" data-player="None" data-condition="HIGH_OPERANT" title="Rounds with no player incentive">None:<span class="count">0</span></span>
+                                                        <span class="player-counter dynamic-player" data-condition="HIGH_OPERANT" title="Player A assignments will appear here" style="display: none;"></span>
+                                                        <span class="player-counter dynamic-player" data-condition="HIGH_OPERANT" title="Player B assignments will appear here" style="display: none;"></span>
+                                                        <span class="player-counter dynamic-player" data-condition="HIGH_OPERANT" title="Player C assignments will appear here" style="display: none;"></span>
+                                                    </div>
+                                                </div>
+                                                
+                                                <!-- Equal Culturant-Operant Condition (7 LEDs) -->
+                                                <div class="led-condition-group">
+                                                    <div class="led-group-label">Equal C-O</div>
+                                                    <div class="led-row">
+                                                        <span class="led-item" data-condition="EQUAL_CULTURANT_OPERANT" data-round="1" title="Equal Culturant-Operant - Round 1">
+                                                            <span class="led-indicator off"></span>
+                                                            <span class="led-label">1</span>
+                                                        </span>
+                                                        <span class="led-item" data-condition="EQUAL_CULTURANT_OPERANT" data-round="2" title="Equal Culturant-Operant - Round 2">
+                                                            <span class="led-indicator off"></span>
+                                                            <span class="led-label">2</span>
+                                                        </span>
+                                                        <span class="led-item" data-condition="EQUAL_CULTURANT_OPERANT" data-round="3" title="Equal Culturant-Operant - Round 3">
+                                                            <span class="led-indicator off"></span>
+                                                            <span class="led-label">3</span>
+                                                        </span>
+                                                        <span class="led-item" data-condition="EQUAL_CULTURANT_OPERANT" data-round="4" title="Equal Culturant-Operant - Round 4">
+                                                            <span class="led-indicator off"></span>
+                                                            <span class="led-label">4</span>
+                                                        </span>
+                                                        <span class="led-item" data-condition="EQUAL_CULTURANT_OPERANT" data-round="5" title="Equal Culturant-Operant - Round 5">
+                                                            <span class="led-indicator off"></span>
+                                                            <span class="led-label">5</span>
+                                                        </span>
+                                                        <span class="led-item" data-condition="EQUAL_CULTURANT_OPERANT" data-round="6" title="Equal Culturant-Operant - Round 6">
+                                                            <span class="led-indicator off"></span>
+                                                            <span class="led-label">6</span>
+                                                        </span>
+                                                        <span class="led-item" data-condition="EQUAL_CULTURANT_OPERANT" data-round="7" title="Equal Culturant-Operant - Round 7">
+                                                            <span class="led-indicator off"></span>
+                                                            <span class="led-label">7</span>
+                                                        </span>
+                                                    </div>
+                                                    <div class="player-counter-row">
+                                                        <span class="player-counter" data-player="None" data-condition="EQUAL_CULTURANT_OPERANT" title="Rounds with no player incentive">None:<span class="count">0</span></span>
+                                                        <span class="player-counter dynamic-player" data-condition="EQUAL_CULTURANT_OPERANT" title="Player A assignments will appear here" style="display: none;"></span>
+                                                        <span class="player-counter dynamic-player" data-condition="EQUAL_CULTURANT_OPERANT" title="Player B assignments will appear here" style="display: none;"></span>
+                                                        <span class="player-counter dynamic-player" data-condition="EQUAL_CULTURANT_OPERANT" title="Player C assignments will appear here" style="display: none;"></span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Experimental Condition -->
+                                    <div class="control-group">
+                                        <div class="control-label">
+                                            Experimental Condition 
+                                            <button class="info-btn mini" data-info="conditions" title="Payment structure conditions">i</button>
+                                        </div>
+                                        <select id="experimentalConditionSwitch" class="switchboard-select">
+                                            <option value="BASELINE">Baseline ($0.01/$0.05)</option>
+                                            <option value="HIGH_CULTURANT">High Culturant ($0.02/$0.07)</option>
+                                            <option value="HIGH_OPERANT">High Operant ($0.03/$0.04)</option>
+                                            <option value="EQUAL_CULTURANT_OPERANT">Equal C-O ($0.01/$0.02)</option>
+                                        </select>
+                                        <button onclick="setCondition()" class="switchboard-btn apply-btn">APPLY CONDITION</button>
+                                        <div id="conditionStatusSwitch" class="status-indicator">Current: Baseline</div>
+                                    </div>
+                                    
+                                    <!-- Player Incentives -->
+                                    <div class="control-group">
+                                        <div class="control-label">
+                                            Player Incentives 
+                                            <button class="info-btn mini" data-info="incentives" title="Set bonus conditions for specific players">i</button>
+                                        </div>
+                                        <div class="incentive-controls">
+                                            <select id="incentivePlayerSwitch" class="switchboard-select">
+                                                <option value="">Select Player...</option>
+                                            </select>
+                                            <select id="incentiveTypeSwitch" class="switchboard-select">
+                                                <option value="">No Incentive</option>
+                                                <option value="Operant Incentive">Operant Incentive: Choose Odd Rows (1,3,5,7)</option>
+                                                <option value="Culturant Incentive">Culturant Incentive: Choose Even Rows (2,4,6,8)</option>
+                                            </select>
+                                            <button onclick="setPlayerIncentive()" class="switchboard-btn incentive-btn">SET INCENTIVE</button>
+                                        </div>
+                                        <div id="incentiveStatusSwitch" class="status-indicator">No active incentives</div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Right Column: System & Debug -->
+                                <div class="control-column right-column">
+                                    <div class="section-header">
+                                        <span class="section-icon">�</span>
+                                        <span class="section-title">SYSTEM & DEBUG</span>
+                                    </div>
+                                    
+                                    <!-- AI Behavior Control -->
+                                    <div class="control-group">
+                                        <div class="control-label">
+                                            AI Behavior 
+                                            <button class="info-btn mini" data-info="ai-behavior" title="Control AI decision patterns">i</button>
+                                        </div>
+                                        <select id="aiBehaviorModeSwitch" class="switchboard-select">
+                                            <option value="random">Random (Default)</option>
+                                            <option value="all_impulsive">Force All AI → Odd Rows</option>
+                                            <option value="all_selfcontrol">Force All AI → Even Rows</option>
+                                            <option value="mixed">Force Mixed Pattern</option>
+                                            <option value="specific_row">Force Specific Row</option>
+                                        </select>
+                                        <input type="number" id="specificRowNumberSwitch" min="1" max="8" placeholder="Row (1-8)" class="switchboard-input specific-row" style="display: none;">
+                                    </div>
+                                    
+                                    <!-- System Messages -->
+                                    <div class="control-group">
+                                        <div class="control-label">
+                                            System Broadcast 
+                                            <button class="info-btn mini" data-info="system-messages" title="Send messages to all players">i</button>
+                                        </div>
+                                        <div class="message-control-container">
+                                            <textarea id="systemMessageTextSwitch" placeholder="Type message to broadcast to all players..." class="switchboard-textarea" rows="2"></textarea>
+                                            <button onclick="sendSystemMessage()" class="switchboard-btn broadcast-btn">BROADCAST</button>
+                                        </div>
+                                        <div class="preset-messages">
+                                            <button class="preset-msg-btn" data-msg="Experiment starting in 30 seconds">⚡ Start Warning</button>
+                                            <button class="preset-msg-btn" data-msg="Please make your selections quickly">⏰ Speed Up</button>
+                                            <button class="preset-msg-btn" data-msg="Take your time with this decision">🤔 Slow Down</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Info Tooltips -->
+                            <div id="infoTooltip" class="info-tooltip" style="display: none;">
+                                <div class="tooltip-content">
+                                    <div class="tooltip-header">
+                                        <span class="tooltip-title">Information</span>
+                                        <button class="tooltip-close">×</button>
+                                    </div>
+                                    <div class="tooltip-body">
+                                        <p id="tooltipText">Information will appear here</p>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                         
-                        <!-- Advanced Testing Panel (Moderator Only) -->
-                        <div id="testingPanel" style="display: none; background: linear-gradient(135deg, #2f1b14, #3d2817); border: 2px solid #ff6b35; border-radius: 8px; padding: 15px; margin-top: 20px; box-shadow: 0 4px 8px rgba(255, 107, 53, 0.3);">
-                            <div style="display: flex; align-items: center; justify-content: center; margin-bottom: 15px; cursor: pointer;" onclick="toggleTestingPanel()">
-                                <span style="color: #ff6b35; font-size: 16px; font-weight: bold;">⚠️ TESTING SETTINGS</span>
-                                <span id="testingPanelToggle" style="color: #ff6b35; margin-left: 10px; font-size: 14px;">[Click to Expand]</span>
-                            </div>
-                            
-                            <div id="testingControls" style="display: none;">
-                                <!-- Warning Banner -->
-                                <div style="background-color: #7d2d00; color: #ffddcc; padding: 10px; border-radius: 4px; margin-bottom: 15px; text-align: center; font-size: 13px; border: 1px solid #ff6b35;">
-                                    <strong>⚠️ WARNING:</strong> These are advanced testing tools. Use only for debugging and research purposes.
-                                </div>
-                                
-                                <!-- AI Behavior Control -->
-                                <div style="margin-bottom: 15px;">
-                                    <h5 style="color: #ff6b35; margin: 0 0 8px 0; font-size: 14px;">🤖 AI Behavior Testing</h5>
-                                    <select id="aiBehaviorMode" style="width: 100%; padding: 6px; background-color: #2c2f33; color: #ffffff; border: 1px solid #72767d; border-radius: 4px; font-size: 13px;">
-                                        <option value="random">Random (Default)</option>
-                                        <option value="all_impulsive">Force All AI → Odd Rows</option>
-                                        <option value="all_selfcontrol">Force All AI → Even Rows</option>
-                                        <option value="mixed">Force Mixed Pattern (Alt. Odd/Even)</option>
-                                        <option value="specific_row">Force Specific Row (Set Below)</option>
-                                    </select>
-                                    <input type="number" id="specificRowNumber" min="1" max="8" placeholder="Row (1-8)" style="width: 80px; padding: 4px; margin-top: 5px; background-color: #2c2f33; color: #ffffff; border: 1px solid #72767d; border-radius: 3px; font-size: 12px; display: none;">
-                                </div>
-                                
-                                <!-- Experimental Condition Control -->
-                                <div style="margin-bottom: 15px;">
-                                    <h5 style="color: #ff6b35; margin: 0 0 8px 0; font-size: 14px;">💰 Experimental Condition</h5>
-                                    <select id="experimentalCondition" style="width: 100%; padding: 6px; background-color: #2c2f33; color: #ffffff; border: 1px solid #72767d; border-radius: 4px; font-size: 13px;">
-                                        <option value="BASELINE">Baseline (White: $0.01, Black: $0.05, Max: $0.06)</option>
-                                        <option value="HIGH_CULTURANT">High Culturant (White: $0.02, Black: $0.07, Max: $0.09)</option>
-                                        <option value="HIGH_OPERANT">High Operant (White: $0.03, Black: $0.04, Max: $0.07)</option>
-                                        <option value="EQUAL_CULTURANT_OPERANT">Equal Culturant-Operant (White: $0.01, Black: $0.02, Max: $0.03)</option>
-                                    </select>
-                                    <button onclick="setCondition()" style="background-color: #43b581; color: white; padding: 5px 12px; border: none; border-radius: 3px; font-size: 12px; cursor: pointer; width: 100%; margin-top: 5px;">Apply Condition</button>
-                                    <div id="conditionStatus" style="margin-top: 5px; font-size: 11px; color: #43b581; text-align: center;">Current: Baseline</div>
-                                </div>
-                                
-                                <!-- System Message -->
-                                <div style="margin-bottom: 15px;">
-                                    <h5 style="color: #ff6b35; margin: 0 0 8px 0; font-size: 14px;">📢 System Message Broadcast</h5>
-                                    <input type="text" id="systemMessageText" placeholder="Type message to send to all players..." style="width: 100%; padding: 6px; background-color: #2c2f33; color: #ffffff; border: 1px solid #72767d; border-radius: 4px; font-size: 13px; margin-bottom: 5px;">
-                                    <button onclick="sendSystemMessage()" style="background-color: #7289da; color: white; padding: 5px 12px; border: none; border-radius: 3px; font-size: 12px; cursor: pointer; width: 100%;">Send Message</button>
-                                </div>
-                                
-                                <!-- Experiment Control -->
-                                <div style="margin-bottom: 10px;">
-                                    <h5 style="color: #ff6b35; margin: 0 0 8px 0; font-size: 14px;">⏸️ Experiment Control</h5>
-                                    <div style="display: flex; gap: 8px;">
-                                        <button id="pauseExperimentBtn" onclick="pauseExperiment()" style="background-color: #e74c3c; color: white; padding: 6px 12px; border: none; border-radius: 3px; font-size: 12px; cursor: pointer; flex: 1;">⏸️ Pause AI</button>
-                                        <button id="resumeExperimentBtn" onclick="resumeExperiment()" style="background-color: #43b581; color: white; padding: 6px 12px; border: none; border-radius: 3px; font-size: 12px; cursor: pointer; flex: 1; display: none;">▶️ Resume AI</button>
-                                        <button onclick="resetExperiment()" style="background-color: #7289da; color: white; padding: 6px 12px; border: none; border-radius: 3px; font-size: 12px; cursor: pointer; flex: 1;">🔄 Reset Round</button>
-                                    </div>
-                                    <div id="experimentStatus" style="margin-top: 5px; font-size: 11px; color: #43b581; text-align: center;"></div>
-                                </div>
-                                
-                                <!-- Player Incentives -->
-                                <div style="margin-bottom: 10px;">
-                                    <h5 style="color: #ff6b35; margin: 0 0 8px 0; font-size: 14px;">⭐ Player Incentives</h5>
-                                    <select id="incentivePlayer" style="width: 100%; padding: 6px; background-color: #2c2f33; color: #ffffff; border: 1px solid #72767d; border-radius: 4px; font-size: 13px; margin-bottom: 5px;">
-                                        <option value="">Select Player...</option>
-                                    </select>
-                                    <select id="incentiveType" style="width: 100%; padding: 6px; background-color: #2c2f33; color: #ffffff; border: 1px solid #72767d; border-radius: 4px; font-size: 13px; margin-bottom: 5px;">
-                                        <option value="">No Incentive</option>
-                                        <option value="performance">Performance (+1 black for odd rows)</option>
-                                        <option value="collaboration">Collaboration (+1 black for even rows)</option>
-                                        <option value="consistency">Consistency (+1 black for repeated choice)</option>
-                                        <option value="leadership">Leadership (+1 black when active player)</option>
-                                    </select>
-                                    <button onclick="setPlayerIncentive()" style="background-color: #faa61a; color: white; padding: 5px 12px; border: none; border-radius: 3px; font-size: 12px; cursor: pointer; width: 100%;">Set Incentive</button>
-                                    <div id="incentiveStatus" style="margin-top: 5px; font-size: 11px; color: #faa61a; text-align: center;"></div>
-                                </div>
-                            </div>
-                        </div>
+                        <!-- Switchboard Styles -->
+                        <style>
+                        .switchboard-header {
+                            background: linear-gradient(135deg, #1a1a2e 0%, #2d2d44 50%, #1a1a2e 100%);
+                            border: 2px solid #00ffff;
+                            border-radius: 8px 8px 0 0;
+                            padding: 12px 20px;
+                            display: flex;
+                            align-items: center;
+                            justify-content: space-between;
+                            box-shadow: 
+                                0 0 20px rgba(0, 255, 255, 0.3),
+                                inset 0 1px 0 rgba(255, 255, 255, 0.1);
+                        }
+                        
+                        .header-lights {
+                            display: flex;
+                            gap: 8px;
+                        }
+                        
+                        .status-light {
+                            width: 12px;
+                            height: 12px;
+                            border-radius: 50%;
+                            border: 1px solid rgba(255, 255, 255, 0.3);
+                            animation: lightPulse 2s ease-in-out infinite alternate;
+                        }
+                        
+                        .power-light {
+                            background: radial-gradient(circle, #00ff00, #004400);
+                            box-shadow: 0 0 10px rgba(0, 255, 0, 0.6);
+                        }
+                        
+                        .experiment-light {
+                            background: radial-gradient(circle, #ffff00, #444400);
+                            box-shadow: 0 0 10px rgba(255, 255, 0, 0.6);
+                            animation-delay: 0.7s;
+                        }
+                        
+                        .testing-light {
+                            background: radial-gradient(circle, #ff6600, #442200);
+                            box-shadow: 0 0 10px rgba(255, 102, 0, 0.6);
+                            animation-delay: 1.4s;
+                        }
+                        
+                        .switchboard-title {
+                            color: #00ffff;
+                            font-family: 'Orbitron', 'Courier New', monospace;
+                            font-size: 18px;
+                            font-weight: bold;
+                            text-shadow: 0 0 10px rgba(0, 255, 255, 0.8);
+                            letter-spacing: 2px;
+                            margin: 0;
+                        }
+                        
+                        .header-display {
+                            background: rgba(0, 0, 0, 0.8);
+                            border: 1px solid #00ffff;
+                            padding: 4px 12px;
+                            border-radius: 4px;
+                            color: #00ff00;
+                            font-family: 'Courier New', monospace;
+                            font-size: 14px;
+                        }
+                        
+                        .switchboard-grid {
+                            background: linear-gradient(135deg, #2a2a3e 0%, #1e1e2e 50%, #2a2a3e 100%);
+                            border: 2px solid #444;
+                            border-top: none;
+                            border-radius: 0 0 8px 8px;
+                            padding: 20px;
+                            display: grid;
+                            grid-template-columns: 1fr 1.5fr 1fr;
+                            gap: 15px;
+                            box-shadow: 
+                                0 4px 20px rgba(0, 0, 0, 0.5),
+                                inset 0 0 30px rgba(0, 255, 255, 0.05);
+                        }
+                        
+                        .control-column {
+                            background: rgba(0, 0, 0, 0.3);
+                            border: 1px solid rgba(255, 255, 255, 0.1);
+                            border-radius: 6px;
+                            padding: 18px;
+                            min-height: 400px;
+                        }
+                        
+                        .section-header {
+                            display: flex;
+                            align-items: center;
+                            gap: 8px;
+                            margin-bottom: 20px;
+                            padding-bottom: 8px;
+                            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+                            position: relative;
+                        }
+                        
+                        .section-icon {
+                            font-size: 20px;
+                        }
+                        
+                        .section-title {
+                            color: #00ffff;
+                            font-family: 'Orbitron', 'Courier New', monospace;
+                            font-size: 18px;
+                            font-weight: bold;
+                            letter-spacing: 1px;
+                            flex: 1;
+                        }
+                        
+                        .info-btn {
+                            background: transparent;
+                            border: 2px solid rgba(255, 255, 255, 0.6);
+                            color: rgba(255, 255, 255, 0.8);
+                            width: 18px;
+                            height: 18px;
+                            border-radius: 50%;
+                            cursor: pointer;
+                            font-size: 12px;
+                            font-weight: bold;
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            transition: all 0.2s ease;
+                            font-family: Arial, sans-serif;
+                            position: relative;
+                        }
+                        
+                        .info-btn:hover {
+                            background: rgba(255, 255, 255, 0.1);
+                            color: #ffffff;
+                            border-color: #ffffff;
+                            box-shadow: 0 0 8px rgba(255, 255, 255, 0.3);
+                            transform: scale(1.1);
+                        }
+                        
+                        .info-btn.mini {
+                            width: 16px;
+                            height: 16px;
+                            font-size: 11px;
+                            margin-left: 8px;
+                        }
+                        
+                        .control-group {
+                            margin-bottom: 20px;
+                            background: rgba(255, 255, 255, 0.02);
+                            border: 1px solid rgba(255, 255, 255, 0.1);
+                            border-radius: 4px;
+                            padding: 12px;
+                        }
+                        
+                        .control-label {
+                            color: #ffffff;
+                            font-size: 15px;
+                            font-weight: bold;
+                            margin-bottom: 10px;
+                            text-transform: uppercase;
+                            letter-spacing: 1px;
+                            display: flex;
+                            align-items: center;
+                        }
+                        
+                        .toggle-switch-container {
+                            margin-bottom: 10px;
+                        }
+                        
+                        .toggle-switch {
+                            position: relative;
+                            display: flex;
+                            align-items: center;
+                            gap: 10px;
+                            cursor: pointer;
+                        }
+                        
+                        .toggle-switch input {
+                            opacity: 0;
+                            width: 0;
+                            height: 0;
+                        }
+                        
+                        .slider {
+                            position: relative;
+                            width: 50px;
+                            height: 24px;
+                            background: linear-gradient(135deg, #444, #222);
+                            border: 2px solid #666;
+                            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+                        }
+                        
+                        .slider:before {
+                            position: absolute;
+                            content: "";
+                            height: 16px;
+                            width: 16px;
+                            left: 2px;
+                            top: 2px;
+                            background: linear-gradient(135deg, #888, #555);
+                            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+                            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
+                        }
+                        
+                        input:checked + .slider {
+                            background: linear-gradient(135deg, #00ff88, #0088ff);
+                            border-color: #00ffff;
+                            box-shadow: 0 0 20px rgba(0, 255, 255, 0.4);
+                        }
+                        
+                        input:checked + .slider:before {
+                            transform: translateX(26px);
+                            background: linear-gradient(135deg, #ffffff, #dddddd);
+                            box-shadow: 0 0 10px rgba(0, 255, 255, 0.8);
+                        }
+                        
+                        .slider.round {
+                            border-radius: 24px;
+                        }
+                        
+                        .slider.round:before {
+                            border-radius: 50%;
+                        }
+                        
+                        .toggle-label {
+                            color: #00ffff;
+                            font-family: 'Courier New', monospace;
+                            font-size: 14px;
+                            font-weight: bold;
+                        }
+                        
+                        .column-buttons {
+                            display: grid;
+                            grid-template-columns: repeat(4, 1fr);
+                            gap: 4px;
+                            margin-bottom: 8px;
+                        }
+                        
+                        .switchboard-btn {
+                            background: linear-gradient(135deg, #3a3a5c 0%, #2a2a4c 50%, #1a1a3c 100%);
+                            border: 1px solid #555;
+                            color: #ffffff;
+                            padding: 10px 16px;
+                            border-radius: 4px;
+                            cursor: pointer;
+                            font-family: 'Courier New', monospace;
+                            font-size: 14px;
+                            font-weight: bold;
+                            transition: all 0.2s ease;
+                            position: relative;
+                            overflow: hidden;
+                        }
+                        
+                        .switchboard-btn:hover {
+                            border-color: #00ffff;
+                            box-shadow: 0 0 15px rgba(0, 255, 255, 0.3);
+                            transform: translateY(-1px);
+                        }
+                        
+                        .switchboard-btn:active {
+                            transform: translateY(1px);
+                            box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.3);
+                        }
+                        
+                        .switchboard-btn.active {
+                            background: linear-gradient(135deg, #00ff88, #0088ff);
+                            color: #000;
+                            box-shadow: 0 0 20px rgba(0, 255, 255, 0.6);
+                        }
+                        
+                        .column-btn {
+                            min-width: 30px;
+                            padding: 8px 4px;
+                        }
+                        
+                        .action-btn { border-color: #00ff88; }
+                        .warning-btn { border-color: #ffaa00; }
+                        .danger-btn { border-color: #ff6600; }
+                        .critical-btn { 
+                            background-color: #ff0000; 
+                            border-color: #ff0000; 
+                            color: #ffffff; 
+                        }
+                        .apply-btn { border-color: #00ffff; }
+                        .broadcast-btn { border-color: #8844ff; }
+                        .pause-btn { 
+                            background-color: #ffcc00; 
+                            border-color: #ffaa00; 
+                            color: #000000; 
+                        }
+                        .resume-btn { border-color: #44ff44; }
+                        .reset-btn { border-color: #4488ff; }
+                        .incentive-btn { border-color: #ffaa44; }
+                        .safe-btn { border-color: #44ff44; }
+                        
+                        .switchboard-input {
+                            background: rgba(0, 0, 0, 0.8);
+                            border: 1px solid #444;
+                            color: #00ff00;
+                            padding: 10px 14px;
+                            border-radius: 3px;
+                            font-family: 'Courier New', monospace;
+                            font-size: 15px;
+                            width: 100%;
+                            box-sizing: border-box;
+                            margin-bottom: 8px;
+                        }
+                        
+                        .switchboard-input:focus {
+                            border-color: #00ffff;
+                            box-shadow: 0 0 10px rgba(0, 255, 255, 0.3);
+                            outline: none;
+                        }
+                        
+                        .token-input {
+                            font-size: 16px;
+                            padding: 12px 16px;
+                            font-weight: bold;
+                            text-align: center;
+                        }
+                        
+                        .switchboard-textarea {
+                            background: rgba(0, 0, 0, 0.8);
+                            border: 1px solid #444;
+                            color: #00ff00;
+                            padding: 10px;
+                            border-radius: 3px;
+                            font-family: 'Courier New', monospace;
+                            font-size: 14px;
+                            width: 100%;
+                            box-sizing: border-box;
+                            resize: vertical;
+                            min-height: 60px;
+                            margin-bottom: 8px;
+                        }
+                        
+                        .switchboard-textarea:focus {
+                            border-color: #00ffff;
+                            box-shadow: 0 0 10px rgba(0, 255, 255, 0.3);
+                            outline: none;
+                        }
+                        
+                        .switchboard-select {
+                            background: rgba(0, 0, 0, 0.8);
+                            border: 1px solid #444;
+                            color: #ffffff;
+                            padding: 8px 10px;
+                            border-radius: 3px;
+                            font-family: 'Courier New', monospace;
+                            font-size: 13px;
+                            width: 100%;
+                            margin-bottom: 8px;
+                        }
+                        
+                        .input-control-row {
+                            display: flex;
+                            gap: 8px;
+                            margin-bottom: 8px;
+                            align-items: flex-start;
+                        }
+                        
+                        .input-control-row .switchboard-input {
+                            flex: 1;
+                            margin-bottom: 0;
+                        }
+                        
+                        .quick-token-buttons {
+                            display: flex;
+                            gap: 4px;
+                            margin-bottom: 8px;
+                        }
+                        
+                        .quick-token-buttons .switchboard-btn {
+                            flex: 1;
+                            font-size: 9px;
+                            padding: 4px 2px;
+                        }
+                        
+                        .action-buttons {
+                            display: flex;
+                            flex-wrap: wrap;
+                            gap: 6px;
+                            margin-bottom: 8px;
+                        }
+                        
+                        .action-buttons .switchboard-btn {
+                            flex: 1;
+                            min-width: 120px;
+                            font-size: 10px;
+                        }
+                        
+                        .system-control-buttons {
+                            display: flex;
+                            gap: 6px;
+                            margin-bottom: 8px;
+                        }
+                        
+                        .system-control-buttons .switchboard-btn {
+                            flex: 1;
+                            font-size: 10px;
+                        }
+                        
+                        .message-control-container {
+                            margin-bottom: 8px;
+                        }
+                        
+                        .preset-messages {
+                            display: flex;
+                            flex-direction: column;
+                            gap: 4px;
+                        }
+                        
+                        .preset-msg-btn {
+                            background: rgba(0, 0, 0, 0.6);
+                            border: 1px solid #666;
+                            color: #cccccc;
+                            padding: 4px 8px;
+                            border-radius: 3px;
+                            cursor: pointer;
+                            font-size: 10px;
+                            transition: all 0.2s ease;
+                        }
+                        
+                        .preset-msg-btn:hover {
+                            background: rgba(255, 255, 255, 0.1);
+                            border-color: #00ffff;
+                            color: #00ffff;
+                        }
+                        
+                        .incentive-controls {
+                            display: flex;
+                            flex-direction: column;
+                            gap: 6px;
+                        }
+                        
+                        .status-indicator {
+                            background: rgba(0, 0, 0, 0.6);
+                            border: 1px solid #333;
+                            border-radius: 3px;
+                            padding: 4px 8px;
+                            color: #00ff00;
+                            font-family: 'Courier New', monospace;
+                            font-size: 10px;
+                            text-align: center;
+                        }
+                        
+                        .status-display {
+                            background: rgba(0, 0, 0, 0.6);
+                            border: 1px solid #333;
+                            border-radius: 3px;
+                            padding: 6px 8px;
+                            color: #ffaa00;
+                            font-family: 'Courier New', monospace;
+                            font-size: 10px;
+                            text-align: center;
+                            font-style: italic;
+                        }
+                        
+                        /* Info Tooltip Styles */
+                        .info-tooltip {
+                            position: fixed;
+                            top: 50%;
+                            left: 50%;
+                            transform: translate(-50%, -50%);
+                            background: linear-gradient(135deg, #1a1a2e 0%, #2d2d44 50%, #1a1a2e 100%);
+                            border: 2px solid #00ffff;
+                            border-radius: 8px;
+                            box-shadow: 
+                                0 0 30px rgba(0, 255, 255, 0.4),
+                                0 0 60px rgba(0, 0, 0, 0.8);
+                            z-index: 10000;
+                            max-width: 400px;
+                            min-width: 300px;
+                        }
+                        
+                        .tooltip-content {
+                            color: #ffffff;
+                        }
+                        
+                        .tooltip-header {
+                            background: rgba(0, 255, 255, 0.1);
+                            padding: 12px 16px;
+                            border-bottom: 1px solid rgba(0, 255, 255, 0.3);
+                            display: flex;
+                            justify-content: space-between;
+                            align-items: center;
+                        }
+                        
+                        .tooltip-title {
+                            color: #00ffff;
+                            font-family: 'Orbitron', 'Courier New', monospace;
+                            font-size: 14px;
+                            font-weight: bold;
+                            letter-spacing: 1px;
+                        }
+                        
+                        .tooltip-close {
+                            background: transparent;
+                            border: none;
+                            color: #ffffff;
+                            font-size: 18px;
+                            cursor: pointer;
+                            width: 24px;
+                            height: 24px;
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            border-radius: 50%;
+                            transition: all 0.2s ease;
+                        }
+                        
+                        .tooltip-close:hover {
+                            background: rgba(255, 255, 255, 0.2);
+                            color: #ff4444;
+                        }
+                        
+                        .tooltip-body {
+                            padding: 16px;
+                        }
+                        
+                        .tooltip-body p {
+                            margin: 0;
+                            font-size: 13px;
+                            line-height: 1.5;
+                            color: #cccccc;
+                        }
+                        
+                        @keyframes lightPulse {
+                            0% { opacity: 0.6; }
+                            100% { opacity: 1; }
+                        }
+                        
+                        @keyframes digitFlicker {
+                            0%, 100% { opacity: 1; }
+                            50% { opacity: 0.8; }
+                        }
+                        
+                        /* Hide old control panels when switchboard is active */
+                        #moderatorSwitchboard[style*="block"] ~ #moderatorColumnControl,
+                        #moderatorSwitchboard[style*="block"] ~ #moderatorExperimentControl,
+                        #moderatorSwitchboard[style*="block"] ~ #testingPanel {
+                            display: none !important;
+                        }
+                        
+                        /* Status Display Panel Styles */
+                        .status-display-panel {
+                            background: rgba(0, 0, 0, 0.7);
+                            border: 2px solid #333;
+                            border-radius: 6px;
+                            padding: 12px;
+                            margin-bottom: 8px;
+                        }
+                        
+                        .status-row {
+                            display: flex;
+                            justify-content: space-between;
+                            align-items: center;
+                            margin-bottom: 8px;
+                            padding: 4px 0;
+                            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+                        }
+                        
+                        .status-row:last-child {
+                            margin-bottom: 0;
+                            border-bottom: none;
+                        }
+                        
+                        .status-label {
+                            color: #cccccc;
+                            font-family: 'Courier New', monospace;
+                            font-size: 13px;
+                            font-weight: bold;
+                            letter-spacing: 1px;
+                        }
+                        
+                        .status-value {
+                            color: #00ff88;
+                            font-family: 'Courier New', monospace;
+                            font-size: 14px;
+                            font-weight: bold;
+                            text-align: right;
+                            background: rgba(0, 255, 136, 0.1);
+                            padding: 2px 8px;
+                            border-radius: 3px;
+                            border: 1px solid rgba(0, 255, 136, 0.3);
+                        }
+                        </style>
                         
                         </div>
                     </div>
@@ -1786,17 +2618,17 @@
                 observer.observe(experimentContainer, { attributes: true, attributeFilter: ['style'] });
             }
             
-            // Initialize token pool display
+            // Initialize token pool display only if not already set by game state
             const globalTokenPool = document.getElementById('globalTokenPool');
             const tokenPoolBar = document.getElementById('tokenPoolBar');
             const culturantCount = document.getElementById('culturantCount');
             
-            if (globalTokenPool) {
-                globalTokenPool.textContent = '2500';
-                console.log('🎯 Token pool display initialized');
+            if (globalTokenPool && (globalTokenPool.textContent === '2500' || globalTokenPool.textContent === '--')) {
+                // Only initialize if still at default value
+                console.log('🎯 Token pool display initialized to default');
             }
             
-            if (tokenPoolBar) {
+            if (tokenPoolBar && tokenPoolBar.style.width === '') {
                 tokenPoolBar.style.width = '100%';
                 console.log('🎯 Token pool bar initialized');
             }
