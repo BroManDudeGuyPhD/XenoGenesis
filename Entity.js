@@ -25,6 +25,13 @@ const ExperimentScheduler = require('./ExperimentScheduler');
 const botName = "Server";
 const mainChat = "Global";
 
+// Admin Configuration - Add usernames here for admin privileges
+const ADMIN_USERS = [
+    'broman',
+    'tom', 
+    'andre',
+    'admin'  // Add more admin usernames as needed
+];
 
 // Track recent disconnections to suppress refresh spam notifications
 const recentDisconnections = new Map(); // username -> { timestamp, room, timeout }
@@ -266,16 +273,30 @@ var AIConfig = {
     enabled: true,
     maxAIPlayers: 2, // Up to 2 AI players per triad
     decisionDelay: 2000, // AI decision delay in milliseconds (2 seconds)
+    speedTestDelay: 250, // Fast AI decisions for speed tests (250ms)
     behaviorTypes: {
         RANDOM: { name: "Random", impulsiveChance: 0.5 },
         IMPULSIVE: { name: "Impulsive", impulsiveChance: 0.8 },
         CONSERVATIVE: { name: "Conservative", impulsiveChance: 0.2 },
-        ADAPTIVE: { name: "Adaptive", impulsiveChance: 0.5 } // Could be made smarter later
+        ADAPTIVE: { name: "Adaptive", impulsiveChance: 0.5 }, // Could be made smarter later
+        SPEED_TEST: { name: "Speed Test", impulsiveChance: 0.5, isSpeedTest: true }
     }
 };
 
 // AI Player Management
 var AIPlayer = {
+    // Dynamic decision delay based on speed test mode
+    get decisionDelay() {
+        // Check if any room is in speed test mode
+        for (const roomName in GameSessions) {
+            const session = GameSessions[roomName];
+            if (session && session.isSpeedTest) {
+                return AIConfig.speedTestDelay;
+            }
+        }
+        return AIConfig.decisionDelay;
+    },
+    
     create: function(room, playerNumber, behaviorType = 'RANDOM') {
         const aiId = `AI_${room}_P${playerNumber}_${Date.now()}`;
         const behavior = AIConfig.behaviorTypes[behaviorType] || AIConfig.behaviorTypes.RANDOM;
@@ -417,6 +438,13 @@ var AIPlayer = {
         const aiPlayers = roomPlayers.filter(p => p.isAI && (!p.currentChoice || !p.isLockedIn));
         
         aiPlayers.forEach(aiPlayer => {
+            // Determine delay based on speed test mode and behavior
+            const isSpeedTest = gameSession && gameSession.isSpeedTest;
+            const baseDelay = isSpeedTest ? AIConfig.speedTestDelay : AIConfig.decisionDelay;
+            const randomDelay = isSpeedTest ? 
+                Math.random() * AIConfig.speedTestDelay : // Speed test: 0-250ms
+                Math.random() * 2000 + 1000; // Normal: 1-3 seconds
+            
             setTimeout(() => {
                 // Double-check pause state before making decision
                 const session = GameSessions[room];
@@ -426,15 +454,16 @@ var AIPlayer = {
                 }
                 
                 this.makeAIDecision(aiPlayer, room, session);
-            }, Math.random() * 2000 + 1000); // Random delay 1-3 seconds
+            }, randomDelay);
         });
     },
     
     // Extract AI decision making into separate function
     makeAIDecision: function(aiPlayer, room, gameSession) {
+        const isSpeedTest = gameSession && gameSession.isSpeedTest;
         const delay = gameSession && gameSession.turnBased ? 
-            Math.random() * 2000 + 1000 : // Turn-based: 1-3 seconds
-            Math.random() * AIConfig.decisionDelay; // Simultaneous: use config delay
+            (isSpeedTest ? Math.random() * AIConfig.speedTestDelay : Math.random() * 2000 + 1000) : // Turn-based
+            (isSpeedTest ? Math.random() * AIConfig.speedTestDelay : Math.random() * AIConfig.decisionDelay); // Simultaneous
         
         setTimeout(() => {
             // Double-check pause state before making decision
@@ -1059,8 +1088,15 @@ GameSession = {
         const conditionInfo = ExperimentManager.getCurrentConditionInfo(session.experiment, roundNumber);
         if (!conditionInfo) return;
         
+        // Skip condition updates during baseline - tracking only starts after baseline
+        if (conditionInfo.phase === 'baseline' || conditionInfo.conditionName === 'Baseline') {
+            console.log(`🔍 Skipping condition update for baseline round ${roundNumber}`);
+            return;
+        }
+        
         // Update session with new condition information
         session.currentCondition = conditionInfo.condition;
+        session.currentConditionName = conditionInfo.conditionName;  // Store condition name separately
         session.currentIncentive = conditionInfo.incentive;
         session.currentPlayer = conditionInfo.player;
         session.currentBlockNumber = conditionInfo.blockNumber;
@@ -1068,6 +1104,17 @@ GameSession = {
         // Helper function to map scheduler player letters (A, B, C) to actual player names
         const currentRoom = roomList.find(r => r.name === roomName);
         const mapSchedulerPlayerToName = (schedulerPlayer, roomPlayersList) => {
+            // Handle null/undefined player assignment (e.g., no assignment rounds)
+            if (!schedulerPlayer) {
+                return 'None';
+            }
+            
+            // Special case: If this is a no incentive round, force None
+            if (conditionInfo.incentive === 'No Incentive') {
+                console.log(`🔍 Forcing None assignment for round with no incentive`);
+                return 'None';
+            }
+            
             // Include both human and AI players, but exclude moderator
             const eligiblePlayers = roomPlayersList.filter(p => !(currentRoom && p.username === currentRoom.creator));
             const playerIndex = schedulerPlayer === 'A' ? 0 : schedulerPlayer === 'B' ? 1 : 2;
@@ -1084,10 +1131,14 @@ GameSession = {
         // Broadcast condition update to all players in room
         const playersInRoom = Object.values(Player.list).filter(p => p.room === roomName);
         
-        // Only assign a player name if there's an actual incentive (not "No Incentive")
-        const actualPlayerName = (conditionInfo.incentive && conditionInfo.incentive !== 'No Incentive') 
-            ? mapSchedulerPlayerToName(conditionInfo.player, playersInRoom)
-            : null;
+        // Always assign a player name for LED tracking - incentive type shouldn't affect player assignment
+        const actualPlayerName = mapSchedulerPlayerToName(conditionInfo.player, playersInRoom);
+        
+        console.log(`🔍 Player mapping debug:`);
+        console.log(`   conditionInfo.player: "${conditionInfo.player}" (type: ${typeof conditionInfo.player})`);
+        console.log(`   actualPlayerName: "${actualPlayerName}"`);
+        console.log(`   playersInRoom count: ${playersInRoom.length}`);
+        console.log(`   playersInRoom names: [${playersInRoom.map(p => p.username).join(', ')}]`);
         
         console.log(`🧪 Updated condition for round ${roundNumber}:`);
         console.log(`   Condition: ${conditionInfo.conditionName}`);
@@ -1141,11 +1192,26 @@ GameSession = {
                 // Also send targeted incentiveChanged event to the specific player
                 if (p.username === actualPlayerName && conditionInfo.incentive && conditionInfo.incentive !== 'No Incentive') {
                     console.log(`🎯 Sending targeted incentiveChanged to ${p.username}: ${incentiveDisplayName}`);
+                    
+                    // Set the player's active incentive on the server side
+                    p.activeIncentive = conditionInfo.incentive;
+                    console.log(`✅ Set ${p.username}.activeIncentive = ${conditionInfo.incentive}`);
+                    
                     p.socket.emit('incentiveChanged', {
                         incentiveType: conditionInfo.incentive,
                         incentiveDisplay: incentiveDisplayName,
                         message: `You now have an active incentive: ${incentiveDisplayName}`
                     });
+                } else if (p.username === actualPlayerName) {
+                    // Player is assigned but no incentive - clear any existing incentive
+                    p.activeIncentive = null;
+                    console.log(`✅ Cleared ${p.username}.activeIncentive (no incentive for this condition)`);
+                } else {
+                    // Player is not the assigned player - clear any existing incentive
+                    if (p.activeIncentive) {
+                        p.activeIncentive = null;
+                        console.log(`✅ Cleared ${p.username}.activeIncentive (not assigned player this round)`);
+                    }
                 }
             }
         });
@@ -1223,7 +1289,7 @@ Player.onConnect = function(socket,username,admin,io){
         id:socket.id,
         socket:socket,
         io:io,
-        admin:admin,
+        admin: ADMIN_USERS.includes(username.toLowerCase()), // Check if username is in admin list
         room:mainChat,
         jointime: new Intl.DateTimeFormat('default',{
             hour: 'numeric',
@@ -2097,10 +2163,12 @@ Player.onConnect = function(socket,username,admin,io){
     }
 
     socket.on('addAIPlayers', (data) => {
-        const username = socket.username;
+        // Try to get user from session-based system first
+        const sessionUser = getCurrentUser(socket.id);
+        const username = sessionUser ? sessionUser.username : 'Unknown';
         const room = data.room || "Global";
         
-        console.log(`🤖 ${username || 'Unknown user'} requested to add AI players to room: ${room}`);
+        console.log(`🤖 ${username} requested to add AI players to room: ${room}`);
         
         // Check if the player has permission to add AI
         if (room === "Global") {
@@ -2195,9 +2263,151 @@ Player.onConnect = function(socket,username,admin,io){
         console.log(`🤖 Successfully added ${maxAI} AI players to room ${room}. Final count: ${finalTotalPlayers} total (${finalHumanPlayers} human, ${finalAIPlayers} AI)`);
     });
 
+    socket.on('runSpeedTest', (data) => {
+        console.log(`🔍 DEBUG runSpeedTest: socket.id = ${socket.id}`);
+        
+        // Try to get user from session-based system first
+        const sessionUser = getCurrentUser(socket.id);
+        const player = Player.list[socket.id];
+        const username = sessionUser ? sessionUser.username : (player ? player.username : 'Unknown');
+        const room = data.room || "Global";
+        
+        console.log(`⚡ ${username} requested speed test for room: ${room}`);
+        console.log(`🔍 DEBUG: sessionUser = ${!!sessionUser}, player = ${!!player}`);
+        if (sessionUser) console.log(`🔍 DEBUG: sessionUser.username = ${sessionUser.username}`);
+        
+        // Check if user exists in either system
+        if (!sessionUser && !player) {
+            console.log(`❌ User not found in session or Player.list for socket.id: ${socket.id}`);
+            socket.emit('systemMessage', { message: 'Error: User not found. Try rejoining the room.' });
+            return;
+        }
+        
+        // Check if the player is an admin
+        if (!ADMIN_USERS.includes(username.toLowerCase())) {
+            socket.emit('systemMessage', { message: 'Access denied: Admin privileges required for speed test' });
+            console.log(`❌ Speed test denied for ${username} - not an admin`);
+            return;
+        }
+        
+        // Check if the room is Global
+        if (room === "Global") {
+            socket.emit('systemMessage', { message: 'Cannot run lightning test in Global chat' });
+            return;
+        }
+        
+        console.log(`⚡ Starting admin speed test in room: ${room}`);
+        
+        try {
+            // Clear existing players and AI in the room
+            const existingPlayers = Object.values(Player.list).filter(p => p.room === room);
+            existingPlayers.forEach(player => {
+                if (player.isAI) {
+                    delete Player.list[player.id];
+                    console.log(`🗑️ Removed existing AI player: ${player.username}`);
+                }
+            });
+            
+            // Add exactly 3 AI players for the lightning test
+            const aiPlayersToAdd = 3;
+            for (let i = 0; i < aiPlayersToAdd; i++) {
+                const playerNumber = i + 1;
+                const aiPlayer = AIPlayer.create(room, playerNumber, 'LIGHTNING_TEST');
+                Player.list[aiPlayer.id] = aiPlayer;
+                // Initialize wallet for tracking
+                aiPlayer.wallet = aiPlayer.wallet || 0;
+                console.log(`⚡ Added lightning test AI player: ${aiPlayer.username}`);
+            }
+            
+            // Update players in room display
+            const allRoomUsers = getRoomUsers(room);
+            const currentRoom = roomList.find(r => r.name === room);
+            const playersWithModerator = allRoomUsers.map(user => ({
+                username: user.username,
+                id: user.id,
+                isAI: false,
+                isModerator: currentRoom && user.username === currentRoom.creator
+            }));
+            
+            // Add the AI players to display
+            const lightningAIPlayers = Object.values(Player.list).filter(p => p.room === room && p.isAI);
+            lightningAIPlayers.forEach(aiPlayer => {
+                playersWithModerator.push({
+                    username: aiPlayer.username,
+                    id: aiPlayer.id,
+                    isAI: true,
+                    isModerator: false
+                });
+            });
+            
+            io.to(room).emit('playersInRoom', { 
+                room: room, 
+                players: playersWithModerator
+            });
+            
+            // Start the lightning test experiment
+            setTimeout(() => {
+                console.log(`⚡ Starting lightning test experiment in ${room}`);
+                
+                // Create or reset game session for lightning test
+                const gameSession = GameSession.get(room) || GameSession.create(room, 'conditions');
+                gameSession.gameState = 'playing';
+                gameSession.currentRound = 1;
+                gameSession.isLightningTest = true; // Flag for lightning test
+                
+                // Initialize tracking stats with monetary conversion
+                gameSession.lightningStats = {
+                    playerWallets: {}, // Token counts
+                    playerEarnings: {}, // Monetary values
+                    conditionCounts: {},
+                    totalRounds: 0,
+                    startTime: Date.now(),
+                    culturantCount: 0, // Track culturant occurrences
+                    culturantRounds: [], // Track which rounds had culturants
+                    exchangeRates: {
+                        'High Operant': 0.15, // $0.15 per token
+                        'High Culturant': 0.10, // $0.10 per token  
+                        'Equal Culturant–Operant': 0.12 // $0.12 per token
+                    }
+                };
+                
+                // Initialize AI player wallets and earnings in stats
+                lightningAIPlayers.forEach(ai => {
+                    gameSession.lightningStats.playerWallets[ai.username] = 0;
+                    gameSession.lightningStats.playerEarnings[ai.username] = 0;
+                });
+                
+                // Initialize the experiment scheduler
+                if (!gameSession.conditionsSchedule) {
+                    const scheduler = new ExperimentScheduler();
+                    gameSession.conditionsSchedule = scheduler.generateConditionsSchedule();
+                    console.log(`⚡ Generated conditions schedule for lightning test: ${gameSession.conditionsSchedule.length} rounds`);
+                }
+                
+                // Send start notification
+                io.to(room).emit('systemMessage', { 
+                    message: `⚡ LIGHTNING TEST STARTED: Running ${gameSession.conditionsSchedule.length}-round experiment with AI players...` 
+                });
+                
+                // Start the lightning test
+                startLightningTestRound(room, gameSession, io);
+                
+            }, 1000);
+            
+            socket.emit('systemMessage', { 
+                message: `⚡ Lightning test initialized: 3 AI players added, starting experiment...` 
+            });
+            
+        } catch (error) {
+            console.error(`❌ Error setting up speed test:`, error);
+            socket.emit('systemMessage', { message: 'Error setting up speed test: ' + error.message });
+        }
+    });
+
     socket.on('requestRoomState', (data) => {
         const room = data.room;
-        const username = socket.username || 'Unknown';
+        const sessionUser = getCurrentUser(socket.id);
+        const username = sessionUser ? sessionUser.username : 'Unknown';
         
         console.log(`🔍 ${username} requesting room state for: ${room}`);
         
@@ -2285,7 +2495,7 @@ function broadcastPlayerStatusUpdate(roomName) {
         players: playerData,
         lockedCount: lockedCount,
         totalCount: playerData.length,
-        condition: session.currentCondition.name,
+        condition: session.currentConditionName || 'Unknown',  // Use stored condition name
         whiteTokensRemaining: GlobalTokenPool.whiteTokens,
         culturantsProduced: session.culturantsProduced || 0
     };
@@ -3897,6 +4107,10 @@ function calculateIncentiveBonus(player, chosenRow, gameSession) {
             bonusTokens = 0;
     }
     
+    if (bonusTokens > 0) {
+        console.log(`🎁 ${player.username} earned ${bonusTokens} incentive bonus tokens (${player.activeIncentive}, row ${chosenRow})`);
+    }
+    
     return bonusTokens;
 }
 
@@ -4226,20 +4440,39 @@ function processRound(roomName, gameSession) {
             incentiveBonusEarned += playerIncentiveBonus;
             
             // Prepare all player token data for moderators
-            const allPlayerTokens = orderedRoomPlayers.map(p => ({
-                username: p.username,
-                isAI: p.isAI || false,
-                isModerator: currentRoom && p.username === currentRoom.creator,
-                tokensAwarded: {
-                    white: condition.getWhiteTokens(parseInt(p.currentChoice)),
-                    black: condition.getBlackTokens(allChooseEvenRows),
-                    incentiveBonus: 0 // Legacy compatibility
-                },
-                totalTokens: {
-                    white: p.whiteTokens,
-                    black: p.blackTokens
+            const allPlayerTokens = orderedRoomPlayers.map(p => {
+                // Calculate incentive bonus for each player individually
+                const pChosenRow = parseInt(p.currentChoice);
+                let pIncentiveBonusEarned = 0;
+                
+                // Global incentive bonus (applies to all players)
+                if (incentiveInfo && incentiveInfo.bonus > 0) {
+                    if (incentiveInfo.appliesWhen === 'always') {
+                        pIncentiveBonusEarned = incentiveInfo.bonus;
+                    } else if (incentiveInfo.appliesWhen === 'allChoseEven' && allChooseEvenRows) {
+                        pIncentiveBonusEarned = incentiveInfo.bonus;
+                    }
                 }
-            }));
+                
+                // Individual player incentive bonus (set by moderator)
+                const pPlayerIncentiveBonus = calculateIncentiveBonus(p, pChosenRow, gameSession);
+                pIncentiveBonusEarned += pPlayerIncentiveBonus;
+                
+                return {
+                    username: p.username,
+                    isAI: p.isAI || false,
+                    isModerator: currentRoom && p.username === currentRoom.creator,
+                    tokensAwarded: {
+                        white: condition.getWhiteTokens(pChosenRow),
+                        black: condition.getBlackTokens(allChooseEvenRows),
+                        incentiveBonus: pIncentiveBonusEarned // Now correctly calculated per player
+                    },
+                    totalTokens: {
+                        white: p.whiteTokens,
+                        black: p.blackTokens
+                    }
+                };
+            });
             
             player.socket.emit('roundResult', {
                 round: gameSession.currentRound,
@@ -4293,11 +4526,42 @@ function processRound(roomName, gameSession) {
                     isModerator: currentRoom && p.username === currentRoom.creator
                 }))
             });
+            
+            // Removed: incentive bonus notification banner for players
+            // The bonus is still calculated and awarded, just no visual notification
         }
     });
     
     // Broadcast final round status to moderators
     broadcastPlayerStatusUpdate(roomName);
+    
+    // Send round results panel data to moderators
+    const roomForModerator = roomList.find(r => r.name === roomName);
+    if (roomForModerator) {
+        const moderatorSocket = Object.values(Player.list)
+            .find(p => p.room === roomName && p.username === roomForModerator.creator)?.socket;
+        
+        if (moderatorSocket) {
+            moderatorSocket.emit('roundResultsPanel', {
+                round: gameSession.currentRound,
+                players: orderedRoomPlayers.map(p => ({
+                    username: p.username,
+                    whiteTokens: p.whiteTokens,
+                    blackTokens: p.blackTokens,
+                    totalEarnings: p.totalEarnings,
+                    isAI: p.isAI || false,
+                    choice: p.currentChoice
+                })),
+                tokenValues: {
+                    white: gameSession.currentCondition?.whiteTokenValue || 0.10, // Default baseline value
+                    black: gameSession.currentCondition?.blackTokenValue || 0.05  // Default baseline value
+                },
+                condition: gameSession.currentCondition?.name || 'Baseline',
+                incentive: gameSession.currentIncentive || 'No Incentive'
+            });
+            console.log(`📊 Sent round results panel data to moderator for round ${gameSession.currentRound}`);
+        }
+    }
     
     // Reset round processing flag
     gameSession.roundProcessing = false;
@@ -4782,6 +5046,364 @@ Player.cleanupRoom = function(roomName) {
         return false;
     }
 };
+
+// ===============================================
+// SPEED TEST FUNCTIONS
+// ===============================================
+
+/**
+ * Start a speed test round with accelerated timing
+ * @param {string} room - Room name
+ * @param {Object} gameSession - Game session object
+ * @param {Object} io - Socket.io instance
+ */
+function startLightningTestRound(room, gameSession, io) {
+    if (!gameSession || !gameSession.isLightningTest) {
+        console.log(`❌ startLightningTestRound called for non-lightning-test session in ${room}`);
+        return;
+    }
+    
+    try {
+        const roundInfo = gameSession.conditionsSchedule[gameSession.currentRound - 1];
+        if (!roundInfo) {
+            // Lightning test completed - show final stats
+            console.log(`⚡ Lightning test completed! All ${gameSession.lightningStats.totalRounds} rounds finished in ${room}`);
+            
+            const duration = Date.now() - gameSession.lightningStats.startTime;
+            const durationSeconds = (duration / 1000).toFixed(1);
+            
+            // Send completion with stats
+            const statsMessage = formatLightningTestStats(gameSession.lightningStats, durationSeconds);
+            io.to(room).emit('lightningTestComplete', {
+                message: statsMessage,
+                stats: gameSession.lightningStats,
+                duration: durationSeconds
+            });
+            
+            gameSession.gameState = 'completed';
+            return;
+        }
+        
+        // Update round count in stats
+        gameSession.lightningStats.totalRounds = gameSession.currentRound;
+        
+        // Show current round progress (every 5 rounds for better visibility)
+        if (gameSession.currentRound % 5 === 0 || gameSession.currentRound === 1) {
+            io.to(room).emit('lightningTestProgress', { 
+                round: gameSession.currentRound,
+                totalRounds: gameSession.conditionsSchedule.length,
+                condition: roundInfo.condition,
+                incentive: roundInfo.incentive,
+                progress: (gameSession.currentRound / gameSession.conditionsSchedule.length) * 100,
+                playerWallets: gameSession.lightningStats.playerWallets
+            });
+        }
+        
+        // Track condition counts
+        const conditionKey = `${roundInfo.condition}-${roundInfo.incentive}`;
+        gameSession.lightningStats.conditionCounts[conditionKey] = 
+            (gameSession.lightningStats.conditionCounts[conditionKey] || 0) + 1;
+        
+        // Get AI players and simulate their choices (sort for consistent ordering)
+        const aiPlayers = Object.values(Player.list)
+            .filter(p => p.room === room && p.isAI)
+            .sort((a, b) => a.username.localeCompare(b.username)); // Consistent alphabetical order
+        
+        console.log(`🎯 [Lightning Round ${gameSession.currentRound}] Player assignment debug:`);
+        console.log(`   Scheduler player: ${roundInfo.player} (index: ${roundInfo.player.charCodeAt(0) - 65})`);
+        console.log(`   AI players in room: [${aiPlayers.map((p, i) => `${i}:${p.username}`).join(', ')}]`);
+        
+        // Map scheduler player designation (A, B, C) to actual AI players
+        const playerIndex = roundInfo.player.charCodeAt(0) - 65; // A=0, B=1, C=2
+        const targetPlayer = aiPlayers[playerIndex] || aiPlayers[0]; // Fallback to first player
+        
+        console.log(`   Target player index: ${playerIndex}, Target player: ${targetPlayer ? targetPlayer.username : 'NONE'}`);
+        console.log(`   Condition: ${roundInfo.condition}, Incentive: ${roundInfo.incentive}`);
+        
+        if (!targetPlayer) {
+            console.error(`❌ No target player found for Lightning Test round ${gameSession.currentRound}`);
+            return;
+        }
+        
+        // Track which player had which condition
+        if (!gameSession.lightningStats.playerConditions) {
+            gameSession.lightningStats.playerConditions = {};
+        }
+        
+        if (!gameSession.lightningStats.playerConditions[targetPlayer.username]) {
+            gameSession.lightningStats.playerConditions[targetPlayer.username] = {};
+        }
+        
+        const playerConditionKey = `${roundInfo.condition}`;
+        gameSession.lightningStats.playerConditions[targetPlayer.username][playerConditionKey] = 
+            (gameSession.lightningStats.playerConditions[targetPlayer.username][playerConditionKey] || 0) + 1;
+        
+        // Simulate AI decisions and track wallet changes
+        console.log(`💰 [Round ${gameSession.currentRound}] Processing wallet updates...`);
+        console.log(`💰 Current wallet state:`, gameSession.lightningStats.playerWallets);
+        
+        aiPlayers.forEach(aiPlayer => {
+            // Reset for this round
+            aiPlayer.currentChoice = null;
+            aiPlayer.isLockedIn = false;
+            
+            // Make AI choice (simulate fast decision)
+            const choice = Math.floor(Math.random() * 8) + 1; // Random choice 1-8
+            aiPlayer.currentChoice = choice;
+            aiPlayer.isLockedIn = true;
+            
+            // Calculate realistic wallet rewards based on actual game mechanics
+            let reward = 0;
+            const isTargetPlayer = (aiPlayer.username === targetPlayer.username);
+            
+            console.log(`💰 Player ${aiPlayer.username}: isTarget=${isTargetPlayer}, incentive=${roundInfo.incentive}, condition=${roundInfo.condition}`);
+            
+            if (roundInfo.incentive !== 'No Incentive' && isTargetPlayer) {
+                // Only the target player for this round gets incentive rewards
+                if (roundInfo.condition === 'High Operant') {
+                    // Individual condition: reward based on personal choice
+                    reward = choice <= 4 ? Math.floor(Math.random() * 2) + 1 : Math.floor(Math.random() * 3) + 2; // 1-2 or 2-4 tokens
+                } else if (roundInfo.condition === 'High Culturant') {
+                    // Competition condition: higher variance rewards
+                    const competitionBonus = Math.random() < 0.3 ? 1 : 0; // 30% chance of bonus
+                    reward = Math.floor(Math.random() * 3) + 1 + competitionBonus; // 1-3 + possible bonus
+                } else if (roundInfo.condition === 'Equal Culturant–Operant') {
+                    // Cooperation condition: consistent moderate rewards
+                    reward = Math.floor(Math.random() * 2) + 2; // 2-3 tokens (more consistent)
+                }
+                console.log(`💰 ${aiPlayer.username} earned ${reward} tokens (choice: ${choice})`);
+            } else {
+                console.log(`💰 ${aiPlayer.username} earned 0 tokens (not target or no incentive)`);
+            }
+            
+            // Update wallet tracking with monetary conversion
+            const oldWallet = gameSession.lightningStats.playerWallets[aiPlayer.username] || 0;
+            const oldEarnings = gameSession.lightningStats.playerEarnings[aiPlayer.username] || 0;
+            
+            gameSession.lightningStats.playerWallets[aiPlayer.username] = oldWallet + reward;
+            
+            // Calculate monetary value based on current condition's exchange rate
+            const exchangeRate = gameSession.lightningStats.exchangeRates[roundInfo.condition] || 0.10;
+            const monetaryValue = reward * exchangeRate;
+            gameSession.lightningStats.playerEarnings[aiPlayer.username] = oldEarnings + monetaryValue;
+            
+            if (aiPlayer.wallet !== undefined) {
+                aiPlayer.wallet += reward;
+            }
+            
+            console.log(`💰 ${aiPlayer.username} wallet: ${oldWallet} + ${reward} = ${gameSession.lightningStats.playerWallets[aiPlayer.username]} tokens`);
+            console.log(`💵 ${aiPlayer.username} earnings: $${oldEarnings.toFixed(2)} + $${monetaryValue.toFixed(2)} = $${gameSession.lightningStats.playerEarnings[aiPlayer.username].toFixed(2)} (${roundInfo.condition} @ $${exchangeRate})`);
+        });
+        
+        console.log(`💰 [Round ${gameSession.currentRound}] Final wallet state:`, gameSession.lightningStats.playerWallets);
+        
+        // Check for culturant (unanimous self-control choice - all choices <= 4)
+        const allChoices = aiPlayers.map(ai => ai.currentChoice);
+        const isCulturant = allChoices.every(choice => choice <= 4);
+        
+        if (isCulturant) {
+            gameSession.lightningStats.culturantCount++;
+            gameSession.lightningStats.culturantRounds.push(gameSession.currentRound);
+            console.log(`🤝 [Round ${gameSession.currentRound}] CULTURANT DETECTED! All players chose self-control (${allChoices.join(', ')})`);
+        } else {
+            console.log(`💭 [Round ${gameSession.currentRound}] No culturant - choices: ${allChoices.join(', ')}`);
+        }
+        
+        // Send progress update to client (every round for smooth progress bar)
+        io.to(room).emit('lightningTestProgress', {
+            round: gameSession.currentRound,
+            totalRounds: gameSession.conditionsSchedule.length,
+            condition: roundInfo.condition,
+            incentive: roundInfo.incentive,
+            targetPlayer: targetPlayer.username,
+            progress: (gameSession.currentRound / gameSession.conditionsSchedule.length) * 100,
+            playerWallets: gameSession.lightningStats.playerWallets,
+            playerEarnings: gameSession.lightningStats.playerEarnings
+        });
+        
+        // Advance to next round quickly
+        setTimeout(() => {
+            gameSession.currentRound++;
+            startLightningTestRound(room, gameSession, io);
+        }, 50); // Fast progression
+        
+    } catch (error) {
+        console.error(`❌ Error in lightning test round ${gameSession.currentRound}:`, error);
+        io.to(room).emit('systemMessage', { 
+            message: `❌ Lightning test error at round ${gameSession.currentRound}: ${error.message}` 
+        });
+    }
+}
+
+function formatLightningTestStats(stats, duration) {
+    let message = `⚡ LIGHTNING TEST COMPLETED in ${duration}s\n\n`;
+    
+
+    message += `� TOTAL EARNINGS:\n`;
+    // Show culturant statistics  
+    const culturantPercentage = stats.totalRounds > 0 ? (stats.culturantCount / stats.totalRounds * 100).toFixed(1) : 0;
+    message += `🤝 CULTURANTS: ${stats.culturantCount} out of ${stats.totalRounds} rounds (${culturantPercentage}%)\n\n`;
+
+    message += `\n<div style="margin: 20px 0;">`;
+    
+    // Condition Breakdown Table
+    message += `<h3 style="color: #c026d3; margin-bottom: 15px;">🎯 CONDITION BREAKDOWN</h3>`;
+    message += `<table style="width: 100%; border-collapse: collapse; font-family: 'Courier New', monospace; margin-bottom: 25px;">`;
+    message += `<thead><tr style="background: rgba(192, 38, 211, 0.2);">`;
+    message += `<th style="border: 1px solid #c026d3; padding: 8px; text-align: left; color: #dcddde;">Condition</th>`;
+    message += `<th style="border: 1px solid #c026d3; padding: 8px; text-align: center; color: #dcddde;">Count</th>`;
+    message += `</tr></thead><tbody>`;
+    
+    const conditionColors = {
+        'High Operant': '#ff6b6b',
+        'High Culturant': '#22c55e', // Changed to a more distinct green
+        'Equal Culturant–Operant': '#45b7d1'
+    };
+    
+    Object.entries(stats.conditionCounts).forEach(([condition, count]) => {
+        const baseCondition = condition.split('-')[0]; // Remove incentive suffix
+        const color = conditionColors[baseCondition] || '#dcddde';
+        
+        message += `<tr style="border-bottom: 1px solid rgba(192, 38, 211, 0.1);">`;
+        message += `<td style="border: 1px solid rgba(192, 38, 211, 0.3); padding: 8px; color: ${color}; font-weight: 600;">${condition}</td>`;
+        message += `<td style="border: 1px solid rgba(192, 38, 211, 0.3); padding: 8px; text-align: center; color: #dcddde;">${count}</td>`;
+        message += `</tr>`;
+    });
+    message += `</tbody></table>`;
+    
+    // Player Condition Assignments Table
+    if (stats.playerConditions) {
+        message += `<h3 style="color: #7c3aed; margin-bottom: 15px;">👤 PLAYER CONDITION ASSIGNMENTS</h3>`;
+        message += `<table style="width: 100%; border-collapse: collapse; font-family: 'Courier New', monospace;">`;
+        message += `<thead><tr style="background: rgba(124, 58, 237, 0.2);">`;
+        message += `<th style="border: 1px solid #7c3aed; padding: 8px; text-align: left; color: #dcddde;">Player</th>`;
+        message += `<th style="border: 1px solid #7c3aed; padding: 8px; text-align: center; color: #dcddde;">High Operant</th>`;
+        message += `<th style="border: 1px solid #7c3aed; padding: 8px; text-align: center; color: #dcddde;">High Culturant</th>`;
+        message += `<th style="border: 1px solid #7c3aed; padding: 8px; text-align: center; color: #dcddde;">Equal C-O</th>`;
+        message += `<th style="border: 1px solid #7c3aed; padding: 8px; text-align: center; color: #dcddde;">Total Earnings</th>`;
+        message += `</tr></thead><tbody>`;
+        
+        Object.entries(stats.playerConditions).forEach(([player, conditions]) => {
+            const highOperant = conditions['High Operant'] || 0;
+            const highCulturant = conditions['High Culturant'] || 0;
+            const equalCondition = conditions['Equal Culturant–Operant'] || 0;
+            const totalEarnings = stats.playerEarnings[player] || 0;
+            
+            message += `<tr style="border-bottom: 1px solid rgba(124, 58, 237, 0.1);">`;
+            message += `<td style="border: 1px solid rgba(124, 58, 237, 0.3); padding: 8px; color: #dcddde; font-weight: 600;">${player}</td>`;
+            message += `<td style="border: 1px solid rgba(124, 58, 237, 0.3); padding: 8px; text-align: center; color: ${conditionColors['High Operant']}; font-weight: 600;">${highOperant}</td>`;
+            message += `<td style="border: 1px solid rgba(124, 58, 237, 0.3); padding: 8px; text-align: center; color: ${conditionColors['High Culturant']}; font-weight: 600;">${highCulturant}</td>`;
+            message += `<td style="border: 1px solid rgba(124, 58, 237, 0.3); padding: 8px; text-align: center; color: ${conditionColors['Equal Culturant–Operant']}; font-weight: 600;">${equalCondition}</td>`;
+            message += `<td style="border: 1px solid rgba(124, 58, 237, 0.3); padding: 8px; text-align: center; color: #4ade80; font-weight: 600;">$${totalEarnings.toFixed(2)}</td>`;
+            message += `</tr>`;
+        });
+        message += `</tbody></table>`;
+    }
+    
+    message += `</div>`;
+    
+    return message;
+}
+
+// Keep the old function for backwards compatibility but mark as deprecated
+function startSpeedTestRound(room, gameSession, io) {
+    if (!gameSession || !gameSession.isSpeedTest) {
+        console.log(`❌ startSpeedTestRound called for non-speed-test session in ${room}`);
+        return;
+    }
+    
+    try {
+        const roundInfo = gameSession.conditionsSchedule[gameSession.currentRound - 1];
+        if (!roundInfo) {
+            console.log(`⚡ Speed test completed! All 441 rounds finished in ${room}`);
+            
+            // Send completion message
+            io.to(room).emit('systemMessage', { 
+                message: `⚡ SPEED TEST COMPLETED: All 441 rounds finished! Check LED matrix for distribution results.` 
+            });
+            
+            // Optionally reset the session or leave it for analysis
+            gameSession.gameState = 'completed';
+            return;
+        }
+        
+        console.log(`⚡ Speed test round ${gameSession.currentRound}/441 in ${room}: ${roundInfo.condition}, ${roundInfo.incentive}, Player ${roundInfo.player}`);
+        
+        // Map scheduler player to actual player name
+        const playersInRoom = Object.values(Player.list).filter(p => p.room === room && !p.isAI);
+        const actualPlayerName = mapSchedulerPlayerToName(roundInfo.player, playersInRoom);
+        
+        // Get all AI players for this round
+        const aiPlayers = Object.values(Player.list).filter(p => p.room === room && p.isAI);
+        
+        // Reset all AI choices for this round
+        aiPlayers.forEach(ai => {
+            ai.currentChoice = null;
+            ai.isLockedIn = false;
+        });
+        
+        // Send condition update for LED tracking
+        const conditionData = {
+            room: room,
+            round: gameSession.currentRound,
+            blockNumber: roundInfo.blockNumber,
+            condition: roundInfo.condition,
+            incentive: roundInfo.incentive,
+            player: actualPlayerName,
+            whiteTokensRemaining: GlobalTokenPool.whiteTokens,
+            culturantsProduced: gameSession.culturantsProduced || 0
+        };
+        
+        console.log(`📡 Speed test condition update for round ${gameSession.currentRound}:`, conditionData);
+        io.to(room).emit('conditionUpdate', conditionData);
+        
+        // Trigger AI decisions immediately with speed test timing
+        setTimeout(() => {
+            aiPlayers.forEach(aiPlayer => {
+                AIPlayer.makeDecision(aiPlayer);
+            });
+            
+            // Immediately advance to next round after brief delay
+            setTimeout(() => {
+                gameSession.currentRound++;
+                startSpeedTestRound(room, gameSession, io);
+            }, AIConfig.speedTestDelay + 50); // Small buffer for processing
+            
+        }, 50); // Very small initial delay
+        
+    } catch (error) {
+        console.error(`❌ Error in speed test round ${gameSession.currentRound}:`, error);
+        io.to(room).emit('systemMessage', { 
+            message: `❌ Speed test error at round ${gameSession.currentRound}: ${error.message}` 
+        });
+    }
+}
+
+/**
+ * Map scheduler player designation (A, B, C) to actual player name
+ * @param {string} schedulerPlayer - Player designation from scheduler (A, B, C)
+ * @param {Array} playersInRoom - Array of player objects in the room
+ * @returns {string} - Actual player name or scheduler designation if no mapping
+ */
+function mapSchedulerPlayerToName(schedulerPlayer, playersInRoom) {
+    if (!playersInRoom || playersInRoom.length === 0) {
+        return schedulerPlayer; // Return A, B, C if no players
+    }
+    
+    // For speed tests with only AI players, just return the scheduler designation
+    const humanPlayers = playersInRoom.filter(p => !p.isAI);
+    if (humanPlayers.length === 0) {
+        return `AI-${schedulerPlayer}`; // Mark as AI player assignment
+    }
+    
+    // Map A, B, C to actual player names based on join order or position
+    const playerIndex = schedulerPlayer.charCodeAt(0) - 65; // A=0, B=1, C=2
+    if (playerIndex < humanPlayers.length) {
+        return humanPlayers[playerIndex].username;
+    }
+    
+    return schedulerPlayer; // Fallback
+}
 
 // Export the Player object so it can be used in other modules
 module.exports = {

@@ -976,17 +976,8 @@
                     <p style="color: #b9bbbe; font-size: 18px; margin-bottom: 30px;">Moderator ready - need 3 more players to begin the experiment</p>
                     <div id="playerList" style="color: #7289da; font-size: 16px;"></div>
                     
-                    <!-- Experiment Mode Selection -->
-                    <div id="experimentModeSelector" style="display: none; margin: 20px 0;">
-                        <label for="experimentMode" style="color: #ffffff; font-size: 16px; margin-right: 10px;">Experiment Mode:</label>
-                        <select id="experimentMode" style="padding: 8px 12px; font-size: 16px; border-radius: 5px; border: 1px solid #7289da; background-color: #2f3136; color: #ffffff;">
-                            <option value="baseline">Baseline (100 tokens, max 500 rounds)</option>
-                            <option value="conditions">Conditions (2500 tokens, 441 rounds)</option>
-                        </select>
-                    </div>
-                    
-                    <button id="startExperimentBtn" style="display: none; background-color: #43b581; color: white; padding: 15px 30px; font-size: 18px; border: none; border-radius: 5px; cursor: pointer; margin-top: 20px;">
-                        Start Experiment
+                    <button id="startExperimentBtn" style="display: none; background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%); color: white; padding: 10px 20px; font-size: 16px; border: none; border-radius: 6px; cursor: pointer; margin-top: 16px; font-weight: 600; box-shadow: 0 2px 8px rgba(34, 197, 94, 0.3); transition: all 0.2s ease;" onmouseover="this.style.transform='translateY(-1px)'; this.style.boxShadow='0 4px 12px rgba(34, 197, 94, 0.4)';" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 8px rgba(34, 197, 94, 0.3)';">
+                        🚀 Start Experiment
                     </button>
                 </div>
 
@@ -1060,6 +1051,15 @@
                                 <div style="background: rgba(64, 68, 75, 0.8); backdrop-filter: blur(12px); border-radius: 8px; padding: 16px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2); border: 1px solid rgba(114, 118, 125, 0.2); height: 480px; overflow-y: auto;">
                                     <h4 id="roundResultsTitle" style="color: #ffffff; margin: 0 0 12px 0; font-size: 16px;">Experiment Ready</h4>
                                     <div id="roundResults" style="color: #b9bbbe; margin-bottom: 12px; font-size: 14px;">Waiting for first round to begin...</div>
+                                    
+                                    <!-- Round Results Details Panel -->
+                                    <div id="roundResultsPanel" style="display: none;">
+                                        <div id="roundSummary" style="color: #43b581; font-size: 14px; margin-bottom: 12px; font-weight: 500;"></div>
+                                        <div id="playerResultsTable" style="margin-bottom: 16px;"></div>
+                                        <div id="conversionRateInfo" style="color: #7289da; font-size: 13px; margin-bottom: 12px;"></div>
+                                        <div id="roundTotals" style="color: #faa61a; font-size: 13px; border-top: 1px solid rgba(114, 118, 125, 0.3); padding-top: 12px;"></div>
+                                    </div>
+                                    
                                     <div id="tokenUpdate" style="color: #43b581; font-size: 15px; margin-bottom: 8px; font-weight: 500;"></div>
                                     <div id="roundEarnings" style="color: #43b581; font-size: 14px; margin-bottom: 10px; font-weight: 500;"></div>
                                     <div id="culturantStatus" style="color: #7289da; font-size: 13px;"></div>

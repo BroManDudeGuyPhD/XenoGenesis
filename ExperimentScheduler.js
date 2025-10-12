@@ -304,6 +304,209 @@ class ExperimentScheduler {
         
         return rows.join('\n');
     }
+
+    /**
+     * Comprehensive test suite for scheduler validation
+     * Tests distribution balance, randomization, and edge cases
+     * 
+     * @returns {Object} Test results with pass/fail status
+     */
+    runValidationTests() {
+        console.log('🧪 Running comprehensive scheduler validation tests...');
+        
+        const testResults = {
+            passed: 0,
+            failed: 0,
+            tests: []
+        };
+
+        const addTest = (name, passed, details = '') => {
+            testResults.tests.push({
+                name,
+                passed,
+                details
+            });
+            if (passed) {
+                testResults.passed++;
+                console.log(`✅ ${name}`);
+            } else {
+                testResults.failed++;
+                console.log(`❌ ${name}: ${details}`);
+            }
+        };
+
+        // Test 1: Generate multiple schedules and verify basic structure
+        try {
+            const schedule = this.generateConditionsSchedule();
+            addTest('Schedule Generation', schedule.length === 441, `Generated ${schedule.length} rounds, expected 441`);
+            
+            // Test 2: Verify condition distribution
+            const conditionCounts = {};
+            schedule.forEach(round => {
+                conditionCounts[round.condition] = (conditionCounts[round.condition] || 0) + 1;
+            });
+            
+            const expectedConditionCount = 147; // 21 rounds × 7 blocks
+            let conditionDistributionPassed = true;
+            Object.entries(conditionCounts).forEach(([condition, count]) => {
+                if (count !== expectedConditionCount) {
+                    conditionDistributionPassed = false;
+                }
+            });
+            addTest('Condition Distribution', conditionDistributionPassed, 
+                `Conditions: ${JSON.stringify(conditionCounts)}, expected ${expectedConditionCount} each`);
+
+            // Test 3: Verify player distribution
+            const playerCounts = {};
+            schedule.forEach(round => {
+                playerCounts[round.player] = (playerCounts[round.player] || 0) + 1;
+            });
+            
+            const expectedPlayerCount = 147; // 441 rounds ÷ 3 players
+            let playerDistributionPassed = true;
+            Object.entries(playerCounts).forEach(([player, count]) => {
+                if (count !== expectedPlayerCount) {
+                    playerDistributionPassed = false;
+                }
+            });
+            addTest('Player Distribution', playerDistributionPassed,
+                `Players: ${JSON.stringify(playerCounts)}, expected ${expectedPlayerCount} each`);
+
+            // Test 4: Verify incentive distribution
+            const incentiveCounts = {};
+            schedule.forEach(round => {
+                incentiveCounts[round.incentive] = (incentiveCounts[round.incentive] || 0) + 1;
+            });
+            
+            const expectedIncentiveCount = 147; // Equal distribution
+            let incentiveDistributionPassed = true;
+            Object.entries(incentiveCounts).forEach(([incentive, count]) => {
+                if (count !== expectedIncentiveCount) {
+                    incentiveDistributionPassed = false;
+                }
+            });
+            addTest('Incentive Distribution', incentiveDistributionPassed,
+                `Incentives: ${JSON.stringify(incentiveCounts)}, expected ${expectedIncentiveCount} each`);
+
+            // Test 5: Verify block structure
+            const blockCounts = {};
+            schedule.forEach(round => {
+                blockCounts[round.blockNumber] = (blockCounts[round.blockNumber] || 0) + 1;
+            });
+            
+            const expectedBlockCount = 63; // 63 rounds per block
+            let blockStructurePassed = true;
+            for (let block = 1; block <= 7; block++) {
+                if (blockCounts[block] !== expectedBlockCount) {
+                    blockStructurePassed = false;
+                }
+            }
+            addTest('Block Structure', blockStructurePassed,
+                `Blocks: ${JSON.stringify(blockCounts)}, expected ${expectedBlockCount} rounds each`);
+
+            // Test 6: Verify round number continuity
+            const roundNumbers = schedule.map(r => r.roundNumber).sort((a, b) => a - b);
+            const continuityPassed = roundNumbers.every((num, index) => num === index + 1);
+            addTest('Round Number Continuity', continuityPassed,
+                `Round numbers: ${roundNumbers.slice(0, 5)}...${roundNumbers.slice(-5)}`);
+
+            // Test 7: Test randomization - multiple generations should produce different orders
+            const schedule2 = this.generateConditionsSchedule();
+            const firstBlockOrder1 = schedule.slice(0, 10).map(r => r.condition).join(',');
+            const firstBlockOrder2 = schedule2.slice(0, 10).map(r => r.condition).join(',');
+            const randomizationPassed = firstBlockOrder1 !== firstBlockOrder2;
+            addTest('Randomization', randomizationPassed,
+                `First 10 rounds differ between generations: ${firstBlockOrder1 !== firstBlockOrder2}`);
+
+            // Test 8: Verify each block has balanced sub-distribution
+            let blockBalancePassed = true;
+            for (let blockNum = 1; blockNum <= 7; blockNum++) {
+                const blockRounds = schedule.filter(r => r.blockNumber === blockNum);
+                const blockConditions = {};
+                blockRounds.forEach(r => {
+                    blockConditions[r.condition] = (blockConditions[r.condition] || 0) + 1;
+                });
+                
+                // Each condition should appear exactly 21 times per block
+                Object.entries(blockConditions).forEach(([condition, count]) => {
+                    if (count !== 21) {
+                        blockBalancePassed = false;
+                    }
+                });
+            }
+            addTest('Block-Level Balance', blockBalancePassed,
+                'Each block contains 21 rounds per condition');
+
+        } catch (error) {
+            addTest('Test Execution', false, `Error during testing: ${error.message}`);
+        }
+
+        // Summary
+        console.log(`\n📊 Test Summary: ${testResults.passed} passed, ${testResults.failed} failed`);
+        if (testResults.failed === 0) {
+            console.log('🎉 All tests passed! Scheduler is working correctly.');
+        } else {
+            console.log('⚠️ Some tests failed. Please review the scheduler logic.');
+        }
+
+        return testResults;
+    }
+
+    /**
+     * Analyze scheduler performance and generate detailed statistics
+     * 
+     * @returns {Object} Detailed analysis results
+     */
+    analyzeSchedulerPerformance() {
+        console.log('📈 Analyzing scheduler performance and statistics...');
+        
+        const startTime = Date.now();
+        const schedule = this.generateConditionsSchedule();
+        const generationTime = Date.now() - startTime;
+        
+        // Analyze condition transitions to check for clustering
+        const transitions = {};
+        for (let i = 1; i < schedule.length; i++) {
+            const from = schedule[i-1].condition;
+            const to = schedule[i].condition;
+            const key = `${from} → ${to}`;
+            transitions[key] = (transitions[key] || 0) + 1;
+        }
+        
+        // Calculate clustering metrics
+        let consecutiveSameCondition = 0;
+        let maxCluster = 0;
+        let currentCluster = 1;
+        
+        for (let i = 1; i < schedule.length; i++) {
+            if (schedule[i].condition === schedule[i-1].condition) {
+                currentCluster++;
+                consecutiveSameCondition++;
+            } else {
+                maxCluster = Math.max(maxCluster, currentCluster);
+                currentCluster = 1;
+            }
+        }
+        maxCluster = Math.max(maxCluster, currentCluster);
+        
+        const analysis = {
+            generationTime: `${generationTime}ms`,
+            totalRounds: schedule.length,
+            consecutiveSameCondition,
+            maxClusterSize: maxCluster,
+            transitionMatrix: transitions,
+            clusteringScore: consecutiveSameCondition / schedule.length,
+            recommendation: maxCluster > 5 ? 'Consider improving randomization' : 'Good randomization'
+        };
+        
+        console.log('📊 Performance Analysis Results:');
+        console.log(`   Generation Time: ${analysis.generationTime}`);
+        console.log(`   Max Cluster Size: ${analysis.maxClusterSize} rounds`);
+        console.log(`   Clustering Score: ${(analysis.clusteringScore * 100).toFixed(2)}% consecutive`);
+        console.log(`   Recommendation: ${analysis.recommendation}`);
+        
+        return analysis;
+    }
 }
 
 module.exports = ExperimentScheduler;

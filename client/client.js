@@ -1028,6 +1028,397 @@ function returnToGlobalChat() {
     }
 }
 
+// Function to show Lightning Test results modal
+function showLightningTestResults(message, stats, duration) {
+    // Remove any existing modal
+    const existingModal = document.getElementById('lightningTestResultsModal');
+    if (existingModal) {
+        existingModal.remove();
+    }
+
+    const modalHTML = `
+        <div id="lightningTestResultsModal" style="
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 10000;
+            animation: fadeIn 0.3s ease-out;
+        ">
+            <div style="
+                max-width: 600px;
+                width: 90%;
+                max-height: 80vh;
+                overflow-y: auto;
+                background: linear-gradient(145deg, 
+                    rgba(30, 25, 50, 0.98) 0%, 
+                    rgba(45, 35, 65, 0.95) 100%);
+                backdrop-filter: blur(20px);
+                -webkit-backdrop-filter: blur(20px);
+                border: 2px solid rgba(192, 38, 211, 0.4);
+                border-radius: 20px;
+                box-shadow: 
+                    0 25px 80px rgba(0, 0, 0, 0.7),
+                    0 10px 40px rgba(192, 38, 211, 0.3),
+                    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+                padding: 30px;
+                text-align: center;
+                position: relative;
+                animation: modalSlideIn 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            ">
+                <!-- Decorative lightning border -->
+                <div style="
+                    position: absolute;
+                    top: -2px;
+                    left: -2px;
+                    right: -2px;
+                    height: 4px;
+                    background: linear-gradient(90deg, #c026d3, #7c3aed, #c026d3);
+                    border-radius: 20px 20px 0 0;
+                    opacity: 0.8;
+                    animation: lightningShimmer 3s infinite;
+                "></div>
+                
+                <div style="
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    gap: 12px;
+                    margin-bottom: 25px;
+                ">
+                    <div style="
+                        font-size: 48px;
+                        margin-bottom: 10px;
+                        animation: lightningBounce 2s infinite;
+                    ">⚡</div>
+                    <h2 style="
+                        color: #dcddde; 
+                        font-weight: 600; 
+                        margin: 0;
+                        font-size: 24px;
+                        letter-spacing: -0.5px;
+                        background: linear-gradient(135deg, #c026d3, #7c3aed);
+                        -webkit-background-clip: text;
+                        -webkit-text-fill-color: transparent;
+                        background-clip: text;
+                    ">Lightning Test Complete</h2>
+                </div>
+                
+                <!-- Decorative lightning border - results modal -->
+                <div style="
+                    position: absolute;
+                    top: 0px;
+                    left: 0px;
+                    right: 0px;
+                    height: 4px;
+                    background: linear-gradient(90deg, #c026d3, #7c3aed, #c026d3);
+                    border-radius: 20px 20px 0 0;
+                    opacity: 0.8;
+                    animation: lightningShimmer 3s infinite;
+                "></div>
+                
+                <div style="
+                    background: rgba(15, 15, 15, 0.7);
+                    border: 1px solid rgba(192, 38, 211, 0.3);
+                    border-radius: 16px;
+                    padding: 20px;
+                    margin: 20px 0;
+                    backdrop-filter: blur(10px);
+                    text-align: left;
+                ">
+                    <div style="
+                        color: #dcddde; 
+                        font-size: 14px; 
+                        margin: 0; 
+                        line-height: 1.6;
+                        font-family: 'Courier New', monospace;
+                        background: none;
+                        border: none;
+                        padding: 0;
+                    ">${message}</div>
+                </div>
+                
+                <div style="
+                    display: flex;
+                    gap: 12px;
+                    margin-top: 30px;
+                    justify-content: center;
+                ">
+                    <button onclick="closeLightningTestResults()" style="
+                        background: linear-gradient(135deg, rgba(192, 38, 211, 0.9) 0%, rgba(124, 58, 237, 0.9) 100%);
+                        color: white;
+                        padding: 15px 28px;
+                        border: 2px solid rgba(192, 38, 211, 0.6);
+                        border-radius: 12px;
+                        cursor: pointer;
+                        font-weight: 600;
+                        font-size: 16px;
+                        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+                        box-shadow: 
+                            0 6px 20px rgba(192, 38, 211, 0.6),
+                            0 3px 10px rgba(0, 0, 0, 0.3);
+                        display: flex;
+                        align-items: center;
+                        gap: 8px;
+                    "
+                    onmouseover="
+                        this.style.background='linear-gradient(135deg, rgba(124, 58, 237, 1) 0%, rgba(147, 51, 234, 1) 100%)';
+                        this.style.transform='translateY(-2px)';
+                        this.style.boxShadow='0 8px 25px rgba(192, 38, 211, 0.7), 0 4px 15px rgba(0, 0, 0, 0.4)';
+                    "
+                    onmouseout="
+                        this.style.background='linear-gradient(135deg, rgba(192, 38, 211, 0.9) 0%, rgba(124, 58, 237, 0.9) 100%)';
+                        this.style.transform='translateY(0)';
+                        this.style.boxShadow='0 6px 20px rgba(192, 38, 211, 0.6), 0 3px 10px rgba(0, 0, 0, 0.3)';
+                    "
+                    onmousedown="this.style.transform='translateY(0) scale(0.98)'"
+                    onmouseup="this.style.transform='translateY(-2px) scale(1)'">
+                        <span style="font-size: 14px;">✨</span>
+                        Continue
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <style>
+            @keyframes lightningShimmer {
+                0%, 100% { background: linear-gradient(90deg, #c026d3, #7c3aed, #c026d3); }
+                50% { background: linear-gradient(90deg, #7c3aed, #c026d3, #7c3aed); }
+            }
+            
+            @keyframes lightningBounce {
+                0%, 100% { transform: translateY(0) scale(1) rotate(0deg); }
+                50% { transform: translateY(-8px) scale(1.1) rotate(5deg); }
+            }
+        </style>
+    `;
+    
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
+}
+
+// Function to close lightning test results modal
+function closeLightningTestResults() {
+    const modal = document.getElementById('lightningTestResultsModal');
+    if (modal) {
+        modal.style.animation = 'fadeOut 0.3s ease-in';
+        setTimeout(() => {
+            if (modal.parentNode) {
+                modal.remove();
+            }
+        }, 300);
+    }
+}
+
+// Function to show Lightning Test progress modal
+function showLightningTestProgressModal(data) {
+    // Remove any existing modal
+    const existingModal = document.getElementById('lightningTestProgressModal');
+    if (existingModal) {
+        existingModal.remove();
+    }
+
+    const modalHTML = `
+        <div id="lightningTestProgressModal" style="
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 10000;
+            animation: fadeIn 0.3s ease-out;
+        ">
+            <div style="
+                max-width: 500px;
+                width: 90%;
+                background: linear-gradient(145deg, 
+                    rgba(30, 25, 50, 0.98) 0%, 
+                    rgba(45, 35, 65, 0.95) 100%);
+                backdrop-filter: blur(20px);
+                -webkit-backdrop-filter: blur(20px);
+                border: 2px solid rgba(192, 38, 211, 0.4);
+                border-radius: 20px;
+                box-shadow: 
+                    0 25px 80px rgba(0, 0, 0, 0.7),
+                    0 10px 40px rgba(192, 38, 211, 0.3),
+                    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+                padding: 30px;
+                text-align: center;
+                position: relative;
+                animation: modalSlideIn 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            ">
+                <!-- Decorative lightning border -->
+                <div style="
+                    position: absolute;
+                    top: -2px;
+                    left: -2px;
+                    right: -2px;
+                    height: 4px;
+                    background: linear-gradient(90deg, #c026d3, #7c3aed, #c026d3);
+                    border-radius: 20px 20px 0 0;
+                    opacity: 0.8;
+                    animation: lightningShimmer 3s infinite;
+                "></div>
+                
+                <div style="
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    gap: 12px;
+                    margin-bottom: 25px;
+                ">
+                    <div style="
+                        font-size: 36px;
+                        animation: lightningBounce 2s infinite;
+                    ">⚡</div>
+                    <h2 style="
+                        color: #dcddde; 
+                        font-weight: 600; 
+                        margin: 0;
+                        font-size: 20px;
+                        letter-spacing: -0.5px;
+                        background: linear-gradient(135deg, #c026d3, #7c3aed);
+                        -webkit-background-clip: text;
+                        -webkit-text-fill-color: transparent;
+                        background-clip: text;
+                    ">Lightning Test Running</h2>
+                </div>
+                
+                <!-- Fixed: progress modal decorative border -->  
+                <div style="
+                    position: absolute;
+                    top: 0px;
+                    left: 0px;
+                    right: 0px;
+                    height: 4px;
+                    background: linear-gradient(90deg, #c026d3, #7c3aed, #c026d3);
+                    border-radius: 20px 20px 0 0;
+                    opacity: 0.8;
+                    animation: lightningShimmer 3s infinite;
+                "></div>
+                
+                <div style="
+                    background: rgba(15, 15, 15, 0.7);
+                    border: 1px solid rgba(192, 38, 211, 0.3);
+                    border-radius: 16px;
+                    padding: 20px;
+                    margin: 20px 0;
+                    backdrop-filter: blur(10px);
+                ">
+                    <!-- Wallet Totals -->
+                    <div id="walletTotals" style="
+                        background: rgba(0, 0, 0, 0.3);
+                        border: 1px solid rgba(124, 58, 237, 0.3);
+                        border-radius: 12px;
+                        padding: 15px;
+                        margin-bottom: 20px;
+                        text-align: left;
+                    ">
+                        <div style="
+                            color: #7c3aed;
+                            font-size: 14px;
+                            font-weight: 600;
+                            margin-bottom: 10px;
+                            text-align: center;
+                        ">� TOTAL EARNINGS</div>
+                        <div id="walletContent" style="
+                            color: #dcddde;
+                            font-size: 13px;
+                            line-height: 1.4;
+                            font-family: 'Courier New', monospace;
+                        ">
+                            ${data.playerEarnings ? Object.entries(data.playerEarnings).map(([player, amount]) => 
+                                `${player}: <span style="color: #22c55e;">$${amount.toFixed(2)}</span>`
+                            ).join('<br>') : 'Calculating...'}
+                        </div>
+                    </div>
+                    
+                    <!-- Progress Bar -->
+                    <div style="
+                        background: rgba(0, 0, 0, 0.4);
+                        border-radius: 10px;
+                        height: 12px;
+                        overflow: hidden;
+                        margin-bottom: 10px;
+                        border: 1px solid rgba(192, 38, 211, 0.3);
+                    ">
+                        <div id="progressBar" style="
+                            height: 100%;
+                            background: linear-gradient(90deg, #c026d3, #7c3aed);
+                            border-radius: 10px;
+                            width: ${data.progress}%;
+                            transition: width 0.1s ease-out;
+                            box-shadow: 0 0 10px rgba(192, 38, 211, 0.5);
+                        "></div>
+                    </div>
+                    
+                    <div style="
+                        color: #b9bbbe;
+                        font-size: 12px;
+                        text-align: center;
+                    ">
+                        <span id="progressPercent">${data.progress.toFixed(1)}%</span> Complete
+                    </div>
+                </div>
+                
+                <div style="
+                    color: #b9bbbe; 
+                    font-size: 14px; 
+                    margin-top: 20px;
+                    opacity: 0.8;
+                ">Running experimental simulation...</div>
+            </div>
+        </div>
+    `;
+    
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
+}
+
+// Function to update Lightning Test progress
+function updateLightningTestProgress(data) {
+    const progressBar = document.getElementById('progressBar');
+    const progressPercent = document.getElementById('progressPercent');
+    const walletContent = document.getElementById('walletContent');
+    
+    if (progressBar) {
+        progressBar.style.width = `${data.progress}%`;
+    }
+    if (progressPercent) progressPercent.textContent = `${data.progress.toFixed(1)}%`;
+    
+    // Update wallet totals if provided
+    if (walletContent && data.playerEarnings) {
+        const earningsHTML = Object.entries(data.playerEarnings)
+            .map(([player, amount]) => `${player}: <span style="color: #22c55e;">$${amount.toFixed(2)}</span>`)
+            .join('<br>');
+        walletContent.innerHTML = earningsHTML;
+    }
+}
+
+// Function to close Lightning Test progress modal
+function closeLightningTestProgressModal() {
+    const modal = document.getElementById('lightningTestProgressModal');
+    if (modal) {
+        modal.style.animation = 'fadeOut 0.3s ease-in';
+        setTimeout(() => {
+            if (modal.parentNode) {
+                modal.remove();
+            }
+        }, 300);
+    }
+}
+
 // Function to reset all visual components and animations for fresh room start
 function resetGameVisuals() {
     console.log('🔄 Resetting all game visuals and animations...');
@@ -1726,8 +2117,11 @@ function clearPokerTable() {
     if (tableRound) tableRound.textContent = '0';
     
     // Clear player list
+    // Hide the players in room display for cleaner UI
+    /*
     const playerListDiv = document.getElementById('playerList');
     if (playerListDiv) playerListDiv.innerHTML = '<strong>Players in room:</strong><br>None';
+    */
 }
 
 function updatePokerTable(gameSession, currentTurnPlayer = null) {
@@ -2270,20 +2664,13 @@ socket.on('playersInRoom', function(data) {
         
         // Show/hide "Start Experiment" button based on moderator status
         const startExperimentBtn = document.getElementById('startExperimentBtn');
-        const experimentModeSelector = document.getElementById('experimentModeSelector');
         if (startExperimentBtn) {
             if (newModerator && isCurrentUserModerator) {
                 startExperimentBtn.style.display = 'block';
-                if (experimentModeSelector) {
-                    experimentModeSelector.style.display = 'block';
-                }
-                console.log('✅ Showing Start Experiment button and mode selector for moderator');
+                console.log('✅ Showing Start Experiment button for moderator');
             } else {
                 startExperimentBtn.style.display = 'none';
-                if (experimentModeSelector) {
-                    experimentModeSelector.style.display = 'none';
-                }
-                console.log('❌ Hiding Start Experiment button and mode selector - not moderator');
+                console.log('❌ Hiding Start Experiment button - not moderator');
             }
         }
         
@@ -2294,8 +2681,16 @@ socket.on('playersInRoom', function(data) {
             if (!addAIBtn && startExperimentBtn) {
                 addAIBtn = document.createElement('button');
                 addAIBtn.id = 'addAIBtn';
-                addAIBtn.textContent = 'Fill Room with AI Players (3-Player Triad)';
-                addAIBtn.style.cssText = 'background-color: #7289da; color: white; padding: 10px 20px; font-size: 16px; border: none; border-radius: 5px; cursor: pointer; margin-left: 10px;';
+                addAIBtn.textContent = '🤖 Add AI Players';
+                addAIBtn.style.cssText = 'background: linear-gradient(135deg, #5865f2 0%, #4752c4 100%); color: white; padding: 8px 16px; font-size: 14px; border: none; border-radius: 6px; cursor: pointer; margin-left: 8px; font-weight: 500; box-shadow: 0 2px 8px rgba(88, 101, 242, 0.3); transition: all 0.2s ease;';
+                addAIBtn.addEventListener('mouseover', () => {
+                    addAIBtn.style.transform = 'translateY(-1px)';
+                    addAIBtn.style.boxShadow = '0 4px 12px rgba(88, 101, 242, 0.4)';
+                });
+                addAIBtn.addEventListener('mouseout', () => {
+                    addAIBtn.style.transform = 'translateY(0)';
+                    addAIBtn.style.boxShadow = '0 2px 8px rgba(88, 101, 242, 0.3)';
+                });
                 startExperimentBtn.parentNode.appendChild(addAIBtn);
                 
                 // Add event listener for Add AI button
@@ -2316,6 +2711,88 @@ socket.on('playersInRoom', function(data) {
         } else if (addAIBtn) {
             addAIBtn.style.display = 'none';
             console.log('❌ Hiding Add AI Players button - not moderator');
+        }
+        
+        // Show/hide "Lightning Experiment" button for moderators
+        let lightningBtn = document.getElementById('lightningBtn');
+        if (newModerator && isCurrentUserModerator) {
+            // Create Lightning Experiment button if it doesn't exist and user is moderator
+            if (!lightningBtn && startExperimentBtn) {
+                lightningBtn = document.createElement('button');
+                lightningBtn.id = 'lightningBtn';
+                lightningBtn.textContent = '⚡ Lightning Test';
+                lightningBtn.style.cssText = 'background: linear-gradient(135deg, #c026d3 0%, #7c3aed 100%); color: white; padding: 8px 16px; font-size: 14px; border: none; border-radius: 6px; cursor: pointer; margin-left: 8px; font-weight: 500; box-shadow: 0 2px 8px rgba(192, 38, 211, 0.3); transition: all 0.2s ease;';
+                lightningBtn.addEventListener('mouseover', () => {
+                    lightningBtn.style.transform = 'translateY(-1px)';
+                    lightningBtn.style.boxShadow = '0 4px 12px rgba(192, 38, 211, 0.4)';
+                });
+                lightningBtn.addEventListener('mouseout', () => {
+                    lightningBtn.style.transform = 'translateY(0)';
+                    lightningBtn.style.boxShadow = '0 2px 8px rgba(192, 38, 211, 0.3)';
+                });
+                startExperimentBtn.parentNode.appendChild(lightningBtn);
+                
+                // Add event listener for Lightning Experiment button
+                lightningBtn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    showLightningExperimentConfirmation();
+                });
+                console.log('✅ Created Lightning Experiment button for moderator');
+            } else if (lightningBtn) {
+                lightningBtn.style.display = 'block';
+                console.log('✅ Showing Lightning Experiment button for moderator');
+            }
+        } else if (lightningBtn) {
+            lightningBtn.style.display = 'none';
+            console.log('❌ Hiding Lightning Experiment button - not moderator');
+        }
+        
+        // Show/hide "Run Speed Test" button for ADMINs in "room test" 
+        let speedTestBtn = document.getElementById('speedTestBtn');
+        const isRoomTest = currentRoom && currentRoom.toLowerCase().includes('test');
+        if (isGlobalAdmin && isRoomTest && startExperimentBtn) {
+            // Create Speed Test button if it doesn't exist and user is admin in test room
+            if (!speedTestBtn) {
+                speedTestBtn = document.createElement('button');
+                speedTestBtn.id = 'speedTestBtn';
+                speedTestBtn.textContent = '⚡ Admin Speed Test';
+                speedTestBtn.style.cssText = 'background: linear-gradient(135deg, #ff6b35 0%, #e63946 100%); color: white; padding: 8px 16px; font-size: 14px; border: none; border-radius: 6px; cursor: pointer; margin-left: 8px; font-weight: 500; box-shadow: 0 2px 8px rgba(255, 107, 53, 0.3); transition: all 0.2s ease;';
+                speedTestBtn.addEventListener('mouseover', () => {
+                    speedTestBtn.style.transform = 'translateY(-1px)';
+                    speedTestBtn.style.boxShadow = '0 4px 12px rgba(255, 107, 53, 0.4)';
+                });
+                speedTestBtn.addEventListener('mouseout', () => {
+                    speedTestBtn.style.transform = 'translateY(0)';
+                    speedTestBtn.style.boxShadow = '0 2px 8px rgba(255, 107, 53, 0.3)';
+                });
+                startExperimentBtn.parentNode.appendChild(speedTestBtn);
+                
+                // Add event listener for Speed Test button
+                speedTestBtn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    
+                    // Confirm the speed test
+                    if (confirm('This will add 3 AI players and run a full 441-round experiment at high speed. Continue?')) {
+                        // Emit request to server to run speed test
+                        socket.emit('runSpeedTest', { 
+                            room: currentRoom || 'Global'
+                        });
+                        console.log('⚡ Requested speed test for room:', currentRoom || 'Global');
+                        
+                        // Disable button to prevent multiple clicks
+                        speedTestBtn.disabled = true;
+                        speedTestBtn.textContent = '⚡ SPEED TEST RUNNING...';
+                        speedTestBtn.style.opacity = '0.6';
+                    }
+                });
+                console.log('✅ Created Speed Test button for admin in test room');
+            } else {
+                speedTestBtn.style.display = 'block';
+                console.log('✅ Showing Speed Test button for admin in test room');
+            }
+        } else if (speedTestBtn) {
+            speedTestBtn.style.display = 'none';
+            console.log('❌ Hiding Speed Test button - not admin or not test room');
         }
         
         if (!moderatorChanged && !participantsChanged && data.players.length <= 2) {
@@ -2499,7 +2976,8 @@ socket.on('playersInRoom', function(data) {
             }
         });
         
-        // Also update the player list display
+        // Also update the player list display - COMMENTED OUT FOR CLEANER UI
+        /*
         const usernames = data.players.map(p => {
             let name = p.isAI ? `🤖 ${p.username}` : p.username;
             if (p === moderator) name += ' (Moderator)';
@@ -2509,6 +2987,7 @@ socket.on('playersInRoom', function(data) {
         if (playerListDiv) {
             playerListDiv.innerHTML = `<strong>Players in room:</strong><br>${usernames.join('<br>')}`;
         }
+        */
         
         // Show triad formation popup with current status
         const participantCount = participantPlayers.length;
@@ -3114,9 +3593,52 @@ socket.on('experimentEnded', function(data) {
     console.log('🛑 Experiment ended, waiting for leftRoom event to handle UI transition...');
 });
 
+// Lightning Test Progress Handler
+socket.on('lightningTestProgress', function(data) {
+    console.log(`⚡ Lightning test progress: Round ${data.round}/${data.totalRounds}`);
+    
+    // Show or update progress modal
+    if (data.round === 1) {
+        showLightningTestProgressModal(data);
+    } else {
+        updateLightningTestProgress(data);
+    }
+    
+    // Update lightning button text to show progress
+    const lightningBtn = document.getElementById('lightningBtn');
+    if (lightningBtn) {
+        lightningBtn.textContent = `⚡ Round ${data.round}/${data.totalRounds}`;
+        lightningBtn.disabled = true;
+        lightningBtn.style.opacity = '0.8';
+    }
+});
+
+// Lightning Test Complete Handler
+socket.on('lightningTestComplete', function(data) {
+    console.log('⚡ Lightning test completed:', data);
+    
+    // Close progress modal
+    closeLightningTestProgressModal();
+    
+    // Re-enable lightning button
+    const lightningBtn = document.getElementById('lightningBtn');
+    if (lightningBtn) {
+        lightningBtn.textContent = '⚡ Lightning Experiment';
+        lightningBtn.disabled = false;
+        lightningBtn.style.opacity = '1';
+    }
+    
+    // Show completion modal with stats after a brief delay
+    setTimeout(() => {
+        showLightningTestResults(data.message, data.stats, data.duration);
+    }, 500);
+});
+
 socket.on("gameStarted", function(){
-    socket.emit('beginGame', {room: currentRoom});
-})
+    // Entity.js handles all game initialization after sending gameStarted
+    // No need to send beginGame back to server
+    console.log('🎮 Game started by moderator');
+});
 
 
 
@@ -3347,10 +3869,6 @@ socket.on('triadComplete', function(data) {
     
     // Show start button and add AI button if needed
     document.getElementById('startExperimentBtn').style.display = 'block';
-    const experimentModeSelector = document.getElementById('experimentModeSelector');
-    if (experimentModeSelector) {
-        experimentModeSelector.style.display = 'block';
-    }
     
     // Show "Add AI Players" button if not at capacity
     if (data.gameSession && data.gameSession.canAddAI) {
@@ -4071,7 +4589,7 @@ function updateConditionLED(condition, round, blockNumber, player) {
         conditionTracker.occurrences[conditionKey] = {};
     }
     if (!conditionTracker.playerCounts[conditionKey]) {
-        conditionTracker.playerCounts[conditionKey] = { None: 0 };
+        conditionTracker.playerCounts[conditionKey] = {};
     }
     
     // For conditions mode, each condition gets exactly 21 rounds per block
@@ -4107,14 +4625,38 @@ function updateConditionLED(condition, round, blockNumber, player) {
     // Update player count
     const playerKey = player || 'None';
     
-    console.log(`🔍 LED Update Debug: condition=${condition}, player=${player}, playerKey=${playerKey}`);
-    console.log(`🔍 conditionKey=${conditionKey}, conditionTracker.playerCounts:`, conditionTracker.playerCounts);
+    console.log(`🔍 LED Update Debug DETAILED:`);
+    console.log(`   condition: "${condition}"`);
+    console.log(`   player: "${player}" (type: ${typeof player})`);
+    console.log(`   playerKey: "${playerKey}" (type: ${typeof playerKey})`);
+    console.log(`   conditionKey: "${conditionKey}"`);
+    console.log(`🔍 conditionTracker.playerCounts:`, conditionTracker.playerCounts);
     
-    // Create dynamic player counter if it doesn't exist
-    if (playerKey !== 'None' && !conditionTracker.playerCounts[conditionKey][playerKey]) {
+    // Create dynamic player counter if it doesn't exist (including 'None')
+    if (!conditionTracker.playerCounts[conditionKey][playerKey]) {
         conditionTracker.playerCounts[conditionKey][playerKey] = 0;
-        createDynamicPlayerCounter(conditionKey, playerKey);
-        console.log(`🆕 Created new player counter for ${playerKey} in ${conditionKey}`);
+        console.log(`🆕 Initializing counter for ${playerKey} in ${conditionKey}`);
+        
+        // For 'None', check if static counter exists, otherwise create dynamic counter
+        if (playerKey === 'None') {
+            const existingNoneCounter = document.querySelector(`[data-player="None"][data-condition="${conditionKey}"]`);
+            if (existingNoneCounter) {
+                console.log(`✅ Found existing static None counter for ${conditionKey}`);
+                // Make sure it's visible (it should be by default, but just in case)
+                existingNoneCounter.style.display = 'inline-block';
+            } else {
+                console.log(`🆕 Creating dynamic None counter for ${conditionKey}`);
+                const success = createDynamicPlayerCounter(conditionKey, playerKey);
+                console.log(`🆕 Counter creation result for ${playerKey}: ${success}`);
+            }
+        } else {
+            // For regular players, always try to create dynamic counter
+            const success = createDynamicPlayerCounter(conditionKey, playerKey);
+            console.log(`🆕 Counter creation result for ${playerKey}: ${success}`);
+            if (!success) {
+                console.warn(`⚠️ Failed to create counter for ${playerKey} in ${conditionKey} - no available placeholders`);
+            }
+        }
     }
     
     // Increment player count
@@ -4209,10 +4751,7 @@ function updateConditionLED(condition, round, blockNumber, player) {
 
 // Function to update experimental HUD with condition and incentive information
 function updateExperimentalHUD(data) {
-    // Update LED tracker for conditions mode
-    if (data.condition && data.condition !== 'Baseline' && data.round) {
-        updateConditionLED(data.condition, data.round, data.blockNumber, data.player);
-    }
+    // Note: LED tracker is updated separately in conditionUpdate handler to avoid conflicts
     
     // Update condition display
     const conditionDisplay = document.getElementById('currentCondition');
@@ -4304,9 +4843,9 @@ function updateExperimentalHUD(data) {
         if (data.phase === 'baseline') {
             roundDisplay.textContent = `Baseline Round ${data.round || 0}`;
         } else if (data.blockNumber) {
-            // Calculate round within current block (1-21)
-            const roundInBlock = ((data.round - 1) % 21) + 1;
-            roundDisplay.textContent = `${roundInBlock}/21`;
+            // Calculate round within current block (1-63)
+            const roundInBlock = ((data.round - 1) % 63) + 1;
+            roundDisplay.textContent = `${roundInBlock}/63`;
         } else {
             roundDisplay.textContent = `Round ${data.round || 0}`;
         }
@@ -4984,91 +5523,21 @@ socket.on('conditionUpdate', function(data) {
     // *** LED TRACKER FUNCTIONALITY ***
     try {        
         // Extract condition info for LED tracker
-        const condition = data.condition || 0;
+        const condition = data.condition || '';
         const round = data.round || 0;
         const blockNumber = data.blockNumber || 0;
-        const allPlayers = data.players || [];
+        const playerName = data.player || 'None';  // Simplified - use data.player directly
         
-        // Defensive filter - remove any moderators that might have slipped through
-        const players = allPlayers.filter(p => !p.isModerator);
+        console.log(`🔍 conditionUpdate LED processing DETAILED:`);
+        console.log(`   data.player: "${data.player}" (type: ${typeof data.player})`);
+        console.log(`   playerName: "${playerName}" (type: ${typeof playerName})`);
+        console.log(`   condition: "${condition}"`);
+        console.log(`   round: ${round}`);
         
-        // Update LED matrix - use real player names, not Player A/B/C mapping
-        let mappedPlayerName = data.player;
+        // Single call to updateConditionLED - no duplication
+        updateConditionLED(condition, round, blockNumber, playerName);
         
-        if (data.players && data.players.length > 0 && data.player) {
-            // Method 1: Use real player name directly (for moderators)
-            mappedPlayerName = data.player; // Use real name directly
-        } else if (data.player) {
-            // Method 2: Use real name when players array isn't available
-            mappedPlayerName = data.player; // Use real name directly
-        } else {
-            console.warn(`⚠️ No player to map (data.player = ${data.player})`);
-        }
-        
-        updateConditionLED(condition, round, blockNumber, mappedPlayerName);
-        
-        // Update player counters - ensure ALL players have counters in ALL conditions
-        let conditionKey;
-        if (typeof condition === 'string') {
-            // Real game sends condition names
-            switch(condition) {
-                case 'High Culturant':
-                    conditionKey = 'HIGH_CULTURANT';
-                    break;
-                case 'High Operant':
-                    conditionKey = 'HIGH_OPERANT';
-                    break;
-                case 'Equal Culturant–Operant':
-                    conditionKey = 'EQUAL_CULTURANT_OPERANT';
-                    break;
-                default:
-                    conditionKey = condition; // fallback
-            }
-        } else {
-            // Test data sends condition numbers
-            conditionKey = condition;
-        }
-        
-        // Create player counters based on available data
-        if (players && players.length > 0) {
-            // Method 1: Use players array when available (moderators)
-            // Check if we need to force re-initialization due to moderator counters
-            const moderatorDiv = document.getElementById('moderatorPosition');
-            const moderatorNameDiv = moderatorDiv?.querySelector('.moderator-name');
-            const currentModerator = moderatorNameDiv?.textContent;
-            
-            const moderatorCounters = currentModerator ? 
-                document.querySelectorAll(`[data-player="${currentModerator}"]`) : 
-                [];
-            const needsReinit = moderatorCounters.length > 0;
-            
-            if (playerNameMapping.size === 0 || needsReinit) {
-                if (needsReinit) {
-                    console.log(`🧹 Clearing existing moderator counters for "${currentModerator}" and re-initializing`);
-                    // Clear existing mapping and counters
-                    playerNameMapping.clear();
-                    nextPlayerIndex = 0;
-                    // Remove any existing counters
-                    document.querySelectorAll('.player-counter').forEach(counter => {
-                        if (counter.hasAttribute('data-player')) {
-                            counter.remove();
-                        }
-                    });
-                }
-                initializePlayerNamesInTracker(players);
-            }
-        } else {
-            // Method 2: Create counters for discovered players when no players array
-            console.log('🎯 LED TRACKER: No players array, using real names');
-            const allConditions = ['HIGH_CULTURANT', 'HIGH_OPERANT', 'EQUAL_CULTURANT_OPERANT'];
-            
-            // Create counter for the current player
-            if (data.player) {
-                allConditions.forEach(condKey => {
-                    createDynamicPlayerCounter(condKey, data.player);
-                });
-            }
-        }
+        console.log(`✅ conditionUpdate processing complete for round ${round}`);
         
     } catch (error) {
         console.error('❌ LED TRACKER: Error processing conditionUpdate:', error);
@@ -5096,7 +5565,7 @@ socket.on('phaseTransition', function(data) {
     }
     
     // Show phase transition notification
-    showNotification('phase-transition', data.message, 'Phase Transition', 8000);
+    showSystemNotification('Phase Transition', data.message, 'info');
     
     // Update moderator status panel if user is moderator
     const isModerator = window.currentUserIsModerator || false;
@@ -6178,33 +6647,10 @@ document.addEventListener('DOMContentLoaded', function() {
     if (startExperimentBtn) {
         startExperimentBtn.addEventListener('click', function(e) {
             e.preventDefault();
-            console.log('🚀 Starting behavioral experiment');
+            console.log('🚀 Start experiment button clicked - showing confirmation');
             
-            // Check for experiment mode selection
-            const experimentModeSelect = document.getElementById('experimentMode');
-            const experimentMode = experimentModeSelect ? experimentModeSelect.value : 'baseline';
-            
-            console.log('🧪 Selected experiment mode:', experimentMode);
-            
-            // Emit startGame with experiment mode
-            socket.emit('startGame', {
-                room: currentRoom,
-                experimentMode: experimentMode
-            });
-            
-            // Hide this button since experiment is starting
-            this.style.display = 'none';
-            
-            // Hide experiment mode selector
-            if (experimentModeSelect && experimentModeSelect.parentElement) {
-                experimentModeSelect.parentElement.style.display = 'none';
-            }
-            
-            // Hide Add AI button if it exists
-            const addAIBtn = document.getElementById('addAIBtn');
-            if (addAIBtn) {
-                addAIBtn.style.display = 'none';
-            }
+            // Show confirmation modal instead of starting immediately
+            showStartExperimentConfirmation();
         });
     }
     
@@ -6920,12 +7366,10 @@ socket.on('incentiveChanged', function(data) {
     // Show prominent incentive banner to the player who received the incentive
     if (data.incentiveType && data.incentiveDisplay) {
         showIncentiveBanner(data.incentiveDisplay);
-        showNotification('incentive-set', data.message, 'Incentive Active', 5000);
+        // Removed: showSystemNotification('Incentive Active', data.message, 'success');
     } else {
         hideIncentiveBanner();
-        if (data.message) {
-            showNotification('incentive-removed', data.message, 'Incentive Removed', 3000);
-        }
+        // Removed: showSystemNotification('Incentive Removed', data.message, 'warning');
     }
     
     // Update incentive element for moderators (legacy support)
@@ -6939,6 +7383,18 @@ socket.on('incentiveChanged', function(data) {
             incentiveElement.style.color = '#72767d';
         }
     }
+});
+
+// Handle incentive bonus notifications
+socket.on('incentiveBonusNotification', function(data) {
+    console.log('🎁 Incentive bonus earned:', data);
+    
+    // Show prominent success notification
+    showSystemNotification('Bonus Earned!', data.message, 'success');
+    
+    // Could add special effects here (confetti, sound, etc.)
+    // playBonusSound();
+    // showBonusAnimation();
 });
 
 socket.on('experimentPaused', function(data) {
@@ -6956,6 +7412,16 @@ socket.on('experimentResumed', function(data) {
     if (statusDiv) {
         statusDiv.textContent = '▶️ AI Active';
         statusDiv.style.color = '#43b581';
+    }
+});
+
+socket.on('roundResultsPanel', function(data) {
+    console.log('📊 Round results panel data received:', data);
+    
+    // Only show for moderators
+    const isModerator = window.currentUserIsModerator || false;
+    if (isModerator) {
+        updateRoundResultsPanel(data);
     }
 });
 
@@ -9024,6 +9490,481 @@ function confirmEndExperiment() {
     console.log('🛑 End experiment request sent, waiting for server response...');
 }
 
+// Function to show Lightning Experiment confirmation modal with magenta theme
+function showLightningExperimentConfirmation() {
+    // Remove any existing modal
+    const existingModal = document.getElementById('lightningExperimentConfirmModal');
+    if (existingModal) {
+        existingModal.remove();
+    }
+
+    const modalHTML = `
+        <div id="lightningExperimentConfirmModal" style="
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(15px);
+            -webkit-backdrop-filter: blur(15px);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 10001;
+            animation: fadeIn 0.3s ease-out;
+        ">
+            <div style="
+                max-width: 520px;
+                width: 90%;
+                background: linear-gradient(145deg, 
+                    rgba(192, 38, 211, 0.98) 0%, 
+                    rgba(124, 58, 237, 0.95) 100%);
+                backdrop-filter: blur(25px);
+                -webkit-backdrop-filter: blur(25px);
+                border: 2px solid rgba(192, 38, 211, 0.4);
+                border-radius: 24px;
+                box-shadow: 
+                    0 30px 100px rgba(192, 38, 211, 0.8),
+                    0 15px 50px rgba(0, 0, 0, 0.6),
+                    inset 0 2px 0 rgba(255, 255, 255, 0.15);
+                padding: 48px;
+                text-align: center;
+                position: relative;
+                animation: modalSlideIn 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            ">
+                <div style="
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    gap: 15px;
+                    margin-bottom: 30px;
+                ">
+                    <div style="
+                        width: 6px;
+                        height: 6px;
+                        background: linear-gradient(135deg, #fbbf24, #f59e0b);
+                        border-radius: 50%;
+                        animation: lightningBlink 1.5s infinite;
+                    "></div>
+                    <h2 style="
+                        color: #fef2f2; 
+                        font-weight: 700; 
+                        margin: 0;
+                        font-size: 32px;
+                        letter-spacing: -0.5px;
+                        text-shadow: 0 4px 12px rgba(0,0,0,0.5);
+                    ">⚡ Lightning Experiment</h2>
+                    <div style="
+                        width: 6px;
+                        height: 6px;
+                        background: linear-gradient(135deg, #fbbf24, #f59e0b);
+                        border-radius: 50%;
+                        animation: lightningBlink 1.5s infinite 0.75s;
+                    "></div>
+                </div>
+                
+                <div style="
+                    font-size: 64px;
+                    margin-bottom: 25px;
+                    opacity: 0.95;
+                    filter: drop-shadow(0 6px 12px rgba(0,0,0,0.4));
+                    animation: lightningBounce 3s infinite;
+                ">⚡</div>
+                
+                <div style="
+                    background: rgba(15, 15, 15, 0.7);
+                    border: 2px solid rgba(192, 38, 211, 0.4);
+                    border-radius: 16px;
+                    padding: 24px;
+                    margin: 25px 0;
+                    backdrop-filter: blur(12px);
+                ">
+                    <p style="
+                        color: #fef2f2; 
+                        font-size: 18px; 
+                        margin: 0 0 15px 0; 
+                        line-height: 1.6;
+                        font-weight: 600;
+                    ">Start a high-speed behavioral experiment?</p>
+                    
+                    <p style="
+                        color: #ddd6fe; 
+                        font-size: 15px; 
+                        margin: 0;
+                        line-height: 1.5;
+                        font-style: italic;
+                    ">This will add 3 AI players and run a rapid 441-round experiment with accelerated timing and minimal UI for system testing.</p>
+                </div>
+                
+                <div style="
+                    display: flex;
+                    gap: 16px;
+                    justify-content: center;
+                    margin-top: 35px;
+                ">
+                    <button onclick="cancelLightningExperiment()" style="
+                        background: linear-gradient(135deg, rgba(75, 85, 99, 0.9) 0%, rgba(55, 65, 81, 0.9) 100%);
+                        color: #e5e7eb;
+                        padding: 16px 28px;
+                        border: 2px solid rgba(156, 163, 175, 0.3);
+                        border-radius: 12px;
+                        cursor: pointer;
+                        font-weight: 600;
+                        font-size: 16px;
+                        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+                        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+                        display: flex;
+                        align-items: center;
+                        gap: 10px;
+                    "
+                    onmouseover="
+                        this.style.background='linear-gradient(135deg, rgba(55, 65, 81, 0.95) 0%, rgba(31, 41, 55, 0.95) 100%)';
+                        this.style.transform='translateY(-2px)';
+                        this.style.boxShadow='0 6px 20px rgba(0, 0, 0, 0.4)';
+                    "
+                    onmouseout="
+                        this.style.background='linear-gradient(135deg, rgba(75, 85, 99, 0.9) 0%, rgba(55, 65, 81, 0.9) 100%)';
+                        this.style.transform='translateY(0)';
+                        this.style.boxShadow='0 4px 15px rgba(0, 0, 0, 0.3)';
+                    ">
+                        <span style="font-size: 14px;">❌</span>
+                        Cancel
+                    </button>
+                    
+                    <button onclick="confirmLightningExperiment()" style="
+                        background: linear-gradient(135deg, rgba(192, 38, 211, 0.95) 0%, rgba(124, 58, 237, 0.95) 100%);
+                        color: white;
+                        padding: 16px 28px;
+                        border: 2px solid rgba(192, 38, 211, 0.6);
+                        border-radius: 12px;
+                        cursor: pointer;
+                        font-weight: 700;
+                        font-size: 16px;
+                        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+                        box-shadow: 
+                            0 6px 20px rgba(192, 38, 211, 0.6),
+                            0 3px 10px rgba(0, 0, 0, 0.3);
+                        display: flex;
+                        align-items: center;
+                        gap: 10px;
+                        animation: lightningButtonPulse 2s infinite;
+                    "
+                    onmouseover="
+                        this.style.background='linear-gradient(135deg, rgba(124, 58, 237, 1) 0%, rgba(147, 51, 234, 1) 100%)';
+                        this.style.transform='translateY(-3px)';
+                        this.style.boxShadow='0 8px 25px rgba(192, 38, 211, 0.7), 0 4px 15px rgba(0, 0, 0, 0.4)';
+                    "
+                    onmouseout="
+                        this.style.background='linear-gradient(135deg, rgba(192, 38, 211, 0.95) 0%, rgba(124, 58, 237, 0.95) 100%)';
+                        this.style.transform='translateY(0)';
+                        this.style.boxShadow='0 6px 20px rgba(192, 38, 211, 0.6), 0 3px 10px rgba(0, 0, 0, 0.3)';
+                    "
+                    onmousedown="this.style.transform='translateY(0) scale(0.97)'"
+                    onmouseup="this.style.transform='translateY(-3px) scale(1)'">
+                        <span style="font-size: 14px;">⚡</span>
+                        Start Lightning Test
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <style>
+            @keyframes lightningPulse {
+                0%, 100% { opacity: 0.7; }
+                50% { opacity: 1; }
+            }
+            
+            @keyframes lightningBlink {
+                0%, 100% { opacity: 0.5; transform: scale(1); }
+                50% { opacity: 1; transform: scale(1.3); }
+            }
+            
+            @keyframes lightningBounce {
+                0%, 100% { transform: translateY(0) scale(1) rotate(0deg); }
+                50% { transform: translateY(-8px) scale(1.05) rotate(5deg); }
+            }
+            
+            @keyframes lightningButtonPulse {
+                0%, 100% { box-shadow: 0 6px 20px rgba(192, 38, 211, 0.6), 0 3px 10px rgba(0, 0, 0, 0.3); }
+                50% { box-shadow: 0 8px 30px rgba(192, 38, 211, 0.8), 0 4px 15px rgba(0, 0, 0, 0.4); }
+            }
+        </style>
+    `;
+    
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
+}
+
+// Function to cancel Lightning Experiment
+function cancelLightningExperiment() {
+    const modal = document.getElementById('lightningExperimentConfirmModal');
+    if (modal) {
+        modal.style.animation = 'fadeOut 0.3s ease-in';
+        setTimeout(() => {
+            if (modal.parentNode) {
+                modal.remove();
+            }
+        }, 300);
+    }
+}
+
+// Function to confirm Lightning Experiment
+function confirmLightningExperiment() {
+    console.log('⚡ Starting Lightning Experiment');
+    
+    // Close the confirmation modal
+    cancelLightningExperiment();
+    
+    // Emit Lightning Experiment event to server
+    socket.emit('runSpeedTest', {
+        room: currentRoom,
+        lightningMode: true
+    });
+    
+    // Disable the lightning button to prevent multiple clicks
+    const lightningBtn = document.getElementById('lightningBtn');
+    if (lightningBtn) {
+        lightningBtn.disabled = true;
+        lightningBtn.textContent = '⚡ Lightning Test Running...';
+        lightningBtn.style.opacity = '0.6';
+    }
+}
+
+// Function to show Start Experiment confirmation modal
+function showStartExperimentConfirmation() {
+    // Prevent multiple modals
+    if (document.getElementById('startExperimentConfirmModal')) {
+        return;
+    }
+    
+    const modalHTML = `
+        <div id="startExperimentConfirmModal" style="
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.85);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10000;
+            animation: fadeIn 0.3s ease-out;
+            backdrop-filter: blur(8px);
+        ">
+            <div style="
+                background: linear-gradient(135deg, rgba(20, 25, 35, 0.95) 0%, rgba(30, 40, 55, 0.95) 100%);
+                border: 2px solid rgba(34, 197, 94, 0.4);
+                border-radius: 20px;
+                padding: 30px;
+                max-width: 450px;
+                width: 90%;
+                max-height: 90vh;
+                overflow-y: auto;
+                box-shadow: 
+                    0 25px 50px rgba(0, 0, 0, 0.7),
+                    0 12px 25px rgba(34, 197, 94, 0.2),
+                    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+                backdrop-filter: blur(20px);
+                animation: slideInUp 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+                transform-origin: center bottom;
+            ">
+                <div style="text-align: center; margin-bottom: 20px;">
+                    <div style="
+                        font-size: 48px;
+                        margin-bottom: 16px;
+                        color: #22c55e;
+                        text-shadow: 0 0 20px rgba(34, 197, 94, 0.6);
+                        filter: drop-shadow(0 6px 12px rgba(0,0,0,0.4));
+                        animation: startBounce 3s infinite;
+                    ">🚀</div>
+                    
+                    <h2 style="
+                        color: #22c55e;
+                        margin: 0 0 8px 0;
+                        font-size: 24px;
+                        font-weight: 700;
+                        text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+                    ">Start Experiment</h2>
+                    
+                    <p style="
+                        color: rgba(255, 255, 255, 0.8);
+                        margin: 0;
+                        font-size: 16px;
+                        line-height: 1.4;
+                    ">Ready to begin the behavioral experiment?</p>
+                </div>
+                
+                <div style="
+                    background: rgba(15, 15, 15, 0.7);
+                    border: 2px solid rgba(34, 197, 94, 0.4);
+                    border-radius: 16px;
+                    padding: 24px;
+                    margin: 25px 0;
+                    backdrop-filter: blur(12px);
+                ">
+                    <div style="
+                        color: rgba(255, 255, 255, 0.9);
+                        font-size: 15px;
+                        line-height: 1.6;
+                        margin-bottom: 16px;
+                    ">
+                        <div style="margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+                            <span style="color: #22c55e; font-size: 16px;">✅</span>
+                            <span>All players will enter the experiment phase</span>
+                        </div>
+                        <div style="margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+                            <span style="color: #22c55e; font-size: 16px;">⏱️</span>
+                            <span>Timer and rounds will begin automatically</span>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span style="color: #22c55e; font-size: 16px;">🎯</span>
+                            <span>Experiment settings will be locked in</span>
+                        </div>
+                    </div>
+                    
+                    <div style="
+                        background: rgba(34, 197, 94, 0.1);
+                        border: 1px solid rgba(34, 197, 94, 0.3);
+                        border-radius: 12px;
+                        padding: 16px;
+                        color: rgba(255, 255, 255, 0.85);
+                        font-size: 14px;
+                        line-height: 1.5;
+                    ">
+                        <strong style="color: #22c55e;">Note:</strong> Once started, the experiment cannot be paused or modified. Make sure all settings are configured correctly.
+                    </div>
+                </div>
+                
+                <div style="
+                    display: flex;
+                    gap: 16px;
+                    margin-top: 30px;
+                ">
+                    <button onclick="cancelStartExperiment()" style="
+                        background: rgba(30, 30, 30, 0.8);
+                        color: rgba(255, 255, 255, 0.8);
+                        padding: 16px 28px;
+                        border: 2px solid rgba(100, 100, 100, 0.4);
+                        border-radius: 12px;
+                        cursor: pointer;
+                        font-weight: 600;
+                        font-size: 16px;
+                        transition: all 0.3s ease;
+                        flex: 1;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        gap: 8px;
+                    "
+                    onmouseover="
+                        this.style.background='rgba(50, 50, 50, 0.9)';
+                        this.style.borderColor='rgba(150, 150, 150, 0.6)';
+                        this.style.color='white';
+                    "
+                    onmouseout="
+                        this.style.background='rgba(30, 30, 30, 0.8)';
+                        this.style.borderColor='rgba(100, 100, 100, 0.4)';
+                        this.style.color='rgba(255, 255, 255, 0.8)';
+                    ">
+                        <span style="font-size: 14px;">❌</span>
+                        Cancel
+                    </button>
+                    
+                    <button onclick="confirmStartExperiment()" style="
+                        background: linear-gradient(135deg, rgba(34, 197, 94, 0.95) 0%, rgba(22, 163, 74, 0.95) 100%);
+                        color: white;
+                        padding: 16px 28px;
+                        border: 2px solid rgba(34, 197, 94, 0.6);
+                        border-radius: 12px;
+                        cursor: pointer;
+                        font-weight: 700;
+                        font-size: 16px;
+                        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+                        box-shadow: 
+                            0 6px 20px rgba(34, 197, 94, 0.6),
+                            0 3px 10px rgba(0, 0, 0, 0.3);
+                        flex: 1;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        gap: 10px;
+                        animation: startButtonPulse 2s infinite;
+                    "
+                    onmouseover="
+                        this.style.background='linear-gradient(135deg, rgba(22, 163, 74, 1) 0%, rgba(21, 128, 61, 1) 100%)';
+                        this.style.transform='translateY(-3px)';
+                        this.style.boxShadow='0 8px 25px rgba(34, 197, 94, 0.7), 0 4px 15px rgba(0, 0, 0, 0.4)';
+                    "
+                    onmouseout="
+                        this.style.background='linear-gradient(135deg, rgba(34, 197, 94, 0.95) 0%, rgba(22, 163, 74, 0.95) 100%)';
+                        this.style.transform='translateY(0)';
+                        this.style.boxShadow='0 6px 20px rgba(34, 197, 94, 0.6), 0 3px 10px rgba(0, 0, 0, 0.3)';
+                    "
+                    onmousedown="this.style.transform='translateY(0) scale(0.97)'"
+                    onmouseup="this.style.transform='translateY(-3px) scale(1)'">
+                        <span style="font-size: 14px;">🚀</span>
+                        Start Experiment
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <style>
+            @keyframes startBounce {
+                0%, 100% { transform: translateY(0) scale(1) rotate(0deg); }
+                50% { transform: translateY(-8px) scale(1.05) rotate(-3deg); }
+            }
+            
+            @keyframes startButtonPulse {
+                0%, 100% { box-shadow: 0 6px 20px rgba(34, 197, 94, 0.6), 0 3px 10px rgba(0, 0, 0, 0.3); }
+                50% { box-shadow: 0 8px 30px rgba(34, 197, 94, 0.8), 0 4px 15px rgba(0, 0, 0, 0.4); }
+            }
+        </style>
+    `;
+    
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
+}
+
+// Function to cancel Start Experiment
+function cancelStartExperiment() {
+    const modal = document.getElementById('startExperimentConfirmModal');
+    if (modal) {
+        modal.style.animation = 'fadeOut 0.3s ease-in';
+        setTimeout(() => {
+            if (modal.parentNode) {
+                modal.remove();
+            }
+        }, 300);
+    }
+}
+
+// Function to confirm Start Experiment
+function confirmStartExperiment() {
+    console.log('🚀 Starting experiment with confirmation');
+    
+    // Close the confirmation modal
+    cancelStartExperiment();
+    
+    // Emit start game event to server (matches Entity.js startGame handler)
+    socket.emit('startGame', { 
+        room: currentRoom,
+        experimentMode: 'conditions'  // Entity.js expects 'experimentMode', not 'mode'
+    });
+    
+    // Hide UI elements after starting
+    const startBtn = document.getElementById('startExperimentBtn');
+    if (startBtn) {
+        startBtn.style.display = 'none';
+    }
+    
+    // Hide Add AI button if it exists
+    const addAIBtn = document.getElementById('addAIBtn');
+    if (addAIBtn) {
+        addAIBtn.style.display = 'none';
+    }
+}
+
 function handlePauseExperiment() {
     hideModeratorContextMenu();
     
@@ -9443,5 +10384,88 @@ function hideIncentiveBanner() {
     const existingBanner = document.getElementById('incentiveBanner');
     if (existingBanner) {
         existingBanner.remove();
+    }
+}
+
+// Update Round Results Panel for Moderators
+function updateRoundResultsPanel(roundData) {
+    console.log('🔍 Updating round results panel:', roundData);
+    
+    const roundResultsTitle = document.getElementById('roundResultsTitle');
+    const roundResults = document.getElementById('roundResults');
+    const roundResultsPanel = document.getElementById('roundResultsPanel');
+    const roundSummary = document.getElementById('roundSummary');
+    const playerResultsTable = document.getElementById('playerResultsTable');
+    const conversionRateInfo = document.getElementById('conversionRateInfo');
+    const roundTotals = document.getElementById('roundTotals');
+    
+    if (!roundResultsTitle || !roundResultsPanel) {
+        console.warn('⚠️ Round results panel elements not found');
+        return;
+    }
+    
+    // Update title and hide waiting message
+    const isBaseline = roundData.condition === 'Baseline';
+    roundResultsTitle.textContent = isBaseline ? 
+        `Baseline Round ${roundData.round} Results` : 
+        `Round ${roundData.round} Results`;
+    if (roundResults) roundResults.style.display = 'none';
+    roundResultsPanel.style.display = 'block';
+    
+    // Round summary
+    if (roundSummary) {
+        const conditionText = isBaseline ? 'Baseline' : roundData.condition;
+        roundSummary.textContent = `${conditionText} Round ${roundData.round} completed • ${roundData.players?.length || 0} players`;
+    }
+    
+    // Player results table
+    if (playerResultsTable && roundData.players) {
+        let tableHTML = `
+            <div style="background: rgba(40, 43, 48, 0.6); border-radius: 6px; padding: 12px; margin-bottom: 8px;">
+                <div style="color: #ffffff; font-weight: 600; font-size: 13px; margin-bottom: 8px;">Player Token Earnings</div>
+                <div style="display: grid; grid-template-columns: 1fr auto auto auto; gap: 8px; font-size: 12px;">
+                    <div style="color: #b9bbbe; font-weight: 500;">Player</div>
+                    <div style="color: #b9bbbe; font-weight: 500; text-align: right;">White</div>
+                    <div style="color: #b9bbbe; font-weight: 500; text-align: right;">Black</div>
+                    <div style="color: #b9bbbe; font-weight: 500; text-align: right;">Total</div>
+        `;
+        
+        roundData.players.forEach(player => {
+            const whiteTokens = player.whiteTokens || 0;
+            const blackTokens = player.blackTokens || 0;
+            const totalEarnings = player.totalEarnings || 0;
+            const isAI = player.isAI ? ' (AI)' : '';
+            
+            tableHTML += `
+                <div style="color: #ffffff;">${player.username}${isAI}</div>
+                <div style="color: #43b581; text-align: right;">${whiteTokens}</div>
+                <div style="color: #e74c3c; text-align: right;">${blackTokens}</div>
+                <div style="color: #faa61a; text-align: right; font-weight: 500;">$${totalEarnings.toFixed(2)}</div>
+            `;
+        });
+        
+        tableHTML += `</div></div>`;
+        playerResultsTable.innerHTML = tableHTML;
+    }
+    
+    // Conversion rate info
+    if (conversionRateInfo && roundData.tokenValues) {
+        conversionRateInfo.innerHTML = `
+            <strong>Token Conversion:</strong> 
+            White = $${roundData.tokenValues.white?.toFixed(2) || '0.00'} • 
+            Black = $${roundData.tokenValues.black?.toFixed(2) || '0.00'}
+        `;
+    }
+    
+    // Round totals
+    if (roundTotals && roundData.players) {
+        const totalWhite = roundData.players.reduce((sum, p) => sum + (p.whiteTokens || 0), 0);
+        const totalBlack = roundData.players.reduce((sum, p) => sum + (p.blackTokens || 0), 0);
+        const totalEarnings = roundData.players.reduce((sum, p) => sum + (p.totalEarnings || 0), 0);
+        
+        roundTotals.innerHTML = `
+            <strong>Round Totals:</strong> 
+            ${totalWhite} White • ${totalBlack} Black • $${totalEarnings.toFixed(2)} Total Earnings
+        `;
     }
 }

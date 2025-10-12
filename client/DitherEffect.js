@@ -676,11 +676,6 @@ class DitherEffect {
             this.material.uniforms.holdIntensity.value = 0.0;
         }
         
-        // Debug: log current mouse position every few frames
-        if (Math.floor(this.time * 60) % 60 === 0) {
-            console.log('Shader mouse:', this.mouse.x.toFixed(2), this.mouse.y.toFixed(2));
-        }
-        
         this.renderer.render(this.scene, this.camera);
     }
     
