@@ -1,0 +1,33 @@
+<!-- Example HTML template structure for including modular JavaScript -->
+<!-- This demonstrates how to update login.ejs and other templates -->
+
+<!-- Core modules (must load first) -->
+<script type="module" src="/client/js/utils.js"></script>
+<script type="module" src="/client/js/socketManager.js"></script>
+
+<!-- UI modules -->
+<script type="module" src="/client/js/modals.js"></script>
+<script type="module" src="/client/js/gameUI.js"></script>
+<script type="module" src="/client/js/chatUI.js"></script>
+<script type="module" src="/client/js/adminUI.js"></script>
+
+<!-- Business logic modules -->
+<script type="module" src="/client/js/authentication.js"></script>
+<script type="module" src="/client/js/gameLogic.js"></script>
+<script type="module" src="/client/js/tokenSystem.js"></script>
+<script type="module" src="/client/js/experimentControl.js"></script>
+
+<!-- Event handling -->
+<script type="module" src="/client/js/socketHandlers.js"></script>
+
+<!-- Main application (reduced from 10k+ lines to manageable size) -->
+<script type="module" src="/client/js/main.js"></script>
+
+<script type="module">
+    // Initialize the application once all modules are loaded
+    import { initializeApp } from '/client/js/main.js';
+    
+    document.addEventListener('DOMContentLoaded', () => {
+        initializeApp();
+    });
+</script>

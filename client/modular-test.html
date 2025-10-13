@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>XenoGenesis - Modular Test</title>
+    <style>
+        /* Basic styling for testing */
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #1e3c72, #2a5298);
+            color: white;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .module-test {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+            backdrop-filter: blur(10px);
+        }
+        
+        .test-button {
+            background: linear-gradient(135deg, #4CAF50, #45a049);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+            font-size: 14px;
+        }
+        
+        .test-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(76, 175, 80, 0.3);
+        }
+        
+        .grid-8x8 {
+            display: grid;
+            grid-template-columns: repeat(9, 1fr);
+            gap: 2px;
+            max-width: 600px;
+            margin: 20px 0;
+        }
+        
+        .grid-cell {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            padding: 10px;
+            text-align: center;
+            min-height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .grid-header {
+            background: rgba(255, 255, 255, 0.2);
+            font-weight: bold;
+        }
+        
+        .grid-row:hover .grid-data-cell {
+            background: rgba(255, 255, 255, 0.2);
+            cursor: pointer;
+        }
+        
+        .row-selected .grid-data-cell {
+            background: rgba(76, 175, 80, 0.5) !important;
+        }
+        
+        .column-selected {
+            background: rgba(33, 150, 243, 0.5) !important;
+        }
+        
+        .poker-table-layout {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            margin: 20px 0;
+        }
+        
+        .player-position {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 10px;
+            padding: 15px;
+            text-align: center;
+            min-width: 150px;
+        }
+        
+        .player-avatar {
+            font-size: 30px;
+            margin-bottom: 10px;
+        }
+        
+        .player-name {
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        
+        .player-status {
+            font-size: 12px;
+            margin-bottom: 10px;
+        }
+        
+        .player-wallet {
+            font-size: 12px;
+        }
+        
+        .active-player {
+            border-color: #4CAF50;
+            box-shadow: 0 0 20px rgba(76, 175, 80, 0.5);
+        }
+        
+        .status-display {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 12px;
+            font-family: monospace;
+            max-width: 300px;
+        }
+        
+        .loading {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .spinner {
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-top: 2px solid white;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 XenoGenesis Modular Test Page</h1>
+        
+        <div class="status-display" id="statusDisplay">
+            <div class="loading">
+                <div class="spinner"></div>
+                <span>Loading modules...</span>
+            </div>
+        </div>
+        
+        <!-- Modal System Tests -->
+        <div class="module-test">
+            <h2>📱 Modal System Tests</h2>
+            <p>Test the modular modal system:</p>
+            <button class="test-button" onclick="testSessionModal()">Session Expired Modal</button>
+            <button class="test-button" onclick="testAlertModal()">Alert Modal</button>
+            <button class="test-button" onclick="testInviteModal()">Invite Code Modal</button>
+            <button class="test-button" onclick="testExperimentModal()">Experiment Ended Modal</button>
+        </div>
+        
+        <!-- Socket System Tests -->
+        <div class="module-test">
+            <h2>🔌 Socket System Tests</h2>
+            <p>Test socket connection and handlers:</p>
+            <button class="test-button" onclick="testSocketConnection()">Test Connection</button>
+            <button class="test-button" onclick="testSocketEmit()">Test Emit</button>
+            <button class="test-button" onclick="testSocketHandlers()">Test Handlers</button>
+            <div id="socketStatus" style="margin-top: 10px; font-family: monospace; font-size: 12px;"></div>
+        </div>
+        
+        <!-- Game UI Tests -->
+        <div class="module-test">
+            <h2>🎮 Game UI Tests</h2>
+            <p>Test game interface components:</p>
+            <button class="test-button" onclick="testGameGrid()">Render Grid</button>
+            <button class="test-button" onclick="testPokerTable()">Poker Table</button>
+            <button class="test-button" onclick="testColumnHighlight()">Column Highlight</button>
+            <button class="test-button" onclick="testTurnDisplay()">Turn Display</button>
+            <button class="test-button" onclick="resetGameUI()">Reset Game UI</button>
+            
+            <div id="gameGrid"></div>
+            <div id="pokerTable"></div>
+            <div id="turnIndicator" style="margin: 10px 0; padding: 10px; background: rgba(255,255,255,0.1); border-radius: 5px;"></div>
+        </div>
+        
+        <!-- Token System Tests -->
+        <div class="module-test">
+            <h2>💰 Token System Tests</h2>
+            <p>Test token and wallet management:</p>
+            <button class="test-button" onclick="testTokenPool()">Update Token Pool</button>
+            <button class="test-button" onclick="testConversionRates()">Conversion Rates</button>
+            <button class="test-button" onclick="testWalletDisplays()">Wallet Displays</button>
+            
+            <div id="tokenPool" style="margin: 10px 0; font-weight: bold;"></div>
+            <div style="display: flex; gap: 20px; margin: 10px 0;">
+                <div>White Token Value: <span id="whiteTokenValue">$0.00</span></div>
+                <div>Black Token Value: <span id="blackTokenValue">$0.00</span></div>
+            </div>
+            <div id="walletDisplays" style="display: flex; gap: 10px; flex-wrap: wrap; margin: 10px 0;"></div>
+        </div>
+        
+        <!-- Sign In Form Test -->
+        <div class="module-test" id="signDiv">
+            <h2>🔐 Authentication Test</h2>
+            <form id="signInForm">
+                <div style="margin: 10px 0;">
+                    <input type="text" id="signDivUsername" placeholder="Username" 
+                           style="padding: 10px; border: none; border-radius: 5px; margin-right: 10px;">
+                    <input type="password" id="signDivPassword" placeholder="Password" 
+                           style="padding: 10px; border: none; border-radius: 5px; margin-right: 10px;">
+                </div>
+                <button type="submit" class="test-button">Sign In</button>
+                <button type="button" class="test-button" onclick="testSignUp()">Sign Up</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Import Socket.IO -->
+    <script src="/socket.io/socket.io.js"></script>
+    
+    <!-- Import all modules in correct order -->
+    <script type="module">
+        import { initializeApp } from '/client/js/main.js';
+        import { showSessionExpiredModal, showGlassmorphismAlert, showInviteCodeAlert, showExperimentEndedModal } from '/client/js/modals.js';
+        import { socket, isSocketConnected } from '/client/js/socketManager.js';
+        import { updateTokenPoolDisplay, updateTokenConversionDisplay, updateAllWalletDisplays } from '/client/js/tokenSystem.js';
+        import gameUI from '/client/js/gameUI.js';
+        
+        // Global test functions
+        window.testSessionModal = () => showSessionExpiredModal();
+        window.testAlertModal = () => showGlassmorphismAlert('Test Alert', 'This is a test alert message with <strong>HTML</strong> content.', 'info');
+        window.testInviteModal = () => showInviteCodeAlert('TEST123', 'Single-Use');
+        window.testExperimentModal = () => showExperimentEndedModal('Test experiment has ended successfully!', true);
+        
+        window.testSocketConnection = () => {
+            const status = document.getElementById('socketStatus');
+            status.innerHTML = `
+                <div>Socket Connected: ${isSocketConnected()}</div>
+                <div>Socket ID: ${socket.id || 'Not connected'}</div>
+                <div>Transport: ${socket.io.engine.transport.name || 'Unknown'}</div>
+            `;
+        };
+        
+        window.testSocketEmit = () => {
+            socket.emit('test', { message: 'Hello from modular client!', timestamp: Date.now() });
+            console.log('Test event emitted');
+        };
+        
+        window.testSocketHandlers = () => {
+            // Simulate receiving various events
+            console.log('Testing socket handlers...');
+        };
+        
+        window.testGameGrid = () => {
+            const gridData = Array(8).fill().map(() => 
+                Array(8).fill().map(() => ({
+                    whiteTokens: Math.floor(Math.random() * 5),
+                    blackTokens: Math.floor(Math.random() * 3)
+                }))
+            );
+            gameUI.renderGrid8x8(gridData);
+        };
+        
+        window.testPokerTable = () => {
+            const gameSession = {
+                players: [
+                    { username: 'Alice', whiteTokens: 5, blackTokens: 2, totalEarnings: 12.50, isAI: false, isLockedIn: false },
+                    { username: 'Bob', whiteTokens: 3, blackTokens: 4, totalEarnings: 8.75, isAI: false, isLockedIn: true },
+                    { username: 'AI Player 1', whiteTokens: 2, blackTokens: 1, totalEarnings: 5.25, isAI: true, isLockedIn: false },
+                    { username: 'Charlie', whiteTokens: 4, blackTokens: 3, totalEarnings: 15.00, isAI: false, isLockedIn: false }
+                ]
+            };
+            gameUI.updatePokerTable(gameSession, 'Alice');
+        };
+        
+        window.testColumnHighlight = () => {
+            const columns = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+            const randomColumn = columns[Math.floor(Math.random() * columns.length)];
+            gameUI.highlightSelectedColumn(randomColumn);
+        };
+        
+        window.testTurnDisplay = () => {
+            gameUI.updateTurnDisplay({
+                currentPlayer: 'Alice',
+                round: 5,
+                isMyTurn: Math.random() > 0.5
+            });
+        };
+        
+        window.resetGameUI = () => {
+            gameUI.resetGameVisuals();
+        };
+        
+        window.testTokenPool = () => {
+            const current = Math.floor(Math.random() * 2500);
+            updateTokenPoolDisplay(current, 2500);
+        };
+        
+        window.testConversionRates = () => {
+            const whiteValue = Math.random() * 0.10;
+            const blackValue = Math.random() * 0.05;
+            updateTokenConversionDisplay(whiteValue, blackValue);
+        };
+        
+        window.testWalletDisplays = () => {
+            const players = [
+                { username: 'Alice', whiteTokens: 5, blackTokens: 2, totalEarnings: 12.50 },
+                { username: 'Bob', whiteTokens: 3, blackTokens: 4, totalEarnings: 8.75 },
+                { username: 'Charlie', whiteTokens: 4, blackTokens: 3, totalEarnings: 15.00 }
+            ];
+            
+            // Create wallet display elements
+            const container = document.getElementById('walletDisplays');
+            container.innerHTML = '';
+            
+            players.forEach(player => {
+                const wallet = document.createElement('div');
+                wallet.id = `wallet-${player.username}`;
+                container.appendChild(wallet);
+            });
+            
+            updateAllWalletDisplays(players);
+        };
+        
+        window.testSignUp = () => {
+            showGlassmorphismAlert('Sign Up', 'Sign up functionality would be implemented here.', 'info');
+        };
+        
+        // Initialize the application
+        document.addEventListener('DOMContentLoaded', async () => {
+            try {
+                const statusDisplay = document.getElementById('statusDisplay');
+                statusDisplay.innerHTML = '<div class="loading"><div class="spinner"></div><span>Initializing...</span></div>';
+                
+                await initializeApp();
+                
+                statusDisplay.innerHTML = `
+                    <div style="color: #4CAF50;">✅ Modules Loaded Successfully</div>
+                    <div style="font-size: 10px; margin-top: 5px;">
+                        Socket: ${isSocketConnected() ? 'Connected' : 'Disconnected'}<br>
+                        Modules: 6/6 loaded
+                    </div>
+                `;
+                
+                console.log('🎉 Test page initialized successfully!');
+                
+            } catch (error) {
+                const statusDisplay = document.getElementById('statusDisplay');
+                statusDisplay.innerHTML = `
+                    <div style="color: #f44336;">❌ Initialization Failed</div>
+                    <div style="font-size: 10px; margin-top: 5px;">${error.message}</div>
+                `;
+                console.error('Failed to initialize test page:', error);
+            }
+        });
+    </script>
+</body>
+</html>

@@ -161,6 +161,11 @@ app.get('/globalChat', function(req, res) {
     res.render('globalChat');
 });
 
+// Test route for modular client
+app.get('/test-modular', function(req, res) {
+    res.sendFile(path.join(__dirname, 'client', 'modular-test.html'));
+});
+
 // Debug route to test LED tracker
 app.get('/debug/test-led-tracker', function(req, res) {
     const testData = {
