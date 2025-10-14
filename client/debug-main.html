@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Debug Main Module</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .success { color: green; }
+        .error { color: red; }
+        .loading { color: orange; }
+        .step { margin: 10px 0; padding: 10px; border-left: 3px solid #ccc; }
+    </style>
+</head>
+<body>
+    <h1>Debug Main Module</h1>
+    <div id="status">Testing main.js import...</div>
+    <div id="details"></div>
+    
+    <script type="module">
+        console.log('🧪 Testing main.js module import...');
+        
+        const statusDiv = document.getElementById('status');
+        const detailsDiv = document.getElementById('details');
+        
+        function addStep(message, type = 'loading') {
+            const step = document.createElement('div');
+            step.className = `step ${type}`;
+            step.textContent = message;
+            detailsDiv.appendChild(step);
+            console.log(message);
+        }
+        
+        try {
+            addStep('Testing main.js import...', 'loading');
+            const mainModule = await import('/client/js/main.js');
+            addStep('✅ main.js imported successfully', 'success');
+            addStep(`Available exports: ${Object.keys(mainModule).join(', ')}`, 'success');
+            
+            if (mainModule.initializeApp) {
+                addStep('✅ initializeApp function found', 'success');
+            } else {
+                addStep('❌ initializeApp function not found', 'error');
+            }
+            
+            statusDiv.innerHTML = '✅ Main module test passed!';
+            statusDiv.className = 'success';
+            
+        } catch (error) {
+            console.error('❌ Main module test failed:', error);
+            addStep(`❌ Error: ${error.message}`, 'error');
+            addStep(`Stack: ${error.stack}`, 'error');
+            statusDiv.innerHTML = `❌ Main module test failed: ${error.message}`;
+            statusDiv.className = 'error';
+        }
+    </script>
+</body>
+</html>

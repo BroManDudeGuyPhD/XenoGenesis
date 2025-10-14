@@ -967,6 +967,75 @@
                 </div>
             </div>
 
+            <style>
+                /* Dynamic Poker Table Styles */
+                .poker-table-layout {
+                    display: flex;
+                    flex-wrap: wrap;
+                    justify-content: space-around;
+                    align-items: center;
+                    height: 100%;
+                    padding: 20px;
+                    box-sizing: border-box;
+                }
+                
+                .player-position {
+                    background-color: #36393f;
+                    border: 2px solid #7289da;
+                    border-radius: 8px;
+                    padding: 10px;
+                    margin: 5px;
+                    min-width: 120px;
+                    text-align: center;
+                    display: flex;
+                    flex-direction: column;
+                    gap: 5px;
+                }
+                
+                .player-avatar {
+                    font-size: 24px;
+                    height: 30px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                }
+                
+                .player-name {
+                    color: #ffffff;
+                    font-size: 14px;
+                    font-weight: bold;
+                }
+                
+                .player-status {
+                    color: #b9bbbe;
+                    font-size: 12px;
+                }
+                
+                .player-status.locked-in {
+                    color: #43b581;
+                }
+                
+                .player-status.current-turn {
+                    color: #faa61a;
+                }
+                
+                .player-wallet {
+                    color: #7289da;
+                    font-size: 11px;
+                }
+                
+                .moderator-player {
+                    background: linear-gradient(45deg, #ffd700, #ffed4e);
+                    -webkit-background-clip: text;
+                    -webkit-text-fill-color: transparent;
+                    background-clip: text;
+                }
+                
+                .ai-player {
+                    color: #faa61a;
+                }
+            </style>
+
             <!-- Main Game Area -->
             <div id="gameArea" style="background-color: #40444b; padding: 20px; border-radius: 5px; margin-bottom: 20px; min-height: 400px;">
                 
@@ -2311,10 +2380,6 @@
             <div class="chat-title">
                 <i class="fas fa-globe-americas chat-icon"></i>
                 <div class="status-pill-container-left">
-                    <div class="status-pill connected">
-                        <div class="pulse-dot"></div>
-                        <span class="status-text">Connected</span>
-                    </div>
                     <div class="user-count-pill" id="header-user-count">
                         <i class="fas fa-users"></i>
                         <span id="header-user-count-text">0 online</span>
@@ -2481,7 +2546,71 @@
             }
         });
     </script>
-    <script type="text/javascript" src="/client/client.js"></script>
+    <!-- Load modular system instead of monolithic client.js -->
+    <script type="module">
+        import { initializeApp } from '/client/js/main.js';
+        
+        // Initialize the application when DOM is ready
+        document.addEventListener('DOMContentLoaded', async () => {
+            try {
+                console.log('🚀 Initializing modular XenoGenesis client...');
+                await initializeApp();
+                console.log('✅ XenoGenesis client initialized');
+            } catch (error) {
+                console.error('❌ Failed to initialize XenoGenesis client:', error);
+                
+                // Fallback: Add login button handler directly
+                console.log('🔄 Setting up fallback login button handler...');
+                const loginButton = document.getElementById('loginNav');
+                const loginModal = document.getElementById('id01');
+                
+                if (loginButton && loginModal) {
+                    loginButton.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        console.log('🔐 Login button clicked (fallback handler)');
+                        loginModal.style.display = 'block';
+                    });
+                    console.log('✅ Fallback login handler attached');
+                } else {
+                    console.error('❌ Login button or modal not found for fallback');
+                }
+            }
+        });
+    </script>
+
+    <!-- Basic fallback script that always works -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('🔄 Setting up basic login button handler...');
+            
+            // Wait a moment for everything to load
+            setTimeout(() => {
+                const loginButton = document.getElementById('loginNav');
+                const loginModal = document.getElementById('id01');
+                
+                console.log('Login button found:', !!loginButton);
+                console.log('Login modal found:', !!loginModal);
+                
+                if (loginButton && loginModal) {
+                    // Remove any existing listeners
+                    const newButton = loginButton.cloneNode(true);
+                    loginButton.parentNode.replaceChild(newButton, loginButton);
+                    
+                    // Add fresh listener
+                    newButton.addEventListener('click', function(e) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        console.log('🔐 Login button clicked (basic handler)');
+                        loginModal.style.display = 'block';
+                    });
+                    
+                    console.log('✅ Basic login handler attached successfully');
+                } else {
+                    console.error('❌ Login button or modal not found in basic handler');
+                }
+            }, 500);
+        });
+    </script>
 
     <script>
         // Animation control variables

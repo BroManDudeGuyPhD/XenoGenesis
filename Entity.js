@@ -28,7 +28,6 @@ const mainChat = "Global";
 // Admin Configuration - Add usernames here for admin privileges
 const ADMIN_USERS = [
     'broman',
-    'tom', 
     'andre',
     'admin'  // Add more admin usernames as needed
 ];
@@ -897,7 +896,8 @@ GameSession = {
         const session = GameSessions[roomName];
         if (!session) return;
         
-        const playersInRoom = Object.values(Player.list).filter(p => p.room === roomName);
+        // Only assign positions to non-moderator players in the triad
+        const playersInRoom = Object.values(Player.list).filter(p => p.room === roomName && !p.isModerator);
         
         // Poker table positioning: positions for 3 players + moderator
         const pokerPositions = [
@@ -1306,10 +1306,11 @@ Player.onConnect = function(socket,username,admin,io){
         const userLeaving = userLeave(socket.id);
         if (userLeaving) {
             // Send users and room info to the room they're leaving
+            const remainingUsers = getRoomUsers(room);
             io.in(room).emit("roomUsers", {
                 room: room,
-                users: getRoomUsers(room),
-                usersCount: Player.getLength() 
+                users: remainingUsers,
+                usersCount: remainingUsers.length 
             });
             
             // Send a leave message to the room they're leaving
@@ -1491,10 +1492,11 @@ Player.onConnect = function(socket,username,admin,io){
             }
 
             // Send users and room info
+            const roomUsers = getRoomUsers(user.room);
             io.to(user.room).emit("roomUsers", {
                 room: room,
-                users: getRoomUsers(user.room),
-                usersCount: Player.getLength() 
+                users: roomUsers,
+                usersCount: roomUsers.length 
             });
 
             // Create player list with moderator info
@@ -1613,6 +1615,7 @@ Player.onConnect = function(socket,username,admin,io){
     });
 
     socket.on('createRoom', function(){
+        // Use the existing color + animal naming system
         const shortName = uniqueNamesGenerator({
             dictionaries: [colors,animals], 
             separator: ' ',
@@ -1620,16 +1623,38 @@ Player.onConnect = function(socket,username,admin,io){
         });
 
         let roomName = _.startCase(shortName); 
-        console.log(roomName)
-        //roomList.push(roomName);
+        console.log('🏠 Creating room:', roomName);
 
+        // Create the room
         let newRoom = new Room(playerData.username, roomName);
         roomList.push(newRoom);
 
-        console.log("ROOM LIST: ")
-        console.log(roomList)
+        console.log("ROOM LIST: ", roomList.map(r => r.name));
 
-        socket.emit("roomCreated",roomName);
+        // Join the user to the room automatically
+        const user = userJoin(socket.id, playerData.username, roomName);
+        socket.join(roomName);
+        playerData.room = roomName;
+
+        // Notify client that room was created and they've joined
+        socket.emit("roomCreated", roomName);
+        
+        // Welcome message to room creator
+        socket.emit("message", formatMessage({
+            username: botName,
+            text: `Welcome to ${roomName}! You created this room.`,
+            type: "update",
+            admin: "admin",
+            room: roomName
+        }));
+
+        // Send users and room info
+        const roomUsers = getRoomUsers(roomName);
+        io.to(roomName).emit("roomUsers", {
+            room: roomName,
+            users: roomUsers,
+            usersCount: roomUsers.length
+        });
 
         // Emit initial playersInRoom with the creator as moderator
         socket.emit('playersInRoom', {
@@ -1644,8 +1669,6 @@ Player.onConnect = function(socket,username,admin,io){
 
         // Copy room name to clipboard (will be handled on client side)
         socket.emit('copyToClipboard', { text: roomName });
-
-
     });
 
 
@@ -2177,13 +2200,15 @@ Player.onConnect = function(socket,username,admin,io){
         }
         
         // Get current room information using the correct Player.list structure
-        const roomPlayers = Object.values(Player.list).filter(p => p.room === room);
+        const allRoomPlayers = Object.values(Player.list).filter(p => p.room === room);
+        // Only count non-moderator players for triad formation
+        const roomPlayers = allRoomPlayers.filter(player => !player.isModerator);
         const humanPlayers = roomPlayers.filter(player => !player.isAI);
         const aiPlayers = roomPlayers.filter(player => player.isAI);
         
         // Smart triad formation logic
         const maxTriadSize = 3; // Triad formation requires exactly 3 players (excluding moderator)
-        const currentTotalPlayers = roomPlayers.length; // Current human + AI players
+        const currentTotalPlayers = roomPlayers.length; // Current human + AI players (excluding moderator)
         
         // Calculate how many AI players are needed to reach triad formation
         const aiPlayersNeeded = Math.max(0, maxTriadSize - currentTotalPlayers);
@@ -2887,8 +2912,10 @@ Player.onGameStart = function(socket,username, progress, io, room, admin){
         
         // Always show triad status and allow experiment to start with 1+ players
         const allPlayersInRoom = Object.values(Player.list).filter(p => p.room === room);
-        const humanPlayers = allPlayersInRoom.filter(p => !p.isAI);
-        console.log(`👥 Current players in room ${room}: ${allPlayersInRoom.length}/3 (${humanPlayers.length} human, ${allPlayersInRoom.length - humanPlayers.length} AI)`);
+        // Exclude moderators from triad formation - only count actual game participants
+        const triadPlayers = allPlayersInRoom.filter(p => !p.isModerator);
+        const humanPlayers = triadPlayers.filter(p => !p.isAI);
+        console.log(`👥 Current players in room ${room}: ${triadPlayers.length}/3 triad players (${humanPlayers.length} human, ${triadPlayers.length - humanPlayers.length} AI), ${allPlayersInRoom.filter(p => p.isModerator).length} moderator(s)`);
         
         // Assign poker table positions immediately when any player joins
         GameSession.assignTriadPositions(room);
@@ -2904,16 +2931,16 @@ Player.onGameStart = function(socket,username, progress, io, room, admin){
     humanPlayers.forEach(p => {
         if (p.socket && typeof p.socket.emit === 'function') {
             p.socket.emit('triadComplete', {
-                message: `Experiment ready to begin! (${allPlayersInRoom.length}/3 players)`,
-                playerPosition: p.triadPosition || allPlayersInRoom.findIndex(ap => ap.id === p.id) + 1,
+                message: `Experiment ready to begin! (${triadPlayers.length}/3 players)`,
+                playerPosition: p.triadPosition || triadPlayers.findIndex(ap => ap.id === p.id) + 1,
                 gameSession: {
                     currentRound: gameSession.currentRound,
                     maxRounds: gameSession.maxRounds,
                     condition: gameSession.currentCondition.name,
                     grid: gameSession.grid,
-                    canAddAI: allPlayersInRoom.length < 3,
-                    totalPlayers: allPlayersInRoom.length,
-                    players: allPlayersInRoom.map(player => ({
+                    canAddAI: triadPlayers.length < 3,
+                    totalPlayers: triadPlayers.length,
+                    players: triadPlayers.map(player => ({
                         id: player.id,
                         username: player.username,
                         triadPosition: player.triadPosition,
@@ -2927,10 +2954,10 @@ Player.onGameStart = function(socket,username, progress, io, room, admin){
             console.warn(`⚠️ Player ${p.username} has invalid socket, skipping triadComplete notification`);
         }
     });
-    if(allPlayersInRoom.length === 3) {
+    if(triadPlayers.length === 3) {
         console.log(`🎯 Triad complete in ${room}! Initializing behavioral experiment...`);
         
-        // Assign positions (P1, P2, P3) for turn order
+        // Assign positions (P1, P2, P3) for turn order (excluding moderators)
         GameSession.assignTriadPositions(room);
         
         // Set game state to ready

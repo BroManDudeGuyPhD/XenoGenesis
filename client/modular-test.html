@@ -201,6 +201,27 @@
             <div id="turnIndicator" style="margin: 10px 0; padding: 10px; background: rgba(255,255,255,0.1); border-radius: 5px;"></div>
         </div>
         
+        <!-- Authentication Module Tests -->
+        <div class="module-test">
+            <h2>🔐 Authentication Module Tests</h2>
+            <p>Test authentication system:</p>
+            <button class="test-button" onclick="testAuthenticationStatus()">Check Auth Status</button>
+            <button class="test-button" onclick="testSessionRestore()">Test Session Restore</button>
+            <button class="test-button" onclick="testAdminStatus()">Test Admin Status</button>
+            <div id="authStatus" style="margin-top: 10px; font-family: monospace; font-size: 12px;">Auth: Ready</div>
+        </div>
+
+        <!-- UI Manager Tests -->
+        <div class="module-test">
+            <h2>🎨 UI Manager Tests</h2>
+            <p>Test UI management functions:</p>
+            <button class="test-button" onclick="testCardVisibility()">Test Card Visibility</button>
+            <button class="test-button" onclick="testMenuContext()">Test Menu Context</button>
+            <button class="test-button" onclick="testToast()">Test Toast Notification</button>
+            <button class="test-button" onclick="testLoadingSpinner()">Test Loading Spinner</button>
+            <div id="uiStatus" style="margin-top: 10px; font-family: monospace; font-size: 12px;">UI Manager: Ready</div>
+        </div>
+        
         <!-- Token System Tests -->
         <div class="module-test">
             <h2>💰 Token System Tests</h2>
@@ -217,9 +238,36 @@
             <div id="walletDisplays" style="display: flex; gap: 10px; flex-wrap: wrap; margin: 10px 0;"></div>
         </div>
         
+        <!-- Admin Functions Tests -->
+        <div class="module-test">
+            <h2>👑 Admin Functions Tests</h2>
+            <p>Test moderator and admin functionality:</p>
+            <button class="test-button" onclick="testLightningTestModal()">Lightning Test Modal</button>
+            <button class="test-button" onclick="testLightningProgressModal()">Lightning Progress</button>
+            <button class="test-button" onclick="testLightningConfirmation()">Lightning Confirmation</button>
+            <button class="test-button" onclick="testModeratorMenu()">Moderator Context Menu</button>
+            <button class="test-button" onclick="testSwitchboardFunctions()">Switchboard Functions</button>
+            <button class="test-button" onclick="testBaselineNotification()">Baseline Notification</button>
+            
+            <!-- Test elements for admin functions -->
+            <div id="moderatorContextMenu" style="display: none; background: rgba(40, 40, 40, 0.95); padding: 10px; border-radius: 5px; margin: 10px 0;">
+                <div>Moderator Context Menu (Test)</div>
+                <button onclick="window.adminFunctions?.hideModeratorContextMenu()">Close Menu</button>
+            </div>
+            
+            <div id="moderatorSwitchboard" style="display: none; background: rgba(60, 60, 60, 0.95); padding: 15px; border-radius: 5px; margin: 10px 0;">
+                <div>Moderator Switchboard (Test)</div>
+                <div>Clock: <span id="switchboardClock">00:00:00</span></div>
+                <div id="baselineExitNotification" style="display: none; color: #e879f9; margin: 5px 0;">
+                    <span id="baselineExitText">Baseline condition exited</span>
+                </div>
+            </div>
+        </div>
+        
         <!-- Sign In Form Test -->
         <div class="module-test" id="signDiv">
             <h2>🔐 Authentication Test</h2>
+            <button type="button" class="test-button" onclick="testLoginModal()">Test Login Modal</button>
             <form id="signInForm">
                 <div style="margin: 10px 0;">
                     <input type="text" id="signDivUsername" placeholder="Username" 
@@ -243,12 +291,109 @@
         import { socket, isSocketConnected } from '/client/js/socketManager.js';
         import { updateTokenPoolDisplay, updateTokenConversionDisplay, updateAllWalletDisplays } from '/client/js/tokenSystem.js';
         import gameUI from '/client/js/gameUI.js';
+        import { initializeAuthentication } from '/client/js/authentication.js';
+        import { initializeUIManager } from '/client/js/uiManager.js';
+        import { initializeAdminFunctions } from '/client/js/adminFunctions.js';
         
         // Global test functions
         window.testSessionModal = () => showSessionExpiredModal();
         window.testAlertModal = () => showGlassmorphismAlert('Test Alert', 'This is a test alert message with <strong>HTML</strong> content.', 'info');
         window.testInviteModal = () => showInviteCodeAlert('TEST123', 'Single-Use');
         window.testExperimentModal = () => showExperimentEndedModal('Test experiment has ended successfully!', true);
+        
+        // Authentication Tests
+        window.testLoginModal = () => {
+            // Test opening login modal programmatically
+            if (window.authModule && window.authModule.openLoginModal) {
+                window.authModule.openLoginModal();
+                console.log('🔐 Login modal opened programmatically');
+            } else {
+                console.warn('⚠️ Auth module not available');
+            }
+        };
+        
+        // Admin Functions Tests
+        window.testLightningTestModal = () => {
+            const testMessage = `Test Lightning Experiment Results:
+            
+Total Rounds: 441
+Average Response Time: 1.2 seconds
+Final Earnings Distribution:
+- Player1: $45.67
+- Player2: $38.23
+- Player3: $52.14
+- Player4: $41.85
+
+Performance Analysis:
+✅ All rounds completed successfully
+✅ No timeouts or errors
+✅ Average decision time: 1.2s
+📊 Total experiment duration: 8 minutes 54 seconds`;
+            
+            window.adminFunctions?.showLightningTestResults(testMessage, {}, 534000);
+        };
+        
+        window.testLightningProgressModal = () => {
+            const testData = {
+                progress: 35.7,
+                round: 158,
+                totalRounds: 441,
+                playerEarnings: {
+                    'Alice': 23.45,
+                    'Bob': 18.92,
+                    'Charlie': 31.67,
+                    'Diana': 19.83
+                }
+            };
+            window.adminFunctions?.showLightningTestProgressModal(testData);
+            
+            // Simulate progress updates
+            let progress = 35.7;
+            const interval = setInterval(() => {
+                progress += Math.random() * 5;
+                if (progress >= 100) {
+                    progress = 100;
+                    clearInterval(interval);
+                }
+                window.adminFunctions?.updateLightningTestProgress({
+                    ...testData,
+                    progress: progress,
+                    round: Math.floor((progress / 100) * 441)
+                });
+            }, 1000);
+        };
+        
+        window.testLightningConfirmation = () => {
+            window.adminFunctions?.showLightningExperimentConfirmation();
+        };
+        
+        window.testModeratorMenu = () => {
+            const menu = document.getElementById('moderatorContextMenu');
+            if (menu) {
+                menu.style.display = 'block';
+                window.adminFunctions?.showModeratorContextMenu();
+            }
+        };
+        
+        window.testSwitchboardFunctions = () => {
+            const switchboard = document.getElementById('moderatorSwitchboard');
+            if (switchboard) {
+                switchboard.style.display = 'block';
+                window.adminFunctions?.initializeSwitchboardFunctions();
+                // Start clock update
+                setInterval(() => {
+                    window.adminFunctions?.updateSwitchboardClock();
+                }, 1000);
+            }
+        };
+        
+        window.testBaselineNotification = () => {
+            const switchboard = document.getElementById('moderatorSwitchboard');
+            if (switchboard) {
+                switchboard.style.display = 'block';
+                window.adminFunctions?.showBaselineExitNotification(42);
+            }
+        };
         
         window.testSocketConnection = () => {
             const status = document.getElementById('socketStatus');
@@ -342,6 +487,109 @@
         
         window.testSignUp = () => {
             showGlassmorphismAlert('Sign Up', 'Sign up functionality would be implemented here.', 'info');
+        };
+        
+        // Authentication Module Tests
+        window.testAuthenticationStatus = () => {
+            const authModule = window.authModule;
+            if (authModule) {
+                const status = {
+                    isAdmin: authModule.isGlobalAdmin(),
+                    username: authModule.getCurrentUsername(),
+                    room: authModule.getCurrentRoom()
+                };
+                
+                document.getElementById('authStatus').innerHTML = `
+                    <div>Admin: ${status.isAdmin}</div>
+                    <div>Username: ${status.username || 'Not logged in'}</div>
+                    <div>Room: ${status.room}</div>
+                `;
+                showGlassmorphismAlert('Auth Status', `Admin: ${status.isAdmin}, User: ${status.username || 'None'}`, 'info');
+            } else {
+                showGlassmorphismAlert('Error', 'Authentication module not available', 'error');
+            }
+        };
+        
+        window.testSessionRestore = () => {
+            const testData = {
+                username: 'TestUser',
+                isAdmin: true,
+                room: 'TestRoom',
+                hasActiveGame: false
+            };
+            
+            if (window.authModule?.performSessionRestore) {
+                window.authModule.performSessionRestore(testData);
+                showGlassmorphismAlert('Session Restored', 'Test session restoration completed', 'success');
+            } else {
+                showGlassmorphismAlert('Error', 'Session restore function not available', 'error');
+            }
+        };
+        
+        window.testAdminStatus = () => {
+            if (window.authModule) {
+                const isAdmin = window.authModule.isGlobalAdmin();
+                showGlassmorphismAlert('Admin Status', `Current admin status: ${isAdmin}`, isAdmin ? 'success' : 'info');
+            } else {
+                showGlassmorphismAlert('Error', 'Authentication module not available', 'error');
+            }
+        };
+        
+        // UI Manager Tests
+        window.testCardVisibility = () => {
+            if (window.uiManager) {
+                window.uiManager.updateCardVisibility();
+                const context = window.uiManager.getMenuContext();
+                showGlassmorphismAlert('Card Visibility', `Updated for context: ${context.context}`, 'info');
+            } else {
+                showGlassmorphismAlert('Error', 'UI Manager module not available', 'error');
+            }
+        };
+        
+        window.testMenuContext = () => {
+            if (window.uiManager) {
+                const context = window.uiManager.getMenuContext();
+                document.getElementById('uiStatus').innerHTML = `
+                    <div>Context: ${context.context}</div>
+                    <div>In Game: ${context.isInGame}</div>
+                    <div>In Global Chat: ${context.isInGlobalChat}</div>
+                    <div>In Room Lobby: ${context.isInRoomLobby}</div>
+                `;
+                showGlassmorphismAlert('Menu Context', `Current context: ${context.context}`, 'info');
+            } else {
+                showGlassmorphismAlert('Error', 'UI Manager module not available', 'error');
+            }
+        };
+        
+        window.testToast = () => {
+            if (window.uiManager) {
+                const types = ['info', 'success', 'error', 'warning'];
+                const type = types[Math.floor(Math.random() * types.length)];
+                const messages = [
+                    'This is a test toast notification!',
+                    'Module system working correctly',
+                    'Testing notification system',
+                    'Toast notification example'
+                ];
+                const message = messages[Math.floor(Math.random() * messages.length)];
+                
+                window.uiManager.showToast(message, type);
+            } else {
+                showGlassmorphismAlert('Error', 'UI Manager module not available', 'error');
+            }
+        };
+        
+        window.testLoadingSpinner = () => {
+            if (window.uiManager) {
+                window.uiManager.showLoadingSpinner(true, 'Testing loading spinner...');
+                
+                setTimeout(() => {
+                    window.uiManager.showLoadingSpinner(false);
+                    showGlassmorphismAlert('Loading Test', 'Loading spinner test completed', 'success');
+                }, 2000);
+            } else {
+                showGlassmorphismAlert('Error', 'UI Manager module not available', 'error');
+            }
         };
         
         // Initialize the application

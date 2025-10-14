@@ -9,6 +9,7 @@ export const socket = io();
 // Connection state
 let isConnected = false;
 let reconnectAttempts = 0;
+let isInitialConnection = true;
 const maxReconnectAttempts = 5;
 
 // Event emitters for connection state changes
@@ -100,8 +101,11 @@ socket.on('connect', function() {
     reconnectAttempts = 0;
     notifyConnectionListeners(true);
     
-    // Update UI to show connected state
-    updateConnectionStatus(true);
+    // Only show connected notification on reconnection, not initial connection
+    if (!isInitialConnection) {
+        updateConnectionStatus(true);
+    }
+    isInitialConnection = false;
 });
 
 socket.on('disconnect', function(reason) {
@@ -220,3 +224,20 @@ export function getSocket() {
 
 // Export socket as default for easy importing
 export default socket;
+
+// Create socketManager object with all the socket functionality
+export const socketManager = {
+    socket,
+    addConnectionListener,
+    removeConnectionListener,
+    isSocketConnected,
+    emitWithRetry,
+    safeEmit,
+    reconnect,
+    getSocket,
+    
+    // Convenience methods for common socket operations
+    emit: (event, data) => safeEmit(event, data),
+    on: (event, callback) => socket.on(event, callback),
+    off: (event, callback) => socket.off(event, callback)
+};

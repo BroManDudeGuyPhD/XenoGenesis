@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Module Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .success { color: green; }
+        .error { color: red; }
+        .loading { color: orange; }
+        .step { margin: 10px 0; padding: 10px; border-left: 3px solid #ccc; }
+    </style>
+</head>
+<body>
+    <h1>Module Loading Test</h1>
+    <div id="status">Loading modules...</div>
+    <div id="details"></div>
+    
+    <script type="module">
+        console.log('🧪 Starting comprehensive module test...');
+        
+        const statusDiv = document.getElementById('status');
+        const detailsDiv = document.getElementById('details');
+        
+        function addStep(message, type = 'loading') {
+            const step = document.createElement('div');
+            step.className = `step ${type}`;
+            step.textContent = message;
+            detailsDiv.appendChild(step);
+            console.log(message);
+        }
+        
+        try {
+            addStep('Starting module loading test...', 'loading');
+            
+            addStep('1. Testing socketManager import...', 'loading');
+            const { socketManager } = await import('/client/js/socketManager.js');
+            addStep('✅ socketManager imported successfully', 'success');
+            
+            addStep('2. Testing uiManager import...', 'loading');
+            const { uiManager } = await import('/client/js/uiManager.js');
+            addStep('✅ uiManager imported successfully', 'success');
+            
+            addStep('3. Testing authentication import...', 'loading');
+            const { initializeAuthentication } = await import('/client/js/authentication.js');
+            addStep('✅ authentication imported successfully', 'success');
+            
+            addStep('4. Testing adminFunctions import...', 'loading');
+            const { initializeAdminFunctions } = await import('/client/js/adminFunctions.js');
+            addStep('✅ adminFunctions imported successfully', 'success');
+            
+            addStep('5. Testing main import...', 'loading');
+            const { initializeApp } = await import('/client/js/main.js');
+            addStep('✅ main imported successfully', 'success');
+            
+            addStep('6. Testing module initialization...', 'loading');
+            
+            // Test if DOM elements are available
+            const loginButton = document.getElementById('loginNav');
+            const signInButton = document.getElementById('signIn');
+            
+            addStep(`Login button found: ${!!loginButton}`, loginButton ? 'success' : 'error');
+            addStep(`Sign-in button found: ${!!signInButton}`, signInButton ? 'success' : 'error');
+            
+            statusDiv.innerHTML = '✅ All modules loaded successfully!';
+            statusDiv.className = 'success';
+            
+        } catch (error) {
+            console.error('❌ Module loading failed:', error);
+            addStep(`❌ Module loading failed: ${error.message}`, 'error');
+            addStep(`Stack trace: ${error.stack}`, 'error');
+            statusDiv.innerHTML = `❌ Module loading failed: ${error.message}`;
+            statusDiv.className = 'error';
+        }
+    </script>
+</body>
+</html>

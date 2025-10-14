@@ -8,167 +8,6 @@ const TOKEN_CONFIG = {
 // Store user admin status globally so we can use it for invite visibility
 let isGlobalAdmin = false;
 
-// Global function to update token pool display with comprehensive debugging
-function updateTokenPoolDisplay(currentTokens, maxTokens) {
-    console.log(`🎯 updateTokenPoolDisplay called with: currentTokens=${currentTokens}, maxTokens=${maxTokens}`);
-    
-    // Ensure gameDiv is visible so we can access the token pool elements
-    const gameDiv = document.getElementById('gameDiv');
-    if (gameDiv && (gameDiv.style.display === 'none' || gameDiv.style.display === '')) {
-        gameDiv.style.display = 'inline-block';
-        console.log('🎯 Made gameDiv visible to access token pool elements');
-    }
-    
-    const globalTokenPoolElement = document.getElementById('globalTokenPool');
-    const tokenPoolMaxElement = document.getElementById('tokenPoolMax');
-    const tokenPoolBar = document.getElementById('tokenPoolBar');
-    
-    console.log(`🎯 DOM elements found:`, {
-        globalTokenPool: !!globalTokenPoolElement,
-        tokenPoolMax: !!tokenPoolMaxElement,
-        tokenPoolBar: !!tokenPoolBar,
-        globalTokenPoolValue: globalTokenPoolElement ? globalTokenPoolElement.textContent : 'NOT_FOUND',
-        tokenPoolMaxValue: tokenPoolMaxElement ? tokenPoolMaxElement.textContent : 'NOT_FOUND',
-        gameDivVisible: gameDiv ? gameDiv.style.display : 'NOT_FOUND'
-    });
-    
-    if (globalTokenPoolElement) {
-        const oldValue = globalTokenPoolElement.textContent;
-        globalTokenPoolElement.textContent = currentTokens;
-        console.log(`🎯 Updated token pool display: ${oldValue} → ${currentTokens}`);
-    } else {
-        console.error('🎯 globalTokenPool element not found!');
-    }
-    
-    if (tokenPoolMaxElement && maxTokens) {
-        const oldValue = tokenPoolMaxElement.textContent;
-        tokenPoolMaxElement.textContent = `/${maxTokens}`;
-        console.log(`🎯 Updated token pool max: ${oldValue} → /${maxTokens}`);
-    }
-    
-    // Update progress bar if it exists
-    if (tokenPoolBar && maxTokens > 0) {
-        const percentage = (currentTokens / maxTokens) * 100;
-        const oldWidth = tokenPoolBar.style.width;
-        tokenPoolBar.style.width = `${percentage}%`;
-        console.log(`🎯 Updated token pool bar: ${oldWidth} → ${percentage.toFixed(1)}%`);
-    } else if (!tokenPoolBar) {
-        console.error('🎯 tokenPoolBar element not found!');
-    }
-}
-
-// Function to determine current menu context
-function getMenuContext() {
-    // Check if we're in an active game
-    const isInGame = gameActive || document.body.classList.contains('game-active');
-    
-    // Check if we're in global chat (not in a room and not in game)
-    const isInGlobalChat = currentRoom === 'Global' && !isInGame;
-    
-    // Check if we're in a room but not in an active game  
-    const isInRoomLobby = currentRoom !== 'Global' && !isInGame;
-    
-    return {
-        isInGame,
-        isInGlobalChat, 
-        isInRoomLobby,
-        context: isInGame ? 'game' : (isInGlobalChat ? 'global' : 'room')
-    };
-}
-
-// Function to update card visibility based on menu context
-function updateCardVisibility() {
-    const menuContext = getMenuContext();
-    const createCard = document.getElementById('create-card');
-    const joinCard = document.getElementById('join-card');
-    const inviteCard = document.getElementById('invite-card');
-    
-    // Check if admin status was set early from session data - but don't override login response
-    if (window.isGlobalAdmin !== undefined && window.isGlobalAdmin === true && isGlobalAdmin !== window.isGlobalAdmin) {
-        isGlobalAdmin = window.isGlobalAdmin;
-    }
-    
-    // Create and Join cards should only show in global chat context
-    if (createCard && joinCard) {
-        if (menuContext.isInGlobalChat) {
-            // Show create/join in global chat
-            createCard.classList.remove('card-hidden');
-            createCard.classList.add('card-visible');
-            joinCard.classList.remove('card-hidden'); 
-            joinCard.classList.add('card-visible');
-        } else {
-            // Hide create/join in game or room contexts
-            createCard.classList.remove('card-visible');
-            createCard.classList.add('card-hidden');
-            joinCard.classList.remove('card-visible');
-            joinCard.classList.add('card-hidden');
-            console.log(`❌ Hiding create/join cards - ${menuContext.context} context`);
-        }
-    }
-    
-    // Update invite visibility
-    updateInviteVisibility();
-}
-
-// Function to update invite card visibility based on admin/moderator status  
-function updateInviteVisibility() {
-    const inviteCard = document.getElementById('invite-card');
-    const inviteFab = document.getElementById('invite-fab');
-    const menuContext = getMenuContext();
-    
-    // Show invite options if user is either:
-    // 1. Global admin in global chat or room lobby (not during active games)
-    // 2. Room moderator in their room lobby (not during active games)
-    let shouldShowInvite = false;
-    
-    if (menuContext.isInGlobalChat && isGlobalAdmin) {
-        shouldShowInvite = true; // Global admin in global chat
-    } else if (menuContext.isInRoomLobby && isCurrentRoomModerator()) {
-        shouldShowInvite = true; // Room moderator in room lobby  
-    }
-    // Note: Never show invite during active games
-    
-    if (inviteCard) {
-        if (shouldShowInvite) {
-            inviteCard.classList.remove('invite-hidden');
-            inviteCard.classList.add('invite-visible');
-            inviteCard.style.display = 'block';
-            inviteCard.style.visibility = 'visible';
-            inviteCard.style.opacity = '1';
-        } else {
-            inviteCard.classList.remove('invite-visible');
-            inviteCard.classList.add('invite-hidden');
-            inviteCard.style.display = 'none';
-        }
-    }
-    
-    if (inviteFab) {
-        inviteFab.style.display = shouldShowInvite ? 'block' : 'none';
-    }
-    
-    // Also update admin build status badge visibility
-    updateAdminStatusBadge();
-}
-
-// Function to show/hide admin build status badge
-function updateAdminStatusBadge() {
-    const adminBuildPill = document.getElementById('admin-build-pill');
-    
-    if (adminBuildPill) {
-        if (isGlobalAdmin) {
-            adminBuildPill.style.display = 'flex';
-            console.log('✅ Showing admin build status pill');
-        } else {
-            adminBuildPill.style.display = 'none';
-        }
-    }
-}
-
-// Function to check if current user is moderator of current room
-function isCurrentRoomModerator() {
-    // This will be set by the playersInRoom handler
-    return window.currentUserIsModerator || false;
-}
 const socket = io();
 
 // Store pending token updates to apply after players return to poker table positions
@@ -178,11 +17,6 @@ let pendingTokenUpdates = null;
 let previousCondition = null;
 let currentRoundNumber = 0;
 let domLoaded = false;
-let pendingSessionRestore = null;
-
-// Signin debounce to prevent double-submission
-let signinInProgress = false;
-
 // Socket connection monitoring
 socket.on('disconnect', function() {
     console.error('❌ Socket disconnected from server');
@@ -191,218 +25,6 @@ socket.on('disconnect', function() {
 socket.on('reconnect', function() {
     console.log('Socket reconnected to server');
 });
-
-// Handle session restoration
-socket.on('sessionRestored', function(data) {
-    if (data.success) {
-        // If DOM isn't loaded yet, store the session data for later
-        if (!domLoaded) {
-            pendingSessionRestore = data;
-            return;
-        }
-        
-        performSessionRestore(data);
-    }
-});
-
-// Handle session invalid (expired/missing)
-socket.on('sessionInvalid', function(data) {
-    // Clear any cached session data
-    currentUsername = null;
-    currentRoom = null;
-    
-    // Only show alert and reset UI if we're not already on the login screen
-    if (domLoaded) {
-        const landingPage = document.getElementById('landingPage');
-        const chatContainer = document.getElementById('chatContainer');
-        const gameDiv = document.getElementById('gameDiv');
-        
-        // Check if user is already on login screen (landingPage visible)
-        const isOnLoginScreen = landingPage && landingPage.style.display !== 'none';
-        
-        if (!isOnLoginScreen) {
-            // User was trying to access game content, show alert and reset UI
-            if (landingPage) landingPage.style.display = 'block';
-            if (chatContainer) chatContainer.style.display = 'none';
-            if (gameDiv) gameDiv.style.display = 'none';
-            
-            // Show custom session expired modal to user
-            showSessionExpiredModal();
-        }
-        // If user is already on login screen, don't show alert - they probably just refreshed
-    }
-});
-
-// Function to create and show a glassmorphism session expired modal
-function showSessionExpiredModal() {
-    const modalHTML = `
-        <div id="sessionExpiredModal" class="modal" style="
-            background: rgba(0, 0, 0, 0.75);
-            backdrop-filter: blur(8px);
-            -webkit-backdrop-filter: blur(8px);
-            display: block;
-            z-index: 10000;
-        ">
-            <div class="modal-content animate" style="
-                max-width: 420px;
-                background: linear-gradient(145deg, 
-                    rgba(43, 45, 59, 0.98) 0%, 
-                    rgba(54, 57, 63, 0.95) 100%);
-                backdrop-filter: blur(20px);
-                -webkit-backdrop-filter: blur(20px);
-                border: 1px solid rgba(255, 255, 255, 0.15);
-                box-shadow: 
-                    0 20px 60px rgba(0, 0, 0, 0.5),
-                    0 8px 32px rgba(0, 0, 0, 0.3),
-                    inset 0 1px 0 rgba(255, 255, 255, 0.1);
-                margin: 10% auto;
-                position: relative;
-            ">
-                <div class="imgcontainer" style="text-align: center; padding: 20px 20px 0 20px;">
-                    <span onclick="closeSessionExpiredModal()" 
-                          class="close"
-                          title="Close Modal"
-                          style="
-                              position: absolute;
-                              top: 15px;
-                              right: 20px;
-                              color: #b9bbbe;
-                              font-size: 28px;
-                              font-weight: bold;
-                              cursor: pointer;
-                              transition: all 0.2s ease;
-                          "
-                          onmouseover="this.style.color='#ffffff'; this.style.transform='scale(1.1)'"
-                          onmouseout="this.style.color='#b9bbbe'; this.style.transform='scale(1)'">&times;</span>
-                </div>
-
-                <div class="container" style="text-align: center; padding: 30px;">
-                    <div style="
-                        display: flex;
-                        align-items: center;
-                        justify-content: center;
-                        gap: 10px;
-                        margin-bottom: 8px;
-                    ">
-                        <div style="
-                            width: 3px;
-                            height: 3px;
-                            background: linear-gradient(135deg, #f39c12, #e67e22);
-                            border-radius: 50%;
-                            animation: subtlePulse 2s infinite;
-                        "></div>
-                        <h3 style="
-                            color: #dcddde; 
-                            font-weight: 600; 
-                            font-size: 20px;
-                            margin: 0;
-                            background: linear-gradient(135deg, #e74c3c, #f39c12);
-                            -webkit-background-clip: text;
-                            -webkit-text-fill-color: transparent;
-                            background-clip: text;
-                        ">Session Expired</h3>
-                        <div style="
-                            width: 3px;
-                            height: 3px;
-                            background: linear-gradient(135deg, #f39c12, #e67e22);
-                            border-radius: 50%;
-                            animation: subtlePulse 2s infinite;
-                        "></div>
-                    </div>
-                    
-                    <div style="
-                        font-size: 48px;
-                        margin-bottom: 16px;
-                        opacity: 0.8;
-                    ">🔒</div>
-                    
-                    <p style="
-                        color: #b9bbbe; 
-                        margin-bottom: 24px; 
-                        font-size: 14px;
-                        opacity: 0.9;
-                        line-height: 1.5;
-                    ">Your session has expired for security purposes.<br>Please log in again to continue.</p>
-                    
-                    <div style="display: flex; gap: 12px; justify-content: center;">
-                        <button type="button" 
-                                onclick="closeSessionExpiredModal(); document.getElementById('id01').style.display='block';"
-                                style="
-                                    background: linear-gradient(135deg, rgba(67, 181, 129, 0.9) 0%, rgba(52, 168, 107, 0.9) 100%);
-                                    color: white;
-                                    padding: 12px 20px;
-                                    border: none;
-                                    border-radius: 7px;
-                                    cursor: pointer;
-                                    font-weight: 500;
-                                    font-size: 14px;
-                                    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-                                    box-shadow: 0 3px 8px rgba(67, 181, 129, 0.3);
-                                    display: flex;
-                                    align-items: center;
-                                    gap: 6px;
-                                "
-                                onmouseover="
-                                    this.style.background='linear-gradient(135deg, rgba(52, 168, 107, 0.95) 0%, rgba(39, 174, 96, 0.95) 100%)';
-                                    this.style.transform='translateY(-1px)';
-                                    this.style.boxShadow='0 4px 12px rgba(67, 181, 129, 0.4)';
-                                "
-                                onmouseout="
-                                    this.style.background='linear-gradient(135deg, rgba(67, 181, 129, 0.9) 0%, rgba(52, 168, 107, 0.9) 100%)';
-                                    this.style.transform='translateY(0)';
-                                    this.style.boxShadow='0 3px 8px rgba(67, 181, 129, 0.3)';
-                                ">
-                            <span style="font-size: 12px;">🔑</span>
-                            Log In Again
-                        </button>
-                        <button type="button" 
-                                onclick="closeSessionExpiredModal()"
-                                style="
-                                    background: rgba(114, 118, 125, 0.15);
-                                    color: #b9bbbe;
-                                    padding: 12px 20px;
-                                    border: 1px solid rgba(114, 118, 125, 0.4);
-                                    border-radius: 7px;
-                                    cursor: pointer;
-                                    font-size: 14px;
-                                    font-weight: 500;
-                                    transition: all 0.2s ease;
-                                    backdrop-filter: blur(10px);
-                                    display: flex;
-                                    align-items: center;
-                                    gap: 6px;
-                                "
-                                onmouseover="
-                                    this.style.background='rgba(114, 118, 125, 0.25)';
-                                    this.style.color='#dcddde';
-                                    this.style.borderColor='rgba(114, 118, 125, 0.6)';
-                                    this.style.transform='translateY(-1px)';
-                                "
-                                onmouseout="
-                                    this.style.background='rgba(114, 118, 125, 0.15)';
-                                    this.style.color='#b9bbbe';
-                                    this.style.borderColor='rgba(114, 118, 125, 0.4)';
-                                    this.style.transform='translateY(0)';
-                                ">
-                            <span style="font-size: 12px;">✖️</span>
-                            Dismiss
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    `;
-    
-    document.body.insertAdjacentHTML('beforeend', modalHTML);
-}
-
-// Function to close the session expired modal
-function closeSessionExpiredModal() {
-    const modal = document.getElementById('sessionExpiredModal');
-    if (modal) {
-        modal.remove();
-    }
-}
 
 // Function to create and show a glassmorphism alert modal
 function showGlassmorphismAlert(title, message, type = 'info', onConfirm = null) {
@@ -1025,194 +647,6 @@ function returnToGlobalChat() {
     // Emit joinRoom to Global to ensure server state is correct
     if (typeof socket !== 'undefined' && socket.connected) {
         socket.emit('joinRoom', 'Global');
-    }
-}
-
-// Function to show Lightning Test results modal
-function showLightningTestResults(message, stats, duration) {
-    // Remove any existing modal
-    const existingModal = document.getElementById('lightningTestResultsModal');
-    if (existingModal) {
-        existingModal.remove();
-    }
-
-    const modalHTML = `
-        <div id="lightningTestResultsModal" style="
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.85);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            z-index: 10000;
-            animation: fadeIn 0.3s ease-out;
-        ">
-            <div style="
-                max-width: 600px;
-                width: 90%;
-                max-height: 80vh;
-                overflow-y: auto;
-                background: linear-gradient(145deg, 
-                    rgba(30, 25, 50, 0.98) 0%, 
-                    rgba(45, 35, 65, 0.95) 100%);
-                backdrop-filter: blur(20px);
-                -webkit-backdrop-filter: blur(20px);
-                border: 2px solid rgba(192, 38, 211, 0.4);
-                border-radius: 20px;
-                box-shadow: 
-                    0 25px 80px rgba(0, 0, 0, 0.7),
-                    0 10px 40px rgba(192, 38, 211, 0.3),
-                    inset 0 1px 0 rgba(255, 255, 255, 0.1);
-                padding: 30px;
-                text-align: center;
-                position: relative;
-                animation: modalSlideIn 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-            ">
-                <!-- Decorative lightning border -->
-                <div style="
-                    position: absolute;
-                    top: -2px;
-                    left: -2px;
-                    right: -2px;
-                    height: 4px;
-                    background: linear-gradient(90deg, #c026d3, #7c3aed, #c026d3);
-                    border-radius: 20px 20px 0 0;
-                    opacity: 0.8;
-                    animation: lightningShimmer 3s infinite;
-                "></div>
-                
-                <div style="
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    gap: 12px;
-                    margin-bottom: 25px;
-                ">
-                    <div style="
-                        font-size: 48px;
-                        margin-bottom: 10px;
-                        animation: lightningBounce 2s infinite;
-                    ">⚡</div>
-                    <h2 style="
-                        color: #dcddde; 
-                        font-weight: 600; 
-                        margin: 0;
-                        font-size: 24px;
-                        letter-spacing: -0.5px;
-                        background: linear-gradient(135deg, #c026d3, #7c3aed);
-                        -webkit-background-clip: text;
-                        -webkit-text-fill-color: transparent;
-                        background-clip: text;
-                    ">Lightning Test Complete</h2>
-                </div>
-                
-                <!-- Decorative lightning border - results modal -->
-                <div style="
-                    position: absolute;
-                    top: 0px;
-                    left: 0px;
-                    right: 0px;
-                    height: 4px;
-                    background: linear-gradient(90deg, #c026d3, #7c3aed, #c026d3);
-                    border-radius: 20px 20px 0 0;
-                    opacity: 0.8;
-                    animation: lightningShimmer 3s infinite;
-                "></div>
-                
-                <div style="
-                    background: rgba(15, 15, 15, 0.7);
-                    border: 1px solid rgba(192, 38, 211, 0.3);
-                    border-radius: 16px;
-                    padding: 20px;
-                    margin: 20px 0;
-                    backdrop-filter: blur(10px);
-                    text-align: left;
-                ">
-                    <div style="
-                        color: #dcddde; 
-                        font-size: 14px; 
-                        margin: 0; 
-                        line-height: 1.6;
-                        font-family: 'Courier New', monospace;
-                        background: none;
-                        border: none;
-                        padding: 0;
-                    ">${message}</div>
-                </div>
-                
-                <div style="
-                    display: flex;
-                    gap: 12px;
-                    margin-top: 30px;
-                    justify-content: center;
-                ">
-                    <button onclick="closeLightningTestResults()" style="
-                        background: linear-gradient(135deg, rgba(192, 38, 211, 0.9) 0%, rgba(124, 58, 237, 0.9) 100%);
-                        color: white;
-                        padding: 15px 28px;
-                        border: 2px solid rgba(192, 38, 211, 0.6);
-                        border-radius: 12px;
-                        cursor: pointer;
-                        font-weight: 600;
-                        font-size: 16px;
-                        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-                        box-shadow: 
-                            0 6px 20px rgba(192, 38, 211, 0.6),
-                            0 3px 10px rgba(0, 0, 0, 0.3);
-                        display: flex;
-                        align-items: center;
-                        gap: 8px;
-                    "
-                    onmouseover="
-                        this.style.background='linear-gradient(135deg, rgba(124, 58, 237, 1) 0%, rgba(147, 51, 234, 1) 100%)';
-                        this.style.transform='translateY(-2px)';
-                        this.style.boxShadow='0 8px 25px rgba(192, 38, 211, 0.7), 0 4px 15px rgba(0, 0, 0, 0.4)';
-                    "
-                    onmouseout="
-                        this.style.background='linear-gradient(135deg, rgba(192, 38, 211, 0.9) 0%, rgba(124, 58, 237, 0.9) 100%)';
-                        this.style.transform='translateY(0)';
-                        this.style.boxShadow='0 6px 20px rgba(192, 38, 211, 0.6), 0 3px 10px rgba(0, 0, 0, 0.3)';
-                    "
-                    onmousedown="this.style.transform='translateY(0) scale(0.98)'"
-                    onmouseup="this.style.transform='translateY(-2px) scale(1)'">
-                        <span style="font-size: 14px;">✨</span>
-                        Continue
-                    </button>
-                </div>
-            </div>
-        </div>
-        
-        <style>
-            @keyframes lightningShimmer {
-                0%, 100% { background: linear-gradient(90deg, #c026d3, #7c3aed, #c026d3); }
-                50% { background: linear-gradient(90deg, #7c3aed, #c026d3, #7c3aed); }
-            }
-            
-            @keyframes lightningBounce {
-                0%, 100% { transform: translateY(0) scale(1) rotate(0deg); }
-                50% { transform: translateY(-8px) scale(1.1) rotate(5deg); }
-            }
-        </style>
-    `;
-    
-    document.body.insertAdjacentHTML('beforeend', modalHTML);
-}
-
-// Function to close lightning test results modal
-function closeLightningTestResults() {
-    const modal = document.getElementById('lightningTestResultsModal');
-    if (modal) {
-        modal.style.animation = 'fadeOut 0.3s ease-in';
-        setTimeout(() => {
-            if (modal.parentNode) {
-                modal.remove();
-            }
-        }, 300);
     }
 }
 
@@ -1841,10 +1275,6 @@ function performSessionRestore(data) {
         }
     }
     
-    // Stop space animations if function exists
-    if (typeof window.stopSpaceAnimationsOnLogin === 'function') {
-        window.stopSpaceAnimationsOnLogin();
-    }
 }
 
 // Handle logout response
@@ -2244,124 +1674,6 @@ let modal, loginButton, createRoomButton, joinRoomButton, inviteButton;
 let currentUsername = null;
 
 // Event handlers will be initialized in DOMContentLoaded
-
-// Join chatroom
-socket.on('signInResponse', function (data) {
-    console.log('🔑 Received signInResponse:', data);
-    
-    // Reset signin progress flag
-    signinInProgress = false;
-    
-    if (data.success) {
-        console.log('✅ Login successful!');
-        
-        // Store the current username globally and in localStorage
-        currentUsername = signDivUsername ? signDivUsername.value : null;
-        if (currentUsername) {
-            localStorage.setItem('username', currentUsername);
-        }
-        console.log('Signed in as:', currentUsername);
-        
-        // Store admin status and update UI
-        isGlobalAdmin = data.isAdmin || false;
-        
-        //signDiv.style.display = 'none';
-        landingPage.style.display = "none";
-        switchToLoggedInUI(data.username);
-        chatDiv.style.display = '';
-        
-        // Hide room pill in global chat (inline implementation since updateHeaderPills is defined later)
-        const roomPill = document.getElementById('room-pill');
-        if (roomPill) {
-            roomPill.style.display = 'none';
-        }
-        
-        // Update card visibility AFTER UI elements are shown
-        updateCardVisibility();
-        
-        // Ensure invite card visibility is updated with additional retries
-        setTimeout(() => {
-            updateInviteVisibility();
-        }, 100);
-        
-        // Additional retry with longer delay to ensure DOM is fully ready
-        setTimeout(() => {
-            const inviteCard = document.getElementById('invite-card');
-            const actionCardsContainer = document.querySelector('.action-cards-container');
-            
-            if (inviteCard) {
-                const inviteStyles = window.getComputedStyle(inviteCard);
-                
-                // Fix CSS override issues
-                if (inviteStyles.visibility === 'hidden' || inviteStyles.opacity === '0') {
-                    inviteCard.style.setProperty('visibility', 'visible', 'important');
-                    inviteCard.style.setProperty('opacity', '1', 'important');
-                    inviteCard.style.setProperty('display', 'block', 'important');
-                }
-            }
-            
-            if (inviteCard && isGlobalAdmin && currentRoom === 'Global') {
-                inviteCard.style.display = 'block';
-                inviteCard.style.visibility = 'visible';
-                inviteCard.style.opacity = '1';
-                inviteCard.classList.remove('invite-hidden');
-                inviteCard.classList.add('invite-visible');
-                
-                // Also ensure container is visible
-                if (actionCardsContainer) {
-                    actionCardsContainer.style.display = '';
-                    actionCardsContainer.style.visibility = '';
-                    actionCardsContainer.style.opacity = '';
-                }
-            }
-            updateInviteVisibility();
-        }, 500);
-        
-        // Stop space animations when user successfully logs in
-        if (typeof window.stopSpaceAnimationsOnLogin === 'function') {
-            window.stopSpaceAnimationsOnLogin();
-        }
-        
-        // Set a timeout to join Global chat if no session restoration occurs
-        let sessionRestorationHandled = false;
-        
-        const originalSessionHandler = socket._callbacks && socket._callbacks['sessionRestored'] && socket._callbacks['sessionRestored'][0];
-        if (originalSessionHandler) {
-            // Wrap the original handler to track if session restoration occurred
-            socket.off('sessionRestored');
-            socket.on('sessionRestored', function(sessionData) {
-                sessionRestorationHandled = true;
-                originalSessionHandler(sessionData);
-            });
-        }
-        
-        // Shorter timeout for faster login experience
-        setTimeout(() => {
-            if (!sessionRestorationHandled && !currentRoom) {
-                console.log('🌐 No session restoration - joining Global chat');
-                currentRoom = 'Global';
-                
-                // Update leave button visibility (hide for Global)
-                updateLeaveButtonVisibility();
-                
-                // Hide game interface for Global chat
-                const gameDiv = document.getElementById('gameDiv');
-                if (gameDiv) {
-                    gameDiv.style.display = 'none';
-                    console.log('🌐 Game UI hidden - joining Global chat');
-                }
-                
-                // Join Global chat
-                socket.emit('joinRoom', { room: 'Global' });
-            }
-        }, 100); // Reduced from 500ms to 100ms for faster login
-    }
-
-    else {
-        console.error('❌ Login failed:', data);
-        showGlassmorphismAlert('Login Failed', 'Sign in unsuccessful. Please check your credentials and try again.', 'error');
-    }
-});
 
 // EARLY REGISTRATION: LED Condition Tracker Event Handler
 console.log('🔵 EARLY: Registering conditionUpdate handler...');
@@ -3599,9 +2911,9 @@ socket.on('lightningTestProgress', function(data) {
     
     // Show or update progress modal
     if (data.round === 1) {
-        showLightningTestProgressModal(data);
+        window.adminFunctions.showLightningTestProgressModal(data);
     } else {
-        updateLightningTestProgress(data);
+        window.adminFunctions.updateLightningTestProgress(data);
     }
     
     // Update lightning button text to show progress
@@ -3630,7 +2942,7 @@ socket.on('lightningTestComplete', function(data) {
     
     // Show completion modal with stats after a brief delay
     setTimeout(() => {
-        showLightningTestResults(data.message, data.stats, data.duration);
+        window.adminFunctions.showLightningTestResults(data.message, data.stats, data.duration);
     }, 500);
 });
 
@@ -4119,8 +3431,8 @@ socket.on('yourTurn', function(data) {
         if (data.isModerator) {
             // Add a small delay to ensure DOM is fully updated
             setTimeout(() => {
-                addColumnHoverEffects();
-                initializeSwitchboardFunctions();
+                window.adminFunctions.addColumnHoverEffects();
+                window.adminFunctions.initializeSwitchboardFunctions();
             }, 100);
         }
     }
@@ -5900,54 +5212,8 @@ document.addEventListener('DOMContentLoaded', function() {
     setupProfileMenu();
 
     if (signDivSignIn) {
-        console.log('🔑 Login button found - setting up simple event handler');
-        
-        // Simple, reliable event handling
-        function handleSignIn(e) {
-            console.log('� Login button clicked/tapped!');
-            e.preventDefault();
-            e.stopPropagation();
-            
-            // Prevent multiple rapid signin attempts
-            if (signinInProgress) {
-                console.log('⚠️ Signin already in progress');
-                return;
-            }
-            
-            console.log('🔑 Username:', signDivUsername ? signDivUsername.value : 'NOT FOUND');
-            console.log('🔑 Password:', signDivPassword ? signDivPassword.value : 'NOT FOUND');
-                
-            if (signDivUsername && signDivPassword && signDivUsername.value && signDivPassword.value) {
-                signinInProgress = true;
-                console.log('🔑 Sending login request...');
-                
-                // Simple visual feedback
-                signDivSignIn.style.background = '#16a34a';
-                signDivSignIn.textContent = 'Logging in...';
-                
-                socket.emit('signIn', { 
-                    username: signDivUsername.value, 
-                    password: signDivPassword.value 
-                });
-                
-                if (modal) modal.style.display = "none";
-                
-                // Reset button after delay
-                setTimeout(() => {
-                    signinInProgress = false;
-                    signDivSignIn.style.background = '#22c55e';
-                    signDivSignIn.innerHTML = '<span style="font-size: 12px;">🔐</span> Login';
-                }, 2000);
-            } else {
-                console.error('❌ Username or password missing!');
-                alert('Please enter both username and password');
-            }
-        }
-        
-        // Add both touch and click handlers (simple approach)
-        signDivSignIn.addEventListener('touchend', handleSignIn, { passive: false });
-        signDivSignIn.addEventListener('click', handleSignIn);
-        
+        // Authentication functionality moved to authentication.js module
+        console.log('🔑 Authentication setup delegated to authentication module');
     } else {
         console.error('❌ Login button (signIn) not found in DOM!');
     }
@@ -6375,7 +5641,7 @@ document.addEventListener('DOMContentLoaded', function() {
             // Check if user is moderator
             if (window.currentUserIsModerator) {
                 // Show moderator context menu
-                showModeratorContextMenu();
+                window.adminFunctions.showModeratorContextMenu();
             } else {
                 // Regular user - simple leave confirmation
                 const leaveRoom = confirm("Are you sure you want to leave this room?");
@@ -6471,7 +5737,7 @@ document.addEventListener('DOMContentLoaded', function() {
             if (window.currentUserIsModerator) {
                 // Show moderator context menu
                 console.log('👑 Moderator leaving via pill menu - showing context menu');
-                showModeratorContextMenu();
+                window.adminFunctions.showModeratorContextMenu();
             } else {
                 // Regular user - simple leave confirmation
                 const leaveRoom = confirm("Are you sure you want to leave this room?");
@@ -8748,32 +8014,7 @@ function setupProfileMenu() {
     }
 }
 
-// Helper function to switch between login and profile menu
-function switchToLoggedInUI(username) {
-    const loginButton = document.getElementById('loginNav');
-    const profileMenuContainer = document.querySelector('.profile-menu-container');
-    const profileUsername = document.getElementById('profileUsername');
-    
-    if (loginButton) loginButton.style.display = 'none';
-    if (profileMenuContainer) profileMenuContainer.style.display = 'block';
-    if (profileUsername && username) profileUsername.textContent = username;
-    
-    console.log('👤 UI switched to logged-in state with profile menu');
-}
-
-function switchToLoggedOutUI() {
-    const loginButton = document.getElementById('loginNav');
-    const profileMenuContainer = document.querySelector('.profile-menu-container');
-    const profileDropdown = document.getElementById('profileDropdown');
-    const profileChevron = document.getElementById('profileChevron');
-    
-    if (loginButton) loginButton.style.display = 'block';
-    if (profileMenuContainer) profileMenuContainer.style.display = 'none';
-    if (profileDropdown) profileDropdown.style.display = 'none';
-    if (profileChevron) profileChevron.style.transform = 'rotate(0deg)';
-    
-    console.log('👤 UI switched to logged-out state with login button');
-}
+// UI state functions moved to authentication.js module
 
 console.log('🧠 Client.js loaded - Canvas rendering and keyboard controls disabled for behavioral experiment mode');
 

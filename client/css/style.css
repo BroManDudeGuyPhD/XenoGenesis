@@ -584,6 +584,11 @@ button[onclick*="setPlayerIncentive"]:hover {
 
 .status-pill.connected {
 	color: #10b981;
+	/* Make connected status smaller and less intrusive */
+	font-size: 11px;
+	padding: 4px 8px;
+	/* Ensure it doesn't block other elements */
+	z-index: 10;
 }
 
 .status-pill:hover,
@@ -3385,5 +3390,31 @@ span.psw a:hover {
     
     .led-row {
         gap: 2px;
+    }
+}
+
+/* Game Start Animation */
+@keyframes gameStartPulse {
+    0% {
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(0.8);
+    }
+    50% {
+        transform: translate(-50%, -50%) scale(1.05);
+    }
+    100% {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1);
+    }
+}
+
+@keyframes fadeIn {
+    0% {
+        opacity: 0.8;
+        transform: translateY(-10px);
+    }
+    100% {
+        opacity: 1;
+        transform: translateY(0);
     }
 }

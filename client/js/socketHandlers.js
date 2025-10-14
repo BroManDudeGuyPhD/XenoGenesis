@@ -80,11 +80,8 @@ function setupAuthenticationHandlers() {
         }
     });
 
-    // Session invalid
-    socket.on('sessionInvalid', function(data) {
-        console.log('❌ Session invalid:', data);
-        showSessionExpiredModal();
-    });
+    // Session invalid - handled in authentication.js with proper context checking
+    // Removing duplicate handler that was causing popup on every page load
 
     // Logout response
     socket.on('logoutResponse', function(data) {
@@ -216,7 +213,12 @@ function setupAdminHandlers() {
     // Player status update
     socket.on('playerStatusUpdate', function(data) {
         console.log('👥 Player status update:', data);
-        if (window.adminUI) {
+        
+        // Route to both gameUI and adminUI for comprehensive updates
+        if (window.gameUI && typeof window.gameUI.handlePlayerStatusUpdate === 'function') {
+            window.gameUI.handlePlayerStatusUpdate(data);
+        }
+        if (window.adminUI && typeof window.adminUI.handlePlayerStatusUpdate === 'function') {
             window.adminUI.handlePlayerStatusUpdate(data);
         }
     });
@@ -271,6 +273,7 @@ function setupChatHandlers() {
     // Players in room
     socket.on('playersInRoom', function(data) {
         console.log('🎮 Players in room:', data);
+        console.log('🎮 Players array detailed:', JSON.stringify(data.players, null, 2));
         if (window.chatUI) {
             window.chatUI.updatePlayersInRoom(data);
         }
@@ -290,6 +293,14 @@ function setupChatHandlers() {
         setState.setCurrentRoom(roomName);
         if (window.chatUI) {
             window.chatUI.handleRoomCreated(roomName);
+        }
+    });
+
+    // Join room (from server confirmation)
+    socket.on('joinRoom', function(room) {
+        console.log('🚪 Join room event received:', room);
+        if (window.chatUI) {
+            window.chatUI.handleJoinRoom(room);
         }
     });
 
@@ -317,13 +328,47 @@ function setupChatHandlers() {
  * Setup system-related socket handlers
  */
 function setupSystemHandlers() {
+    // Handle server disconnections - redirect to login
+    socket.on('disconnect', function(reason) {
+        console.log('🔌 Disconnected from server:', reason);
+        
+        // Check if this is a server restart/shutdown (not a normal client disconnect)
+        if (reason === 'io server disconnect' || reason === 'transport close') {
+            console.log('🔄 Server disconnected - redirecting to login');
+            
+            // Reset all client state
+            setState.setCurrentUsername(null);
+            setState.setGlobalAdmin(false);
+            setState.setCurrentRoom('Global');
+            
+            // Show login interface and hide everything else
+            const signDiv = document.getElementById('signDiv');
+            const chatDiv = document.getElementById('chatDiv');
+            const gameDiv = document.getElementById('gameDiv');
+            const landingPage = document.getElementById('landingPage');
+            
+            if (signDiv) signDiv.style.display = 'block';
+            if (chatDiv) chatDiv.style.display = 'none';
+            if (gameDiv) gameDiv.style.display = 'none';
+            if (landingPage) landingPage.style.display = 'none';
+            
+            console.log('✅ Redirected to login screen due to server disconnect');
+        }
+    });
+    
     // System notification
     socket.on('systemNotification', function(data) {
         console.log('🔔 System notification:', data);
-        if (window.showSystemNotification) {
-            window.showSystemNotification(data.title, data.message, data.type);
+        
+        // Only show if there's actual content
+        if (data && (data.title || data.message)) {
+            if (window.showSystemNotification) {
+                window.showSystemNotification(data.title, data.message, data.type);
+            } else {
+                showGlassmorphismAlert(data.title || 'Notification', data.message || '', data.type || 'info');
+            }
         } else {
-            showGlassmorphismAlert(data.title, data.message, data.type || 'info');
+            console.log('⚠️ Skipping empty system notification');
         }
     });
 
@@ -353,7 +398,8 @@ function setupSystemHandlers() {
     socket.on('inviteCodeResponse', function(data) {
         console.log('🎫 Invite code response:', data);
         if (data.success) {
-            showInviteCodeAlert(data.code, data.type);
+            const codeType = data.isPermanent ? 'Permanent' : 'Single-Use';
+            showInviteCodeAlert(data.inviteCode, codeType);
         } else {
             showGlassmorphismAlert('Invite Code Error', data.message || 'Failed to generate invite code', 'error');
         }
@@ -470,15 +516,19 @@ socket.on('init', function(data) {
 });
 
 socket.on('update', function(data) {
-    console.log('🔄 Game update:', data);
-    if (window.gameUI) {
+    // Logging disabled to prevent console spam
+    // console.log('🔄 Game update:', data);
+    if (window.gameUI && typeof window.gameUI.handleGameUpdate === 'function') {
         window.gameUI.handleGameUpdate(data);
     }
 });
 
 socket.on('remove', function(data) {
-    console.log('🗑️ Player removed:', data);
-    if (window.gameUI) {
+    // Only log if there's meaningful data to prevent spam
+    if (data && data.player && data.player.length > 0) {
+        console.log('🗑️ Player removed:', data);
+    }
+    if (window.gameUI && typeof window.gameUI.handlePlayerRemoved === 'function') {
         window.gameUI.handlePlayerRemoved(data);
     }
 });
