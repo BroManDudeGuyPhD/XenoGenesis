@@ -1,4 +1,7 @@
 @import url('https://fonts.googleapis.com/css?family=Roboto&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Source+Code+Pro:wght@400;500;600;700&display=swap');
 
 :root {
 	--dark-color-a: #667aff;
@@ -619,6 +622,39 @@ button[onclick*="setPlayerIncentive"]:hover {
 	0% { opacity: 1; transform: scale(1); }
 	50% { opacity: 0.7; transform: scale(1.2); }
 	100% { opacity: 1; transform: scale(1); }
+}
+
+/* Console glow animation for futuristic logo */
+@keyframes consoleGlow {
+	0% { 
+		text-shadow: 
+			0 0 5px rgba(230, 25, 179, 0.6),
+			0 0 10px rgba(230, 25, 179, 0.4),
+			0 0 20px rgba(230, 25, 179, 0.3),
+			0 0 30px rgba(128, 0, 230, 0.2),
+			0 1px 0 rgba(0, 255, 150, 0.2);
+		filter: 
+			drop-shadow(0 2px 8px rgba(230, 25, 179, 0.4))
+			drop-shadow(0 0 12px rgba(128, 0, 230, 0.3));
+	}
+	100% { 
+		text-shadow: 
+			0 0 8px rgba(230, 25, 179, 0.8),
+			0 0 15px rgba(230, 25, 179, 0.6),
+			0 0 25px rgba(230, 25, 179, 0.4),
+			0 0 35px rgba(128, 0, 230, 0.3),
+			0 1px 0 rgba(0, 255, 150, 0.4);
+		filter: 
+			drop-shadow(0 2px 12px rgba(230, 25, 179, 0.6))
+			drop-shadow(0 0 18px rgba(128, 0, 230, 0.5));
+	}
+}
+
+/* Shimmer background animation for dither container fallback */
+@keyframes shimmerBackground {
+	0% { background-position: 0% 0%; }
+	50% { background-position: 100% 100%; }
+	100% { background-position: 0% 0%; }
 }
 
 .action-cards-container {
@@ -1456,41 +1492,39 @@ a {
 	visibility: visible !important;
 	opacity: 1 !important;
 	z-index: 2000 !important; /* Very high z-index */
-	/* Modern glassmorphic header - updated design with fallback */
+	/* Very transparent dark glass to show animation */
 	background: linear-gradient(135deg, 
-		rgba(15, 5, 35, 0.95) 0%, 
-		rgba(25, 10, 45, 0.98) 50%, 
-		rgba(35, 15, 55, 0.95) 100%) !important;
-	/* Backdrop filter with fallback - may cause issues in some browsers */
-	backdrop-filter: blur(20px) saturate(180%);
-	-webkit-backdrop-filter: blur(20px) saturate(180%);
+		rgba(0, 0, 0, 0.4) 0%, 
+		rgba(5, 5, 10, 0.5) 50%, 
+		rgba(0, 0, 0, 0.4) 100%) !important;
+	/* Subtle backdrop filter to maintain glass effect without blocking animation */
+	backdrop-filter: blur(15px) saturate(130%);
+	-webkit-backdrop-filter: blur(15px) saturate(130%);
 	min-height: 80px !important; /* Ensure minimum height */
 	width: 100% !important;
 	top: 0 !important;
 	left: 0 !important;
-	border-bottom: 2px solid rgba(230, 25, 179, 0.4) !important; /* Bright pink border for visibility */
+	border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important; /* Very subtle border */
 	box-shadow: 
 		0 4px 20px rgba(0, 0, 0, 0.3),
-		0 1px 0 rgba(255, 255, 255, 0.1) inset,
-		0 -1px 0 rgba(0, 0, 0, 0.2) inset,
-		0 0 30px rgba(230, 25, 179, 0.2) !important; /* Glow effect */
+		0 1px 0 rgba(255, 255, 255, 0.05) inset !important;
 }
 
 /* Mobile header transparency */
 @media (max-width: 768px) {
 	.header {
-		/* Enhanced mobile glassmorphism */
+		/* Very transparent mobile glass */
 		background: linear-gradient(135deg, 
-			rgba(15, 5, 35, 0.9) 0%, 
-			rgba(25, 10, 45, 0.95) 50%, 
-			rgba(35, 15, 55, 0.9) 100%) !important;
-		backdrop-filter: blur(25px) saturate(200%);
-		-webkit-backdrop-filter: blur(25px) saturate(200%);
-		border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+			rgba(0, 0, 0, 0.35) 0%, 
+			rgba(5, 5, 10, 0.45) 50%, 
+			rgba(0, 0, 0, 0.35) 100%) !important;
+		backdrop-filter: blur(12px) saturate(120%);
+		-webkit-backdrop-filter: blur(12px) saturate(120%);
+		border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 		min-height: 80px;
 		box-shadow: 
-			0 6px 25px rgba(0, 0, 0, 0.4),
-			0 1px 0 rgba(255, 255, 255, 0.12) inset;
+			0 4px 16px rgba(0, 0, 0, 0.2),
+			0 1px 0 rgba(255, 255, 255, 0.03) inset;
 	}
 }
 
@@ -1589,37 +1623,46 @@ a {
 
 .nav-logo {
 	font-size: 3.7rem;
-	font-weight: 600;
+	font-weight: 500;
 	color: #E619B3; /* Bright neon pink for glassmorphic theme */
-	font-family: 'Inter', 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Roboto', 'Helvetica Neue', Arial, sans-serif;
-	letter-spacing: -0.02em;
+	/* Futuristic console-style font stack */
+	font-family: 'JetBrains Mono', 'Fira Code', 'Source Code Pro', 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', 'Courier New', monospace;
+	letter-spacing: 0.05em; /* Wider spacing for tech feel */
 	transition: all 0.3s ease;
 	cursor: pointer;
 	position: relative;
 	z-index: 100; /* Higher z-index to ensure visibility */
 	display: block;
-	/* Enhanced glassmorphic glow */
+	/* Enhanced console-style glow with scan line effect */
 	text-shadow: 
 		0 0 5px rgba(230, 25, 179, 0.6),
 		0 0 10px rgba(230, 25, 179, 0.4),
 		0 0 20px rgba(230, 25, 179, 0.3),
-		0 0 30px rgba(128, 0, 230, 0.2);
+		0 0 30px rgba(128, 0, 230, 0.2),
+		0 1px 0 rgba(0, 255, 150, 0.2); /* Subtle green scan line */
 	filter: 
 		drop-shadow(0 2px 8px rgba(230, 25, 179, 0.4))
 		drop-shadow(0 0 12px rgba(128, 0, 230, 0.3));
+	/* Add subtle typing animation effect */
+	animation: consoleGlow 3s ease-in-out infinite alternate;
 }
 
 /* Enhanced glow for login screen - always on */
 body.login-page .nav-logo {
 	color: #E619B3; /* Neon pink for login page */
+	/* Console-style enhanced effects */
 	text-shadow: 
 		0 0 10px rgba(128, 0, 230, 0.8),
 		0 0 20px rgba(128, 0, 230, 0.6),
 		0 0 30px rgba(128, 0, 230, 0.4),
-		0 0 40px rgba(230, 25, 179, 0.3);
+		0 0 40px rgba(230, 25, 179, 0.3),
+		0 1px 0 rgba(0, 255, 150, 0.3), /* Green scan line effect */
+		0 -1px 0 rgba(0, 255, 150, 0.2);
 	filter: 
 		drop-shadow(0 0 8px rgba(128, 0, 230, 0.6))
 		drop-shadow(0 0 15px rgba(128, 0, 230, 0.4));
+	/* Enhanced console animation */
+	animation: consoleGlow 2s ease-in-out infinite alternate;
 }
 
 /* Strong hover effect for login page */
@@ -2052,8 +2095,8 @@ button:hover {
 	text-shadow: 0 1px 3px rgba(0, 0, 0, 0.2) !important;
 	/* Modern glass morphism shadow */
 	box-shadow: 
-		0 8px 32px rgba(34, 197, 94, 0.3),
-		0 4px 16px rgba(34, 197, 94, 0.2),
+		0 8px 32px rgba(219, 39, 119, 0.3),
+		0 4px 16px rgba(219, 39, 119, 0.2),
 		inset 0 1px 0 rgba(255, 255, 255, 0.25),
 		inset 0 -1px 0 rgba(0, 0, 0, 0.1) !important;
 }
@@ -2101,14 +2144,14 @@ button:hover {
 #loginNav:hover {
 	opacity: 1 !important;
 	background: linear-gradient(135deg, 
-		rgba(34, 197, 94, 0.95) 0%, 
-		rgba(22, 163, 74, 0.9) 50%, 
-		rgba(16, 185, 129, 0.95) 100%) !important;
+		rgba(239, 68, 113, 0.95) 0%, 
+		rgba(219, 39, 119, 0.9) 50%, 
+		rgba(190, 24, 93, 0.95) 100%) !important;
 	transform: translateY(-3px) scale(1.05) !important;
 	box-shadow: 
-		0 12px 40px rgba(34, 197, 94, 0.4),
-		0 6px 20px rgba(34, 197, 94, 0.3),
-		0 0 30px rgba(34, 197, 94, 0.25),
+		0 12px 40px rgba(219, 39, 119, 0.4),
+		0 6px 20px rgba(219, 39, 119, 0.3),
+		0 0 30px rgba(219, 39, 119, 0.25),
 		inset 0 1px 0 rgba(255, 255, 255, 0.3),
 		inset 0 -1px 0 rgba(0, 0, 0, 0.15) !important;
 	border-color: rgba(255, 255, 255, 0.3) !important;

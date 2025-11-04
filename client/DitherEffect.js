@@ -7,6 +7,7 @@ class DitherEffect {
         this.renderer = null;
         this.animationId = null;
         this.time = 0;
+        this.startTime = null; // Independent timing start
         this.mouse = { x: 0.5, y: 0.5 };
         this.targetMouse = { x: 0.5, y: 0.5 };
         
@@ -18,7 +19,7 @@ class DitherEffect {
         
         // Configuration
         this.config = {
-            waveSpeed: 0.02,        // Even slower for more contemplative feel
+            waveSpeed: 0.08,        // Increased for faster dynamic clouds
             waveFrequency: 2.5,     // Reduced frequency for larger patterns
             waveAmplitude: 0.4,     // Higher amplitude for more dramatic waves
             mouseRadius: 0.08,      // Tighter mouse interaction radius
@@ -51,10 +52,20 @@ class DitherEffect {
         // Camera setup
         this.camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
         
-        // Renderer setup
+        // Renderer setup - create canvas first with proper styling to prevent blink
+        const canvas = document.createElement('canvas');
+        canvas.style.pointerEvents = 'auto';
+        canvas.style.display = 'block';
+        canvas.style.visibility = 'hidden'; // Start hidden until ready
+        canvas.style.transition = 'none';
+        canvas.style.background = 'transparent';
+        
         this.renderer = new THREE.WebGLRenderer({ 
+            canvas: canvas,
             antialias: false,
-            alpha: true 
+            alpha: true,
+            premultipliedAlpha: false,
+            preserveDrawingBuffer: false
         });
         
         // Simple approach: just use full viewport for mobile with extended coverage
@@ -76,19 +87,17 @@ class DitherEffect {
         
         // Remove fallback logic that might be causing issues
         
-        // Add to container or body (mobile gets body placement)
+        // Add pre-styled canvas to DOM immediately
         if (this.isMobile) {
             // Mobile: Attach directly to body to avoid container constraints
-            document.body.appendChild(this.renderer.domElement);
+            document.body.appendChild(canvas);
         } else {
             // Desktop: Use container
-            this.container.appendChild(this.renderer.domElement);
+            this.container.appendChild(canvas);
         }
         
-        // Smart canvas styling: aggressive for mobile, responsive for desktop
-        this.canvas = this.renderer.domElement;
-        this.canvas.style.pointerEvents = 'auto';
-        this.canvas.style.display = 'block';
+        // Reference the canvas we created and apply positioning
+        this.canvas = canvas;
         
         if (this.isMobile) {
             // Mobile: Extended viewport coverage for full screen effect
@@ -107,9 +116,6 @@ class DitherEffect {
             this.canvas.style.height = '100%';
             this.canvas.style.zIndex = '5'; // Above most content but below key UI
         }
-        this.renderer.domElement.style.position = 'absolute';
-        this.renderer.domElement.style.top = '0';
-        this.renderer.domElement.style.left = '0';
         
         // Advanced vertex shader
         const vertexShader = `
@@ -276,11 +282,11 @@ class DitherEffect {
                 
                 float dist = length(centeredUv - holdPos);
                 
-                // Multi-layered cloud-like noise for organic growth (very slow animation)
+                // Multi-layered cloud-like noise for organic growth (faster animation)
                 vec2 noisePos = (centeredUv - holdPos) * 8.0;
-                float cloudNoise1 = cnoise(noisePos + time * 0.04) * 0.5 + 0.5; // Slower: 0.08 -> 0.04
-                float cloudNoise2 = cnoise(noisePos * 2.0 + time * 0.025) * 0.3 + 0.5; // Slower: 0.05 -> 0.025
-                float cloudNoise3 = cnoise(noisePos * 4.0 + time * 0.06) * 0.2 + 0.5; // Slower: 0.12 -> 0.06
+                float cloudNoise1 = cnoise(noisePos + time * 0.08) * 0.5 + 0.5; // Increased: 0.04 -> 0.08
+                float cloudNoise2 = cnoise(noisePos * 2.0 + time * 0.05) * 0.3 + 0.5; // Increased: 0.025 -> 0.05
+                float cloudNoise3 = cnoise(noisePos * 4.0 + time * 0.12) * 0.2 + 0.5; // Increased: 0.06 -> 0.12
                 
                 // Combine noise layers for organic cloud shape
                 float organicNoise = cloudNoise1 * cloudNoise2 * cloudNoise3;
@@ -457,8 +463,21 @@ class DitherEffect {
         // Store material reference for updates
         this.material = material;
         
-        // Start animation immediately
-        this.animate();
+        // Render multiple frames immediately to ensure content is ready
+        for (let i = 0; i < 3; i++) {
+            this.renderer.render(this.scene, this.camera);
+        }
+        
+        // Hide the CSS background immediately once WebGL is ready
+        this.container.style.background = 'none';
+        this.container.style.animation = 'none';
+        
+        // Render once to populate canvas, then show it and start animation
+        this.renderFrame();
+        requestAnimationFrame(() => {
+            this.canvas.style.visibility = 'visible';
+            this.animate();
+        });
         
         // Handle resize
         this.handleResize = () => {
@@ -580,10 +599,24 @@ class DitherEffect {
         window.addEventListener('touchend', this.handleTouchEnd);
     }
     
+    renderFrame() {
+        // Simple render without animation updates - just to populate the canvas
+        this.renderer.render(this.scene, this.camera);
+    }
+    
     animate() {
         this.animationId = requestAnimationFrame(() => this.animate());
         
-        this.time += 0.016; // ~60fps
+        // Use performance.now() for more accurate, independent timing
+        const currentTime = performance.now() * 0.001; // Convert to seconds
+        
+        // Initialize startTime on first frame
+        if (!this.startTime) {
+            this.startTime = currentTime;
+        }
+        
+        // Calculate independent time elapsed since initialization
+        this.time = currentTime - this.startTime;
         
         // Smooth mouse movement (desktop only - static position on mobile)
         if (!this.isMobile) {
@@ -753,13 +786,22 @@ class DitherEffect {
 // Global functions for integration
 window.initDitherBackground = function(containerId) {
     const container = document.getElementById(containerId);
-    if (container && !window.ditherEffect) {
+    if (container) {
+        // Always create a new instance, destroy old one if exists
+        if (window.ditherEffect) {
+            window.ditherEffect.destroy();
+        }
         window.ditherEffect = new DitherEffect(container);
+        
+        // Add unique instance ID to prevent cross-contamination
+        window.ditherEffect.instanceId = 'dither_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+        console.log('🌌 Dither effect initialized with ID:', window.ditherEffect.instanceId);
     }
 };
 
 window.stopDitherBackground = function() {
     if (window.ditherEffect) {
+        console.log('🌌 Stopping dither effect:', window.ditherEffect.instanceId || 'unknown');
         window.ditherEffect.destroy();
         window.ditherEffect = null;
     }
