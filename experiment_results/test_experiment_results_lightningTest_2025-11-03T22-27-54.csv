@@ -1,4 +1,0 @@
-Round,Condition,Phase,Block_Number,Incentive_Type,Incentive_Recipient,Player_A_Choice,Player_B_Choice,Player_C_Choice,Player_A_White_Tokens,Player_A_Black_Tokens,Player_A_Total_Payout,Player_B_White_Tokens,Player_B_Black_Tokens,Player_B_Total_Payout,Player_C_White_Tokens,Player_C_Black_Tokens,Player_C_Total_Payout,Culturant_Produced,White_Tokens_Remaining,Timestamp
-1,Baseline,baseline,,No Incentive,None,2,4,6,1,1,0.06,1,1,0.06,1,1,0.06,Yes,97,2025-11-03T22:27:54.225Z
-2,Baseline,baseline,,No Incentive,None,1,3,5,4,1,0.09,4,1,0.09,4,1,0.09,No,88,2025-11-03T22:27:54.226Z
-3,High Culturant,conditions,1,Culturant Incentive,PlayerA,2,2,4,6,3,0.21,6,3,0.21,6,3,0.21,Yes,82,2025-11-03T22:27:54.226Z

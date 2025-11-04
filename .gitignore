@@ -1,1 +1,4 @@
 node_modules
+
+# Experiment results and data files
+experiment_results/
