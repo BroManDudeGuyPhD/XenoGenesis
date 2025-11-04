@@ -6,6 +6,8 @@ require('./client/Inventory');
 let Commands = require('./Commands')
 let Room = require('./Room')
 const formatMessage = require("./utils/messages");
+const fs = require('fs');
+const path = require('path');
 
 // Token Pool Configuration Constants
 const TOKEN_CONFIG = {
@@ -35,6 +37,22 @@ const ADMIN_USERS = [
 
 // Track recent disconnections to suppress refresh spam notifications
 const recentDisconnections = new Map(); // username -> { timestamp, room, timeout }
+
+// Helper function to check if a user is admin (both hardcoded list and database)
+function checkUserAdminStatus(username, callback) {
+    // First check hardcoded admin list
+    if (ADMIN_USERS.includes(username.toLowerCase())) {
+        console.log(`✅ ${username} is hardcoded admin`);
+        callback(true);
+        return;
+    }
+    
+    // Check database admin status
+    Database.isAdmin({ username: username }, function(isDbAdmin) {
+        console.log(`🔍 Database admin check for ${username}: ${isDbAdmin}`);
+        callback(isDbAdmin);
+    });
+}
 
 // Behavioral Economics Experiment State
 var GameSessions = {}; // Key: room name, Value: session data
@@ -907,17 +925,42 @@ GameSession = {
             // Moderator position at bottom center (x: 250, y: 350) - not assigned to players
         ];
         
-        playersInRoom.forEach((player, index) => {
-            player.triadPosition = index + 1; // 1, 2, 3
-            
-            // Assign poker table positions
-            if (index < 3) { // Only assign to first 3 players
-                const position = pokerPositions[index];
-                player.x = position.x;
-                player.y = position.y;
-                player.seatPosition = position.seat;
-                
-                console.log(`🎯 Assigned ${player.username} to ${position.description} (${position.x}, ${position.y})`);
+        // Track which positions are already occupied by existing players
+        const occupiedPositions = new Set();
+        const playersWithPositions = [];
+        const playersNeedingPositions = [];
+        
+        // First, identify players who already have positions (reconnection case)
+        playersInRoom.forEach(player => {
+            if (player.seatPosition && player.triadPosition) {
+                const positionIndex = pokerPositions.findIndex(pos => pos.seat === player.seatPosition);
+                if (positionIndex !== -1) {
+                    occupiedPositions.add(positionIndex);
+                    playersWithPositions.push({ player, positionIndex });
+                    console.log(`🔄 Preserving ${player.username}'s existing position: ${player.seatPosition} (${player.x}, ${player.y})`);
+                }
+            } else {
+                playersNeedingPositions.push(player);
+            }
+        });
+        
+        // Then assign available positions to players who don't have them
+        let nextTriadPosition = Math.max(...playersWithPositions.map(p => p.player.triadPosition || 0), 0) + 1;
+        
+        playersNeedingPositions.forEach(player => {
+            // Find first available position
+            for (let i = 0; i < pokerPositions.length; i++) {
+                if (!occupiedPositions.has(i)) {
+                    const position = pokerPositions[i];
+                    player.triadPosition = nextTriadPosition++;
+                    player.x = position.x;
+                    player.y = position.y;
+                    player.seatPosition = position.seat;
+                    occupiedPositions.add(i);
+                    
+                    console.log(`🎯 Assigned ${player.username} to ${position.description} (${position.x}, ${position.y})`);
+                    break;
+                }
             }
         });
         
@@ -1491,6 +1534,7 @@ Player.onConnect = function(socket,username,admin,io){
             }
 
             // Send users and room info
+            console.log(`📡 Server emitting roomUsers for room ${room} to all clients in room. Users count: ${getRoomUsers(user.room).length}, Total players: ${Player.getLength()}`);
             io.to(user.room).emit("roomUsers", {
                 room: room,
                 users: getRoomUsers(user.room),
@@ -1650,14 +1694,16 @@ Player.onConnect = function(socket,username,admin,io){
 
 
     socket.on("chatMessage", (data) => {
-        io.in(data.room).emit("message", formatMessage({
-            username: playerData.username,
-            text: data.msg,
-            type: "normal",
-            admin: playerData.admin,
-            room:data.room
-        }));
-        
+        // Check current admin status dynamically using helper function
+        checkUserAdminStatus(playerData.username, function(isAdmin) {
+            io.in(data.room).emit("message", formatMessage({
+                username: playerData.username,
+                text: data.msg,
+                type: "normal",
+                admin: isAdmin,
+                room: data.room
+            }));
+        });
     });
     
     socket.on('privateMessage', function (data) {
@@ -1700,8 +1746,8 @@ Player.onConnect = function(socket,username,admin,io){
 
         //Logic to execute commands - check admin status first for commands that exist in both
         if (command in commands.admin) {
-            //Check if user is admin
-            Database.isAdmin({ username: playerData.username }, function (res) {
+            //Check if user is admin using comprehensive helper function
+            checkUserAdminStatus(playerData.username, function (res) {
                 if (res === true) {
                     //Execute admin command if they are admin
                     commands.runAdminCommand();
@@ -2283,12 +2329,19 @@ Player.onConnect = function(socket,username,admin,io){
             return;
         }
         
-        // Check if the player is an admin
-        if (!ADMIN_USERS.includes(username.toLowerCase())) {
-            socket.emit('systemMessage', { message: 'Access denied: Admin privileges required for speed test' });
-            console.log(`❌ Speed test denied for ${username} - not an admin`);
+        // Check if the player is an admin OR moderator
+        const isAdmin = ADMIN_USERS.includes(username.toLowerCase());
+        const currentRoom = roomList.find(r => r.name === room);
+        const isModerator = currentRoom && currentRoom.creator === username;
+        
+        if (!isAdmin && !isModerator) {
+            socket.emit('systemMessage', { message: 'Access denied: Admin or Moderator privileges required for lightning test' });
+            console.log(`❌ Lightning test denied for ${username} - not an admin or room moderator`);
             return;
         }
+        
+        console.log(`✅ Lightning test authorized for ${username} (${isAdmin ? 'Admin' : 'Moderator'} privileges)`);
+        
         
         // Check if the room is Global
         if (room === "Global") {
@@ -2296,7 +2349,7 @@ Player.onConnect = function(socket,username,admin,io){
             return;
         }
         
-        console.log(`⚡ Starting admin speed test in room: ${room}`);
+        console.log(`⚡ Starting lightning test in room: ${room}`);
         
         try {
             // Clear existing players and AI in the room
@@ -2744,6 +2797,12 @@ Player.onGameStart = function(socket,username, progress, io, room, admin){
                 
                 console.log(`� Sending complete wallet data for all ${allPlayersWalletData.length} players to ${existingPlayer.username}`);
                 existingPlayer.socket.emit('allPlayersWalletRestore', {
+                    players: allPlayersWalletData
+                });
+                
+                // Also broadcast wallet data to all OTHER players in the room to ensure they see updated totals
+                console.log(`📡 Broadcasting wallet data to all other players in room ${room} due to ${existingPlayer.username} reconnection`);
+                existingPlayer.socket.broadcast.to(room).emit('allPlayersWalletRestore', {
                     players: allPlayersWalletData
                 });
                 
@@ -4408,6 +4467,23 @@ function processRound(roomName, gameSession) {
                 isAI: p.isAI || false
             };
         }),
+        players: orderedRoomPlayers.map(p => {
+            const pChosenRow = parseInt(p.currentChoice);
+            const pIncentiveBonusEarned = 0; // Add bonus calculation if needed
+            return {
+                username: p.username,
+                isAI: p.isAI || false,
+                tokensAwarded: {
+                    white: gameSession.currentCondition.getWhiteTokens(pChosenRow),
+                    black: gameSession.currentCondition.getBlackTokens(allChooseEvenRows),
+                    incentiveBonus: pIncentiveBonusEarned
+                },
+                totalTokens: {
+                    white: p.whiteTokens,
+                    black: p.blackTokens
+                }
+            };
+        }),
         culturantProduced: culturantProduced,
         whiteTokensRemaining: gameSession.whiteTokenPool || GlobalTokenPool.whiteTokens,
         timestamp: new Date().toISOString()
@@ -4542,6 +4618,28 @@ function processRound(roomName, gameSession) {
             .find(p => p.room === roomName && p.username === roomForModerator.creator)?.socket;
         
         if (moderatorSocket) {
+            // Get previous round player data
+            let previousRoundPlayers = [];
+            let previousRoundTokenValues = { white: 0, black: 0 };
+            if (gameSession.roundHistory && gameSession.roundHistory.length > 0) {
+                const previousRound = gameSession.roundHistory[gameSession.roundHistory.length - 1];
+                if (previousRound && previousRound.players) {
+                    previousRoundPlayers = previousRound.players.map(player => ({
+                        username: player.username,
+                        whiteTokens: player.tokensAwarded?.white || 0,
+                        blackTokens: player.tokensAwarded?.black || 0,
+                        incentiveBonus: player.tokensAwarded?.incentiveBonus || 0,
+                        isAI: player.isAI || false
+                    }));
+                }
+                if (previousRound && previousRound.condition) {
+                    previousRoundTokenValues = {
+                        white: previousRound.condition.whiteValue || 0,
+                        black: previousRound.condition.blackValue || 0
+                    };
+                }
+            }
+            
             moderatorSocket.emit('roundResultsPanel', {
                 round: gameSession.currentRound,
                 players: orderedRoomPlayers.map(p => ({
@@ -4552,6 +4650,8 @@ function processRound(roomName, gameSession) {
                     isAI: p.isAI || false,
                     choice: p.currentChoice
                 })),
+                previousRoundPlayers: previousRoundPlayers,
+                previousRoundTokenValues: previousRoundTokenValues,
                 tokenValues: {
                     white: gameSession.currentCondition?.whiteTokenValue || 0.10, // Default baseline value
                     black: gameSession.currentCondition?.blackTokenValue || 0.05  // Default baseline value
@@ -4559,7 +4659,7 @@ function processRound(roomName, gameSession) {
                 condition: gameSession.currentCondition?.name || 'Baseline',
                 incentive: gameSession.currentIncentive || 'No Incentive'
             });
-            console.log(`📊 Sent round results panel data to moderator for round ${gameSession.currentRound}`);
+            console.log(`📊 Sent round results panel data to moderator for round ${gameSession.currentRound} (${previousRoundPlayers.length} previous round players)`);
         }
     }
     
@@ -4715,6 +4815,54 @@ function endExperiment(roomName, gameSession) {
         totalEarnings: player.totalEarnings,
         roundsPlayed: player.roundsPlayed
     }));
+    
+    // Generate CSV export of experiment results
+    try {
+        const experimentScheduler = new ExperimentScheduler();
+        const csvData = experimentScheduler.exportExperimentResultsToCSV(gameSession.dataLog);
+        
+        // Create filename with timestamp and room name
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+        const filename = `experiment_results_${roomName}_${timestamp}.csv`;
+        const filepath = path.join(__dirname, 'experiment_results', filename);
+        
+        // Ensure the directory exists
+        const dir = path.dirname(filepath);
+        if (!fs.existsSync(dir)) {
+            fs.mkdirSync(dir, { recursive: true });
+        }
+        
+        // Write CSV file
+        fs.writeFileSync(filepath, csvData, 'utf8');
+        console.log(`📊 Experiment results exported to CSV: ${filepath}`);
+        console.log(`📊 CSV contains ${gameSession.dataLog.length} rounds of data`);
+        
+        // Also save the raw data as JSON for backup
+        const jsonFilename = `experiment_data_${roomName}_${timestamp}.json`;
+        const jsonFilepath = path.join(__dirname, 'experiment_results', jsonFilename);
+        
+        const exportData = {
+            sessionInfo: {
+                roomName: roomName,
+                startTime: gameSession.sessionStartTime,
+                endTime: new Date(),
+                totalRounds: gameSession.currentRound,
+                culturantsProduced: gameSession.culturantsProduced,
+                finalCondition: gameSession.currentCondition ? gameSession.currentCondition.name : 'Unknown',
+                experimentMode: gameSession.experiment ? gameSession.experiment.mode : 'legacy',
+                phase: gameSession.experiment ? gameSession.experiment.phase : 'unknown'
+            },
+            dataLog: gameSession.dataLog,
+            finalResults: finalResults
+        };
+        
+        fs.writeFileSync(jsonFilepath, JSON.stringify(exportData, null, 2), 'utf8');
+        console.log(`📊 Raw experiment data exported to JSON: ${jsonFilepath}`);
+        
+    } catch (error) {
+        console.error(`❌ Error exporting experiment results: ${error.message}`);
+        console.error(error.stack);
+    }
     
     // Send final results to all human players
     roomPlayers.forEach(player => {
@@ -5072,12 +5220,30 @@ function startLightningTestRound(room, gameSession, io) {
             const duration = Date.now() - gameSession.lightningStats.startTime;
             const durationSeconds = (duration / 1000).toFixed(1);
             
-            // Send completion with stats
+            // Generate CSV data for download
+            const experimentScheduler = new ExperimentScheduler();
+            console.log(`📊 Lightning test dataLog contains ${gameSession.dataLog.length} entries`);
+            
+            if (gameSession.dataLog.length === 0) {
+                console.warn(`⚠️ Lightning test dataLog is empty! CSV will only contain headers.`);
+                console.warn(`⚠️ This indicates that round data is not being logged during lightning test.`);
+            } else {
+                console.log(`📊 Sample dataLog entry:`, JSON.stringify(gameSession.dataLog[0], null, 2));
+            }
+            
+            const csvData = experimentScheduler.exportExperimentResultsToCSV(gameSession.dataLog);
+            console.log(`📊 Generated CSV data length: ${csvData.length} characters`);
+            const csvLines = csvData.split('\n').length;
+            console.log(`📊 CSV contains ${csvLines} lines (1 header + ${csvLines - 1} data rows)`);
+            
+            // Send completion with stats and CSV data
             const statsMessage = formatLightningTestStats(gameSession.lightningStats, durationSeconds);
             io.to(room).emit('lightningTestComplete', {
                 message: statsMessage,
                 stats: gameSession.lightningStats,
-                duration: durationSeconds
+                duration: durationSeconds,
+                csvData: csvData,
+                dataLog: gameSession.dataLog
             });
             
             gameSession.gameState = 'completed';
@@ -5208,6 +5374,30 @@ function startLightningTestRound(room, gameSession, io) {
         } else {
             console.log(`💭 [Round ${gameSession.currentRound}] No culturant - choices: ${allChoices.join(', ')}`);
         }
+        
+        // Add data to dataLog for CSV export (similar to processRound function)
+        gameSession.dataLog.push({
+            timestamp: new Date().toISOString(),
+            round: gameSession.currentRound,
+            condition: roundInfo.condition,
+            incentive: roundInfo.incentive || 'No Incentive',
+            player: roundInfo.player || null,
+            blockNumber: roundInfo.blockNumber || null,
+            experimentMode: 'lightning_test',
+            players: aiPlayers.map(p => ({
+                username: p.username,
+                choice: p.currentChoice.toString(),
+                whiteTokens: gameSession.lightningStats.playerWallets[p.username] || 0,
+                blackTokens: 0, // Lightning test doesn't use black tokens
+                earnings: gameSession.lightningStats.playerEarnings[p.username] || 0,
+                isAI: true,
+                isModerator: false
+            })),
+            culturantProduced: isCulturant,
+            whiteTokensRemaining: 2500 // Lightning test doesn't track token pool depletion
+        });
+        
+        console.log(`📊 [Round ${gameSession.currentRound}] Added round data to dataLog for CSV export`);
         
         // Send progress update to client (every round for smooth progress bar)
         io.to(room).emit('lightningTestProgress', {

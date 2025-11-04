@@ -1,9 +1,9 @@
 # /etc/systemd/system/xenogenesis.service
-# Systemd unit to run the XenoGenesis Node.js app as a service
+# Systemd unit to run the MetaMatching Node.js app as a service
 # Copy this file to /etc/systemd/system/ and edit the EnvironmentFile path as needed.
 
 [Unit]
-Description=XenoGenesis Node.js Service
+Description=MetaMatching Node.js Service
 After=network-online.target mongod.service
 Wants=network-online.target
 

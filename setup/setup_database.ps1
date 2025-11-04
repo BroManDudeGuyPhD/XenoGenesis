@@ -1,7 +1,7 @@
-# PowerShell script to set up XenoGenesis MongoDB database
+# PowerShell script to set up MetaMatching MongoDB database
 # Make sure MongoDB is running before executing this script
 
-Write-Host "🚀 Setting up XenoGenesis MongoDB Database..." -ForegroundColor Green
+Write-Host "🚀 Setting up MetaMatching MongoDB Database..." -ForegroundColor Green
 
 # Check if MongoDB is running
 Write-Host "Checking if MongoDB is running..." -ForegroundColor Yellow
@@ -64,4 +64,4 @@ try {
     exit 1
 }
 
-Write-Host "`n✨ XenoGenesis MongoDB Database is ready!" -ForegroundColor Green
+Write-Host "`n✨ MetaMatching MongoDB Database is ready!" -ForegroundColor Green

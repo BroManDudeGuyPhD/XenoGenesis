@@ -8,32 +8,172 @@
     
     <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website" />
-    <meta property="og:url" content="https://xenogenesis.sirbrobot.com/" />
-    <meta property="og:title" content="XenoGenesis - Gaming Platform" />
-    <meta property="og:description" content="Join XenoGenesis for an immersive gaming experience with chat, rooms, and multiplayer games." />
-    <meta property="og:image" content="https://xenogenesis.sirbrobot.com/client/img/favicon.png" />
-    <meta property="og:site_name" content="XenoGenesis" />
+    <meta property="og:url" content="https://meta.sirbrobot.com/" />
+    <meta property="og:title" content="MetaMatching - Experiment Platform" />
+    <meta property="og:description" content="Join MetaMatching for an immersive experiment platform." />
+    <meta property="og:image" content="https://meta.sirbrobot.com/client/img/favicon.png" />
+    <meta property="og:site_name" content="MetaMatching" />
     
     <!-- Twitter -->
     <meta property="twitter:card" content="summary" />
-    <meta property="twitter:url" content="https://xenogenesis.sirbrobot.com/" />
-    <meta property="twitter:title" content="XenoGenesis - Gaming Platform" />
-    <meta property="twitter:description" content="Join XenoGenesis for an immersive gaming experience with chat, rooms, and multiplayer games." />
-    <meta property="twitter:image" content="https://xenogenesis.sirbrobot.com/client/img/favicon.png" />
+    <meta property="twitter:url" content="https://meta.sirbrobot.com/" />
+    <meta property="twitter:title" content="MetaMatching - Experiment Platform" />
+    <meta property="twitter:description" content="Join MetaMatching for an immersive experiment platform." />
+    <meta property="twitter:image" content="https://meta.sirbrobot.com/client/img/favicon.png" />
     
     <!-- Additional Meta Tags -->
-    <meta name="description" content="XenoGenesis - Gaming platform with chat, rooms, and multiplayer games" />
-    <meta name="keywords" content="gaming, multiplayer, chat, rooms, xenogenesis" />
+    <meta name="description" content="MetaMatching - Experiment platform" />
+    <meta name="keywords" content="experiment, multiplayer, chat, rooms, metamatching" />
     
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.12.1/css/all.min.css"
         integrity="sha256-mmgLkCYLUQbXn0B1SRqzHar6dCnv9oZFPEC1g1cwlkk=" crossorigin="anonymous" />
-    <link rel="stylesheet" href="/client/css/style.css?v=2025100701">
-    <title>X</title>
+    <link rel="stylesheet" href="/client/css/style.css?v=2025102401">
+    
+    <!-- Preload styles to prevent FOUC and login button flash -->
+    <style>
+        /* Prevent background flash on page load */
+        body {
+            background-color: #272A3B !important;
+            transition: background-color 0.3s ease;
+        }
+        
+        /* Smooth transitions for UI elements */
+        #loginNav, .profile-menu-container {
+            transition: opacity 0.2s ease, visibility 0.2s ease;
+        }
+        
+        /* Prevent layout shift during load */
+        .header {
+            opacity: 1 !important;
+            visibility: visible !important;
+        }
+        
+        /* Add loading overlay to prevent FOUC */
+        #pageLoadOverlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #272A3B;
+            z-index: 9999;
+            transition: opacity 0.3s ease;
+        }
+        
+        #pageLoadOverlay.fade-out {
+            opacity: 0;
+            pointer-events: none;
+        }
+    </style>
+    
+    <% 
+    // Parse session data to determine initial UI state
+    let isLoggedIn = false;
+    if (typeof sessionData !== 'undefined') {
+        try {
+            const parsedSessionData = JSON.parse(sessionData);
+            isLoggedIn = parsedSessionData && parsedSessionData.isLoggedIn && parsedSessionData.username;
+        } catch (e) {
+            isLoggedIn = false;
+        }
+    }
+    %>
+    
+    <% if (isLoggedIn) { %>
+    <!-- CSS for logged-in users - hide login button immediately -->
+    <style>
+        #loginNav,
+        .nav-item #loginNav,
+        .nav-menu #loginNav,
+        header #loginNav,
+        nav #loginNav {
+            display: none !important;
+            visibility: hidden !important;
+            opacity: 0 !important;
+            width: 0 !important;
+            height: 0 !important;
+            overflow: hidden !important;
+            position: absolute !important;
+            left: -9999px !important;
+        }
+        
+        .profile-menu-container {
+            display: block !important;
+            visibility: visible !important;
+            opacity: 1 !important;
+        }
+        
+        /* Hide any login-related elements */
+        .nav-menu .nav-item:has(#loginNav) {
+            display: none !important;
+        }
+        
+        /* Ensure login button stays hidden even if something tries to show it */
+        body #loginNav,
+        html #loginNav {
+            display: none !important;
+        }
+    </style>
+    <% } else { %>
+    <!-- CSS for logged-out users - hide profile menu immediately -->
+    <style>
+        .profile-menu-container {
+            display: none !important;
+            visibility: hidden !important;
+            opacity: 0 !important;
+        }
+        
+        #loginNav {
+            display: block !important;
+            visibility: visible !important;
+            opacity: 1 !important;
+        }
+    </style>
+    <% } %>
+    
+    <!-- Ultra-early login button hiding script -->
+    <script>
+        // This script runs immediately when parsed, before DOM ready
+        <% if (isLoggedIn) { %>
+        console.log('🚫 ULTRA-EARLY: Hiding login button before DOM ready');
+        
+        // Create a style element to force-hide login button
+        const earlyStyle = document.createElement('style');
+        earlyStyle.textContent = `
+            #loginNav { 
+                display: none !important; 
+                visibility: hidden !important; 
+                opacity: 0 !important; 
+                position: absolute !important;
+                left: -9999px !important;
+            }
+        `;
+        document.head.appendChild(earlyStyle);
+        
+        // Also try to hide it if it already exists
+        const existingLoginButton = document.getElementById('loginNav');
+        if (existingLoginButton) {
+            existingLoginButton.style.setProperty('display', 'none', 'important');
+            existingLoginButton.hidden = true;
+            console.log('🚫 ULTRA-EARLY: Found and hid existing login button');
+        }
+        <% } %>
+    </script>
+    
+    <title>MetaMatching</title>
     <link rel="icon" type="image/x-icon" href="../client/img/favicon.png">
 </head>
 
-<body class="login-page" style="background-color: #000000;">
-    <!-- <div id="signDiv" class="signIn">
+<body class="login-page" style="background-color: #272A3B;">
+
+    <!-- Loading overlay to prevent FOUC -->
+    <div id="pageLoadOverlay"></div>
+
+
+
+
+    <!-- Old login buttons - REMOVED to prevent duplicates
+    <div id="signDiv" class="signIn">
         Username: <input id="signDiv-username" type="text"></input><br>
         Password: <input id="signDiv-password" type="password"></input><br>
         <button id="signDiv-signIn">Sign In</button>
@@ -42,7 +182,7 @@
 
     <header class="header">
         <nav class="navbar">
-            <a href="#" class="nav-logo">XenoGenesis</a>
+            <a href="#" class="nav-logo">MetaMatching</a>
             <ul class="nav-menu">
                 <!-- <li class="nav-item">
                     <a href="#" class="nav-link">Game</a>
@@ -225,7 +365,7 @@
                         -webkit-background-clip: text;
                         -webkit-text-fill-color: transparent;
                         background-clip: text;
-                    ">Welcome to XenoGenesis</h3>
+                    ">Welcome to MetaMatching</h3>
                     <div style="
                         width: 3px;
                         height: 3px;
@@ -1481,6 +1621,20 @@
                                         <input type="number" id="specificRowNumberSwitch" min="1" max="8" placeholder="Row (1-8)" class="switchboard-input specific-row" style="display: none;">
                                     </div>
                                     
+                                    <!-- CSV Export Control -->
+                                    <div class="control-group">
+                                        <div class="control-label">
+                                            Data Export 
+                                            <button class="info-btn mini" data-info="csv-export" title="Download experiment data as CSV">i</button>
+                                        </div>
+                                        <button onclick="downloadExperimentCSV()" class="switchboard-btn csv-download-btn" id="csvDownloadBtn" disabled title="Start an experiment to enable CSV download">
+                                            📊 DOWNLOAD CSV
+                                        </button>
+                                        <div class="csv-status" id="csvStatus" style="font-size: 11px; margin-top: 4px; color: #b9bbbe;">
+                                            No data available
+                                        </div>
+                                    </div>
+                                    
                                     <!-- System Messages -->
                                     <div class="control-group">
                                         <div class="control-label">
@@ -2345,7 +2499,7 @@
             </div>
             
             <div class="action-cards-container">
-                <div class="action-card create-card" id="create-card" data-tooltip="Create a new private room for gaming">
+                <div class="action-card create-card" id="create-card" data-tooltip="Create a new private room for experiments">
                     <div class="card-icon create-icon">
                         <i class="fas fa-plus-circle"></i>
                     </div>
@@ -2456,6 +2610,72 @@
         // Pass session data to client
         window.sessionData = <%- sessionData %>;
         
+        // IMMEDIATE DEBUGGING - before DOM is ready
+        console.log('🚀 IMMEDIATE: Session data set in EJS template:', window.sessionData);
+        if (window.sessionData) {
+            console.log('🚀 IMMEDIATE: isLoggedIn =', window.sessionData.isLoggedIn);
+            console.log('🚀 IMMEDIATE: username =', window.sessionData.username);
+        }
+        
+        // Remove loading overlay once page is ready
+        function removeLoadingOverlay() {
+            const overlay = document.getElementById('pageLoadOverlay');
+            if (overlay) {
+                overlay.classList.add('fade-out');
+                setTimeout(() => {
+                    overlay.remove();
+                }, 300);
+            }
+        }
+        
+        // Remove overlay when DOM is ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', removeLoadingOverlay);
+        } else {
+            removeLoadingOverlay();
+        }
+        
+        // Check login button state immediately for debugging
+        setTimeout(() => {
+            const loginButton = document.getElementById('loginNav');
+            console.log('🚀 IMMEDIATE: Login button found =', !!loginButton);
+            if (loginButton) {
+                console.log('🚀 IMMEDIATE: Login button display =', loginButton.style.display);
+                console.log('🚀 IMMEDIATE: Login button computed =', window.getComputedStyle(loginButton).display);
+            }
+        }, 10);
+        
+        // Add a mutation observer to catch anything that tries to show the login button
+        setTimeout(() => {
+            const loginButton = document.getElementById('loginNav');
+            if (loginButton && window.sessionData && window.sessionData.isLoggedIn) {
+                console.log('🔍 WATCHER: Setting up login button mutation observer for logged-in user');
+                
+                const observer = new MutationObserver((mutations) => {
+                    mutations.forEach((mutation) => {
+                        if (mutation.type === 'attributes' && mutation.attributeName === 'style') {
+                            const currentDisplay = loginButton.style.display;
+                            console.log('🔍 WATCHER: Login button style changed to:', currentDisplay);
+                            
+                            if (currentDisplay === 'block' || currentDisplay === '') {
+                                console.log('🔍 WATCHER: Someone tried to show login button! Overriding...');
+                                loginButton.style.setProperty('display', 'none', 'important');
+                                loginButton.hidden = true;
+                                console.log('🔍 WATCHER: Login button force-hidden again');
+                            }
+                        }
+                    });
+                });
+                
+                observer.observe(loginButton, {
+                    attributes: true,
+                    attributeFilter: ['style', 'class']
+                });
+                
+                console.log('🔍 WATCHER: Mutation observer active for login button');
+            }
+        }, 50);
+        
         // Immediately set admin status if available to reduce delay
         if (window.sessionData && window.sessionData.isAdmin !== undefined) {
             window.isGlobalAdmin = window.sessionData.isAdmin;
@@ -2481,7 +2701,7 @@
             }
         });
     </script>
-    <script type="text/javascript" src="/client/client.js"></script>
+    <script type="text/javascript" src="/client/client.js?v=2025102401"></script>
 
     <script>
         // Animation control variables
@@ -2671,17 +2891,23 @@
                         return;
                     }
                     
-                    if (inviteCode.length !== 8) {
-                        showGlassmorphismAlert('Invalid Invite Code', 'Invite code must be exactly 8 characters.', 'error');
+                    // Sanitize invite code - only alphanumeric characters allowed
+                    const sanitizedInviteCode = inviteCode.replace(/[^a-zA-Z0-9]/g, '');
+                    
+                    if (sanitizedInviteCode.length < 3) {
+                        showGlassmorphismAlert('Invalid Invite Code', 'Invite code must contain at least 3 alphanumeric characters.', 'error');
                         return;
                     }
                     
-                    // Send signup request with invite code
+                    // Use only first 8 characters for security (prevent injection)
+                    const processedInviteCode = sanitizedInviteCode.substring(0, 8);
+                    
+                    // Send signup request with processed invite code
                     if (typeof socket !== 'undefined') {
                         socket.emit('signUp', {
                             username: username,
                             password: password,
-                            inviteCode: inviteCode
+                            inviteCode: processedInviteCode
                         });
                         
                         // Close modal after sending request

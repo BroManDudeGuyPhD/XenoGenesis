@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Update script for XenoGenesis service
+# Update script for MetaMatching service
 # This script updates the production service with latest code from the repo
 
 SERVICE_NAME=xenogenesis
 APP_DIR=/opt/xenogenesis
 REPO_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 
-echo "Updating XenoGenesis service..."
+echo "Updating MetaMatching service..."
 echo "Source: $REPO_DIR"
 echo "Destination: $APP_DIR"
 

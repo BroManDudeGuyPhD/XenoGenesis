@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Installer for XenoGenesis systemd service on Linux
+# Installer for MetaMatching systemd service on Linux
 # This script will:
 #  - Create a dedicated user/group (xeno)
 #  - Install the app into /opt/xenogenesis (or symlink your current repo)

@@ -1,4 +1,4 @@
-// MongoDB Database Initialization Script for XenoGenesis
+// MongoDB Database Initialization Script for MetaMatching
 // This script will try to connect to 'ironman' first, then fallback to localhost
 // Run this script using: 
 //   mongosh ironman:27017 setup_xenogenesis_db.js
@@ -8,7 +8,7 @@
 try {
     // This will work whether connecting to ironman or localhost
     use('xenogenesis');
-    console.log('🚀 Setting up XenoGenesis MongoDB database...');
+    console.log('🚀 Setting up MetaMatching MongoDB database...');
 } catch (error) {
     console.log('❌ Error connecting to database:', error);
     quit(1);
@@ -18,7 +18,7 @@ try {
 // db.account.drop();
 // db.progress.drop();
 
-console.log('🚀 Setting up XenoGenesis MongoDB database...');
+console.log('🚀 Setting up MetaMatching MongoDB database...');
 
 // ========================================
 // 1. CREATE COLLECTIONS
@@ -253,5 +253,5 @@ console.log('\n🎯 Database indexes:');
 db.account.getIndexes().forEach(index => console.log('Account index:', index.name));
 db.progress.getIndexes().forEach(index => console.log('Progress index:', index.name));
 
-console.log('\n🚀 XenoGenesis database setup complete!');
+console.log('\n🚀 MetaMatching database setup complete!');
 console.log('📝 Next step: Update Database.js to set USE_DB = true');

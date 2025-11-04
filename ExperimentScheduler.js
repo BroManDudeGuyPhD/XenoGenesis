@@ -306,6 +306,113 @@ class ExperimentScheduler {
     }
 
     /**
+     * Export comprehensive experiment results to CSV format
+     * Includes round, player choices, condition, incentive recipient, total payout per round
+     * 
+     * @param {Array} dataLog - The complete dataLog from gameSession
+     * @param {Object} options - Export options and formatting preferences
+     * @returns {string} CSV formatted string with comprehensive experiment data
+     */
+    exportExperimentResultsToCSV(dataLog, options = {}) {
+        const headers = [
+            'Round',
+            'Condition', 
+            'Phase',
+            'Block_Number',
+            'Incentive_Type',
+            'Incentive_Recipient',
+            'Player_A_Choice',
+            'Player_B_Choice', 
+            'Player_C_Choice',
+            'Player_A_White_Tokens',
+            'Player_A_Black_Tokens',
+            'Player_A_Total_Payout',
+            'Player_B_White_Tokens',
+            'Player_B_Black_Tokens',
+            'Player_B_Total_Payout',
+            'Player_C_White_Tokens',
+            'Player_C_Black_Tokens',
+            'Player_C_Total_Payout',
+            'Culturant_Produced',
+            'White_Tokens_Remaining',
+            'Timestamp'
+        ];
+        
+        const rows = [headers.join(',')];
+        
+        dataLog.forEach(logEntry => {
+            // Extract player data - normalize to always have A, B, C structure
+            const playerData = { A: null, B: null, C: null };
+            const playerNames = [];
+            
+            // Map actual players to A, B, C positions
+            logEntry.players.forEach((player, index) => {
+                if (!player.isModerator) { // Exclude moderators from data export
+                    const position = ['A', 'B', 'C'][playerNames.length];
+                    playerData[position] = player;
+                    playerNames.push(player.username);
+                }
+            });
+            
+            // Determine condition display
+            const condition = logEntry.condition || 'Baseline';
+            const phase = logEntry.experimentMode === 'unified' ? 
+                (condition === 'Baseline' ? 'baseline' : 'conditions') :
+                (logEntry.experimentMode === 'baseline' ? 'baseline' : 'conditions');
+            
+            // Calculate total payouts (white tokens * $0.01 + black tokens * $0.05)
+            const calculatePayout = (player) => {
+                if (!player) return 0;
+                return (player.whiteTokens * 0.01) + (player.blackTokens * 0.05);
+            };
+            
+            // Convert choices to ODD/EVEN
+            const getChoiceType = (choice) => {
+                if (!choice) return '';
+                const choiceNum = parseInt(choice);
+                return isNaN(choiceNum) ? '' : (choiceNum % 2 === 1 ? 'ODD' : 'EVEN');
+            };
+
+            const row = [
+                logEntry.round,
+                condition,
+                phase,
+                logEntry.blockNumber || '',
+                logEntry.incentive || 'No Incentive',
+                logEntry.player || 'None',
+                playerData.A ? getChoiceType(playerData.A.choice) : '',
+                playerData.B ? getChoiceType(playerData.B.choice) : '',
+                playerData.C ? getChoiceType(playerData.C.choice) : '',
+                playerData.A ? playerData.A.whiteTokens : '',
+                playerData.A ? playerData.A.blackTokens : '',
+                playerData.A ? calculatePayout(playerData.A).toFixed(2) : '',
+                playerData.B ? playerData.B.whiteTokens : '',
+                playerData.B ? playerData.B.blackTokens : '',
+                playerData.B ? calculatePayout(playerData.B).toFixed(2) : '',
+                playerData.C ? playerData.C.whiteTokens : '',
+                playerData.C ? playerData.C.blackTokens : '',
+                playerData.C ? calculatePayout(playerData.C).toFixed(2) : '',
+                logEntry.culturantProduced ? 'Yes' : 'No',
+                logEntry.whiteTokensRemaining,
+                logEntry.timestamp
+            ];
+            
+            // Escape any commas in the data and wrap in quotes if needed
+            const escapedRow = row.map(field => {
+                const fieldStr = String(field);
+                if (fieldStr.includes(',') || fieldStr.includes('"') || fieldStr.includes('\n')) {
+                    return '"' + fieldStr.replace(/"/g, '""') + '"';
+                }
+                return fieldStr;
+            });
+            
+            rows.push(escapedRow.join(','));
+        });
+        
+        return rows.join('\n');
+    }
+
+    /**
      * Comprehensive test suite for scheduler validation
      * Tests distribution balance, randomization, and edge cases
      * 

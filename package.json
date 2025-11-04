@@ -1,7 +1,7 @@
 {
-  "name": "xenogenesis",
+  "name": "metamatching",
   "version": "1.0.0",
-  "description": "Node.js web game",
+  "description": "Node.js web experiment - MetaMatching platform",
   "main": "app.js",
   "scripts": {
     "start": "node app",

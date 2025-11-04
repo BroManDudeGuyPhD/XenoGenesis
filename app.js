@@ -151,6 +151,99 @@ app.get('/api/session', function(req, res) {
     res.json(sessionData);
 });
 
+// CSV download endpoint for moderators
+app.get('/api/download-experiment-csv/:roomId', function(req, res) {
+    try {
+        const { roomId } = req.params;
+        
+        console.log(`📊 CSV download request received for room: ${roomId} by user: ${req.session.username}`);
+        
+        // Validate request
+        if (!roomId) {
+            console.log('❌ CSV download failed: No room ID provided');
+            return res.status(400).send('Room ID is required');
+        }
+        
+        // Check if user is authenticated and authorized
+        if (!req.session.username) {
+            console.log('❌ CSV download failed: User not authenticated');
+            return res.status(401).send('Authentication required');
+        }
+        
+        // Import required modules
+        const ExperimentScheduler = require('./ExperimentScheduler.js');
+        const Entity = require('./Entity.js');
+        
+        console.log(`📊 Looking for game session in room: ${roomId}`);
+        
+        // Get the game session for this room
+        const gameSession = Entity.GameSession.get(roomId);
+        
+        if (!gameSession) {
+            console.log(`❌ CSV download failed: No game session found for room ${roomId}`);
+            return res.status(404).send('No active experiment found for this room');
+        }
+        
+        console.log(`📊 Game session found. DataLog length: ${gameSession.dataLog ? gameSession.dataLog.length : 0}`);
+        
+        if (!gameSession.dataLog || gameSession.dataLog.length === 0) {
+            console.log(`❌ CSV download failed: No dataLog or empty dataLog for room ${roomId}`);
+            return res.status(404).send('No experiment data found for this room - experiment may not have started yet');
+        }
+        
+        // Create ExperimentScheduler instance and export CSV
+        const scheduler = new ExperimentScheduler();
+        const csvData = scheduler.exportExperimentResultsToCSV(gameSession.dataLog);
+        
+        console.log(`📊 CSV generated successfully. Length: ${csvData.length} characters`);
+        
+        if (!csvData || csvData.trim().length === 0) {
+            console.log(`❌ CSV download failed: Generated CSV is empty for room ${roomId}`);
+            return res.status(404).send('No experiment data found for this room');
+        }
+        
+        // Set headers for CSV download
+        res.setHeader('Content-Type', 'text/csv');
+        res.setHeader('Content-Disposition', `attachment; filename="experiment_${roomId}_${new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5)}.csv"`);
+        
+        // Send CSV data
+        res.send(csvData);
+        
+        console.log(`✅ CSV download completed successfully for ${req.session.username} in room ${roomId}`);
+        
+    } catch (error) {
+        console.error('❌ Error generating CSV for download:', error);
+        console.error('Stack trace:', error.stack);
+        res.status(500).send('Error generating CSV file');
+    }
+});
+
+// Test endpoint to check game sessions and data
+app.get('/api/test-rooms', function(req, res) {
+    try {
+        const Entity = require('./Entity.js');
+        const allRooms = Entity.GameSession.getAll();
+        
+        const roomInfo = {};
+        for (const [roomId, session] of Object.entries(allRooms)) {
+            roomInfo[roomId] = {
+                hasDataLog: !!session.dataLog,
+                dataLogLength: session.dataLog ? session.dataLog.length : 0,
+                experimentPhase: session.experimentPhase || 'unknown',
+                players: session.players ? session.players.length : 0
+            };
+        }
+        
+        res.json({
+            totalRooms: Object.keys(allRooms).length,
+            rooms: roomInfo
+        });
+    } catch (error) {
+        console.error('Error getting room info:', error);
+        res.status(500).json({ error: 'Error getting room information' });
+    }
+});
+
 app.get('/about', function(req, res) {
     res.render('about');
 });
@@ -443,8 +536,21 @@ io.on('connection', (socket) => {
             });
         }
         
+        // Sanitize invite code - only alphanumeric characters, max 8 chars for security
+        const sanitizedInviteCode = data.inviteCode.replace(/[^a-zA-Z0-9]/g, '').substring(0, 8);
+        
+        if (sanitizedInviteCode.length < 3) {
+            console.log('❌ Invalid invite code format:', data.inviteCode);
+            return socket.emit('signUpResponse', { 
+                success: false, 
+                message: 'Invite code must contain at least 3 alphanumeric characters' 
+            });
+        }
+        
+        console.log('🔒 Sanitized invite code:', sanitizedInviteCode, 'from original:', data.inviteCode);
+        
         // Validate invite code first
-        Database.validateInviteCode(data.inviteCode, function(isValidInvite) {
+        Database.validateInviteCode(sanitizedInviteCode, function(isValidInvite) {
             if (!isValidInvite) {
                 console.log('❌ Invalid invite code:', data.inviteCode);
                 return socket.emit('signUpResponse', { 
@@ -474,7 +580,7 @@ io.on('connection', (socket) => {
                     }
                     
                     // Mark invite code as used
-                    Database.useInviteCode(data.inviteCode, data.username, function(codeUsed) {
+                    Database.useInviteCode(sanitizedInviteCode, data.username, function(codeUsed) {
                         if (!codeUsed) {
                             console.log('⚠️ Account created but failed to mark invite code as used');
                         }
@@ -532,8 +638,20 @@ io.on('connection', (socket) => {
             
             // Check if this is a permanent code request
             if (data.isPermanent && data.customCode) {
+                // Sanitize custom code - only alphanumeric characters
+                const sanitizedCustomCode = data.customCode.replace(/[^a-zA-Z0-9]/g, '');
+                
+                if (sanitizedCustomCode.length < 3) {
+                    return socket.emit('inviteCodeResponse', { 
+                        success: false, 
+                        message: 'Custom code must contain at least 3 alphanumeric characters' 
+                    });
+                }
+                
+                console.log('🔒 Sanitized custom code:', sanitizedCustomCode, 'from original:', data.customCode);
+                
                 // Generate permanent custom code
-                Database.generatePermanentInviteCode(data.customCode, username, function(inviteCode) {
+                Database.generatePermanentInviteCode(sanitizedCustomCode, username, function(inviteCode) {
                     if (!inviteCode) {
                         console.log('❌ Failed to create permanent invite code for admin:', username);
                         return socket.emit('inviteCodeResponse', { 

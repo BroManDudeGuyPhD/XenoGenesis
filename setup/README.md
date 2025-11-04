@@ -1,6 +1,6 @@
 # Setup Folder
 
-This folder contains all the database setup files for the XenoGenesis project.
+This folder contains all the database setup files for the MetaMatching project.
 
 ## Files
 

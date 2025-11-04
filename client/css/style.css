@@ -18,9 +18,10 @@
 body {
 	font-family: 'Roboto', sans-serif;
 	font-size: 16px;
-	background: #000000;
+	background: #272A3B;
 	margin: 0; /* Remove margin to ensure header positions correctly */
 	padding: 0;
+	padding-top: 0; /* Don't add body padding, handle it per container */
 	overflow-x: hidden;
 }
 
@@ -47,6 +48,13 @@ a {
 	font-family: 'Inter', 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Roboto', sans-serif;
 	position: relative;
 	z-index: 10; /* Above dither animation */
+
+/* Force hidden class for emergency login button hiding */
+.force-hidden {
+	display: none !important;
+	visibility: hidden !important;
+	opacity: 0 !important;
+}
 	font-weight: 500;
 	letter-spacing: -0.01em;
 	text-decoration: none;
@@ -355,7 +363,7 @@ button[onclick*="setPlayerIncentive"]:hover {
 		rgba(40, 43, 54, 0.95) 100%);
 	backdrop-filter: blur(20px);
 	-webkit-backdrop-filter: blur(20px);
-	margin: 20px auto;
+	margin: 100px auto 20px auto; /* Add top margin to account for fixed header */
 	border-radius: 20px;
 	border: 1px solid rgba(255, 255, 255, 0.1);
 	box-shadow: 
@@ -973,7 +981,7 @@ body.game-active .action-cards-container .invite-card.invite-visible {
 	}
 	
 	.chat-container {
-		margin: 10px;
+		margin: 90px 10px 10px 10px; /* Account for fixed header on mobile */
 		border-radius: 16px;
 	}
 }
@@ -1443,19 +1451,23 @@ a {
 
 .header {
 	border-bottom: none; /* Remove white border on desktop */
-	position: relative;
-	z-index: 1000; /* Very high z-index */
-	/* Modern glassmorphic header - updated design */
+	position: fixed !important;
+	display: block !important;
+	visibility: visible !important;
+	opacity: 1 !important;
+	z-index: 2000 !important; /* Very high z-index */
+	/* Modern glassmorphic header - updated design with fallback */
 	background: linear-gradient(135deg, 
-		rgba(15, 5, 35, 0.85) 0%, 
-		rgba(25, 10, 45, 0.9) 50%, 
-		rgba(35, 15, 55, 0.85) 100%) !important;
-	backdrop-filter: blur(20px) saturate(180%) !important;
-	-webkit-backdrop-filter: blur(20px) saturate(180%) !important;
-	min-height: 80px; /* Ensure minimum height */
-	width: 100%;
-	top: 0;
-	left: 0;
+		rgba(15, 5, 35, 0.95) 0%, 
+		rgba(25, 10, 45, 0.98) 50%, 
+		rgba(35, 15, 55, 0.95) 100%) !important;
+	/* Backdrop filter with fallback - may cause issues in some browsers */
+	backdrop-filter: blur(20px) saturate(180%);
+	-webkit-backdrop-filter: blur(20px) saturate(180%);
+	min-height: 80px !important; /* Ensure minimum height */
+	width: 100% !important;
+	top: 0 !important;
+	left: 0 !important;
 	border-bottom: 2px solid rgba(230, 25, 179, 0.4) !important; /* Bright pink border for visibility */
 	box-shadow: 
 		0 4px 20px rgba(0, 0, 0, 0.3),
@@ -1483,21 +1495,24 @@ a {
 }
 
 .navbar {
-	display: flex;
+	display: flex !important;
+	visibility: visible !important;
+	opacity: 1 !important;
 	justify-content: space-between;
 	align-items: center;
 	padding: 1rem 1.5rem;
-	position: relative;
-	z-index: 1001; /* Higher than header */
-	/* Enhanced glassmorphic navbar */
+	position: relative !important;
+	z-index: 2001 !important; /* Higher than header */
+	/* Enhanced glassmorphic navbar with more opaque fallback */
 	background: linear-gradient(135deg, 
-		rgba(20, 10, 40, 0.6) 0%, 
-		rgba(30, 15, 50, 0.7) 50%, 
-		rgba(25, 12, 45, 0.6) 100%);
+		rgba(20, 10, 40, 0.9) 0%, 
+		rgba(30, 15, 50, 0.95) 50%, 
+		rgba(25, 12, 45, 0.9) 100%) !important;
+	/* Backdrop filter without !important to allow fallback */
 	backdrop-filter: blur(15px) saturate(150%);
 	-webkit-backdrop-filter: blur(15px) saturate(150%);
-	min-height: 60px; /* Ensure minimum height */
-	width: 100%;
+	min-height: 60px !important; /* Ensure minimum height */
+	width: 100% !important;
 	box-sizing: border-box;
 	border-radius: 0;
 	/* Subtle inner glow */
@@ -1544,12 +1559,22 @@ a {
 	position: relative;
 }
 
-/* Ensure login button is visible when logged out */
-#loginNav {
-	visibility: visible;
-	opacity: 1;
-	z-index: 200;
-	position: relative;
+/* HIDE ALL DUPLICATE LOGIN ELEMENTS - KEEP ONLY FINAL PINK RECTANGLE */
+#emergencyLoginButton,
+.nav-item:nth-child(1) #loginNav,
+.nav-menu li:nth-child(1) button {
+	display: none !important;
+	visibility: hidden !important;
+}
+
+/* Ensure FINAL login button is visible when logged out */
+#loginNav:last-of-type,
+.nav-item:last-child #loginNav {
+	visibility: visible !important;
+	opacity: 1 !important;
+	z-index: 200 !important;
+	position: relative !important;
+	display: block !important;
 }
 
 .nav-link {
@@ -1761,18 +1786,24 @@ body:not(.login-page) .nav-logo:hover::before {
 		margin-left: 1rem; /* Reduced margin for mobile */
 	}
 
-	/* Mobile login button - enhanced glassmorphic design */
+	/* HIDE DUPLICATE LOGIN BUTTONS - Only keep the final pink rectangle */
+	#loginNav:nth-child(1),
+	#loginNav:nth-of-type(1) {
+		display: none !important;
+	}
+	
+	/* Mobile login button - final pink rectangle version */
 	#loginNav {
-		/* Modern glassmorphic login button */
+		/* Pink rectangle login button (FINAL VERSION) */
 		background: linear-gradient(135deg, 
-			rgba(34, 197, 94, 0.9) 0%, 
-			rgba(22, 163, 74, 0.95) 100%) !important;
+			rgba(219, 39, 119, 0.9) 0%, 
+			rgba(190, 24, 93, 0.95) 100%) !important;
 		backdrop-filter: blur(15px) saturate(150%) !important;
 		-webkit-backdrop-filter: blur(15px) saturate(150%) !important;
 		color: white !important;
-		border: 1px solid rgba(255, 255, 255, 0.2) !important;
-		padding: 14px 24px !important;
-		border-radius: 16px !important;
+		border: 1px solid rgba(255, 255, 255, 0.3) !important;
+		padding: 12px 24px !important;
+		border-radius: 8px !important;
 		cursor: pointer !important;
 		font-size: 16px !important;
 		font-weight: 700 !important;
@@ -1997,19 +2028,18 @@ button:hover {
 		inset 0 1px 0 rgba(255, 255, 255, 0.15) !important;
 }
 
-/* Login Navigation Button - Ultra Modern Glass Morphism Style */
+/* Login Navigation Button - Pink Rectangle Style (FINAL VERSION) */
 #loginNav {
 	background: linear-gradient(135deg, 
-		rgba(34, 197, 94, 0.9) 0%, 
-		rgba(22, 163, 74, 0.85) 50%, 
-		rgba(16, 185, 129, 0.9) 100%) !important;
+		rgba(219, 39, 119, 0.9) 0%, 
+		rgba(190, 24, 93, 0.95) 100%) !important;
 	backdrop-filter: blur(15px) saturate(150%) !important;
 	-webkit-backdrop-filter: blur(15px) saturate(150%) !important;
 	color: white !important;
-	padding: 14px 28px !important;
+	padding: 12px 24px !important;
 	margin: 0 !important;
-	border: 1px solid rgba(255, 255, 255, 0.2) !important;
-	border-radius: 16px !important;
+	border: 1px solid rgba(255, 255, 255, 0.3) !important;
+	border-radius: 8px !important;
 	cursor: pointer !important;
 	width: auto !important;
 	font-family: 'Inter', 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Roboto', 'Helvetica Neue', Arial, sans-serif !important;
@@ -2282,6 +2312,7 @@ span.psw a:hover {
 	font-family: 'Roboto', sans-serif;
 	background-color: #36393f;
 	color: #dcddde;
+	margin-top: 100px; /* Add top margin to account for fixed header */
 }
 
 .status-card {
@@ -3386,4 +3417,72 @@ span.psw a:hover {
     .led-row {
         gap: 2px;
     }
+}
+
+/* CSV Download Button Styles */
+.csv-download-btn {
+    cursor: pointer;
+    padding: 8px 12px;
+    background: linear-gradient(135deg, 
+        rgba(46, 159, 255, 0.9) 0%, 
+        rgba(0, 123, 255, 0.85) 100%);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 6px;
+    font-size: 12px;
+    font-family: 'Inter', 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Roboto', sans-serif;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+    text-decoration: none;
+    display: inline-block;
+    transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    position: relative;
+    overflow: hidden;
+    width: 100%;
+    box-shadow: 
+        0 3px 8px rgba(46, 159, 255, 0.2),
+        0 1px 4px rgba(46, 159, 255, 0.15),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.csv-download-btn:hover:not(:disabled) {
+    background: linear-gradient(135deg, 
+        rgba(70, 180, 255, 0.95) 0%, 
+        rgba(25, 140, 255, 0.9) 100%);
+    color: white;
+    transform: translateY(-1px) scale(1.01);
+    box-shadow: 
+        0 4px 12px rgba(46, 159, 255, 0.3),
+        0 2px 6px rgba(46, 159, 255, 0.2),
+        inset 0 1px 0 rgba(255, 255, 255, 0.15);
+    border-color: rgba(255, 255, 255, 0.2);
+}
+
+.csv-download-btn:active:not(:disabled) {
+    transform: translateY(0) scale(1.0);
+    box-shadow: 
+        0 2px 6px rgba(46, 159, 255, 0.25),
+        0 1px 3px rgba(46, 159, 255, 0.18),
+        inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+.csv-download-btn:disabled {
+    background: linear-gradient(135deg, 
+        rgba(128, 128, 128, 0.5) 0%, 
+        rgba(100, 100, 100, 0.45) 100%);
+    color: rgba(255, 255, 255, 0.5);
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: 
+        0 1px 3px rgba(0, 0, 0, 0.1),
+        inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.csv-status {
+    color: #b9bbbe;
+    font-size: 11px;
+    margin-top: 4px;
+    font-family: 'Inter', 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Roboto', sans-serif;
 }
