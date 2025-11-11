@@ -13,7 +13,7 @@ on:
         - restart_down_services
         - hard_reset
       password:
-        description: 'Password (required for hard reset)'
+        description: 'Password (required for hard reset) HINT: What is your name?'
         required: false
         type: string
 
