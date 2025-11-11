@@ -1,0 +1,440 @@
+name: Troubleshoot Services
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'Action to perform'
+        required: true
+        default: 'check'
+        type: choice
+        options:
+        - check
+        - restart_down_services
+        - hard_reset
+      password:
+        description: 'Password (required for hard reset)'
+        required: false
+        type: string
+
+jobs:
+  troubleshoot:
+    runs-on: [self-hosted, ironman]
+    
+    steps:
+    - name: Validate Hard Reset Password
+      if: inputs.action == 'hard_reset'
+      run: |
+        if [ "${{ inputs.password }}" != "${{ secrets.HARD_RESET_PASSWORD }}" ]; then
+          echo "❌ Invalid password for hard reset operation"
+          exit 1
+        fi
+        echo "✅ Password validated for hard reset"
+      
+    - name: System Information
+      run: |
+        echo "🖥️ System Information:"
+        echo "Runner: $(hostname)"
+        echo "Date: $(date)"
+        echo "OS: $(lsb_release -d 2>/dev/null | cut -f2 || uname -s)"
+        echo "Uptime: $(uptime -p 2>/dev/null || uptime)"
+        echo "Memory: $(free -h | grep Mem | awk '{print $3"/"$2}' 2>/dev/null || echo 'N/A')"
+        echo "Disk space:"
+        df -h / | tail -1
+        echo ""
+        
+    - name: Check Network Connectivity
+      run: |
+        echo "🌐 Network Connectivity:"
+        echo "Testing external connectivity..."
+        if curl -s --max-time 5 https://github.com > /dev/null; then
+          echo "✅ External connectivity OK"
+        else
+          echo "❌ External connectivity issues"
+        fi
+        
+        echo "Testing local ports..."
+        for port in 2000 80 443; do
+          if netstat -tln 2>/dev/null | grep ":$port " > /dev/null; then
+            echo "✅ Port $port is listening"
+          else
+            echo "❌ Port $port is not listening"
+          fi
+        done
+        echo ""
+        
+    - name: Check XenoGenesis Service
+      id: check_xenogenesis
+      run: |
+        echo "🎮 XenoGenesis Service Status:"
+        if systemctl is-active --quiet xenogenesis 2>/dev/null; then
+          echo "✅ xenogenesis service is running"
+          echo "xenogenesis_status=running" >> $GITHUB_OUTPUT
+          if [ "${{ inputs.action }}" = "check" ]; then
+            echo "Status details:"
+            systemctl status xenogenesis --no-pager -l | head -10
+          fi
+        else
+          echo "❌ xenogenesis service is not running"
+          echo "xenogenesis_status=stopped" >> $GITHUB_OUTPUT
+          if [ "${{ inputs.action }}" = "check" ]; then
+            echo "Service status:"
+            systemctl status xenogenesis --no-pager -l 2>/dev/null | head -10 || echo "Service not found"
+            echo "Recent logs:"
+            journalctl -u xenogenesis --no-pager -n 5 2>/dev/null || echo "No logs found"
+          fi
+        fi
+        echo ""
+        
+    - name: Check Nginx Service
+      id: check_nginx
+      run: |
+        echo "🌐 Nginx Service Status:"
+        if systemctl is-active --quiet nginx 2>/dev/null; then
+          echo "✅ nginx service is running"
+          echo "nginx_status=running" >> $GITHUB_OUTPUT
+          if [ "${{ inputs.action }}" = "check" ]; then
+            echo "Status details:"
+            systemctl status nginx --no-pager -l | head -10
+          fi
+        else
+          echo "❌ nginx service is not running"
+          echo "nginx_status=stopped" >> $GITHUB_OUTPUT
+          if [ "${{ inputs.action }}" = "check" ]; then
+            echo "Service status:"
+            systemctl status nginx --no-pager -l 2>/dev/null | head -10 || echo "Service not found"
+            echo "Recent logs:"
+            journalctl -u nginx --no-pager -n 5 2>/dev/null || echo "No logs found"
+          fi
+        fi
+        echo ""
+        
+    - name: Check Application Health
+      if: inputs.action == 'check'
+      run: |
+        echo "🔍 Application Health Check:"
+        
+        # Check if app is responding
+        if curl -s --max-time 10 http://localhost:2000 > /dev/null 2>&1; then
+          echo "✅ Application responding on port 2000"
+        else
+          echo "❌ Application not responding on port 2000"
+        fi
+        
+        # Check process
+        if pgrep -f "node.*app.js" > /dev/null 2>&1; then
+          echo "✅ Node.js process found"
+          echo "Process info: $(ps aux | grep -v grep | grep 'node.*app.js' | head -1)"
+        else
+          echo "❌ Node.js process not found"
+        fi
+        
+        # Check recent application logs
+        echo "Recent application activity:"
+        journalctl -u xenogenesis --no-pager -n 3 --since "5 minutes ago" 2>/dev/null || echo "No recent logs found"
+        echo ""
+        
+    - name: Restart Down Services
+      if: inputs.action == 'restart_down_services'
+      run: |
+        echo "🔄 Checking and restarting down services..."
+        
+        services_restarted=0
+        
+        # Check and restart nginx if down
+        if ! systemctl is-active --quiet nginx 2>/dev/null; then
+          echo "Restarting nginx..."
+          sudo systemctl restart nginx
+          services_restarted=$((services_restarted + 1))
+          sleep 2
+        else
+          echo "nginx is already running"
+        fi
+        
+        # Check and restart xenogenesis if down
+        if ! systemctl is-active --quiet xenogenesis 2>/dev/null; then
+          echo "Restarting xenogenesis..."
+          sudo systemctl restart xenogenesis
+          services_restarted=$((services_restarted + 1))
+          sleep 3
+        else
+          echo "xenogenesis is already running"
+        fi
+        
+        if [ $services_restarted -eq 0 ]; then
+          echo "✅ All services were already running"
+        else
+          echo "✅ Restarted $services_restarted service(s)"
+          echo "Final status:"
+          systemctl is-active nginx 2>/dev/null && echo "  ✅ nginx: running" || echo "  ❌ nginx: failed"
+          systemctl is-active xenogenesis 2>/dev/null && echo "  ✅ xenogenesis: running" || echo "  ❌ xenogenesis: failed"
+        fi
+        
+    - name: Hard Reset System
+      if: inputs.action == 'hard_reset'
+      run: |
+        echo "⚠️ PERFORMING HARD RESET..."
+        echo "This will stop all services, clear caches, and restart everything"
+        
+        # Stop services gracefully
+        echo "Stopping services..."
+        sudo systemctl stop xenogenesis 2>/dev/null || true
+        sudo systemctl stop nginx 2>/dev/null || true
+        
+        # Force kill any remaining processes
+        echo "Force killing remaining processes..."
+        sudo pkill -f "node.*app.js" 2>/dev/null || true
+        sudo pkill -f nginx 2>/dev/null || true
+        sleep 2
+        
+        # Clear service logs to free space and reset state
+        echo "Clearing service logs..."
+        sudo journalctl --rotate 2>/dev/null || true
+        sudo journalctl --vacuum-time=1s 2>/dev/null || true
+        
+        # Clear application temporary files
+        echo "Clearing temporary files..."
+        sudo rm -rf /tmp/xenogenesis* 2>/dev/null || true
+        sudo rm -rf /var/tmp/xenogenesis* 2>/dev/null || true
+        
+        # Clear any application cache directories
+        [ -d ~/.cache/xenogenesis ] && rm -rf ~/.cache/xenogenesis 2>/dev/null || true
+        [ -d /var/cache/xenogenesis ] && sudo rm -rf /var/cache/xenogenesis 2>/dev/null || true
+        
+        # Force reload systemd in case of any service definition changes
+        sudo systemctl daemon-reload 2>/dev/null || true
+        
+        # Restart services with clean state
+        echo "Restarting services..."
+        sudo systemctl start nginx
+        sleep 2
+        sudo systemctl start xenogenesis
+        sleep 5
+        
+        echo "🔥 Hard reset complete!"
+        echo "Service status after reset:"
+        systemctl is-active nginx 2>/dev/null && echo "  ✅ nginx: running" || echo "  ❌ nginx: failed to start"
+        systemctl is-active xenogenesis 2>/dev/null && echo "  ✅ xenogenesis: running" || echo "  ❌ xenogenesis: failed to start"
+        
+        # Show fresh logs to verify clean startup
+        echo "Fresh startup logs:"
+        journalctl -u xenogenesis --no-pager -n 3 --since "1 minute ago" 2>/dev/null || echo "No fresh logs available"
+        
+    - name: Final Summary and GitHub Summary  
+      run: |
+        echo ""
+        echo "📊 TROUBLESHOOT SUMMARY"
+        echo "========================"
+        echo "Action: ${{ inputs.action }}"
+        echo "Time: $(date)"
+        echo "Runner: $(hostname)"
+        
+        # Collect service status for GitHub summary
+        nginx_status="down"
+        xenogenesis_status="down"
+        echo ""
+        echo "Final service status:"
+        
+        if systemctl is-active --quiet nginx 2>/dev/null; then
+          nginx_status="running"
+          echo "  ✅ nginx: running"
+        else
+          echo "  ❌ nginx: down"
+        fi
+        
+        if systemctl is-active --quiet xenogenesis 2>/dev/null; then
+          xenogenesis_status="running"
+          echo "  ✅ xenogenesis: running"
+        else
+          echo "  ❌ xenogenesis: down"
+        fi
+        
+        echo ""
+        echo "Network status:"
+        port_80_status="down"
+        port_2000_status="down"
+        
+        for port in 80 2000; do
+          if netstat -tln 2>/dev/null | grep ":$port " > /dev/null; then
+            echo "  ✅ Port $port: listening"
+            if [ "$port" = "80" ]; then
+              port_80_status="listening"
+            elif [ "$port" = "2000" ]; then
+              port_2000_status="listening"
+            fi
+          else
+            echo "  ❌ Port $port: not listening"
+          fi
+        done
+        
+        echo ""
+        echo "🔄 Generating GitHub Step Summary..."
+        
+        # Generate comprehensive GitHub Step Summary
+        cat >> $GITHUB_STEP_SUMMARY << 'EOF'
+        # 🛠️ XenoGenesis Troubleshoot Results
+        
+        ## 📋 Operation Details
+        EOF
+        
+        echo "- **Action Performed**: \`${{ inputs.action }}\`" >> $GITHUB_STEP_SUMMARY
+        echo "- **Execution Time**: $(date)" >> $GITHUB_STEP_SUMMARY  
+        echo "- **Runner**: $(hostname)" >> $GITHUB_STEP_SUMMARY
+        echo "- **Workflow Run**: [#${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})" >> $GITHUB_STEP_SUMMARY
+        
+        cat >> $GITHUB_STEP_SUMMARY << 'EOF'
+        
+        ## 🎯 Action Summary
+        EOF
+        
+        # Add action-specific summary
+        if [ "${{ inputs.action }}" = "check" ]; then
+          cat >> $GITHUB_STEP_SUMMARY << 'EOF'
+        **System Diagnostics Completed**
+        - ✅ Performed comprehensive health check of all services
+        - ✅ Verified system resources and network connectivity
+        - ✅ Generated detailed status report for monitoring
+        EOF
+        elif [ "${{ inputs.action }}" = "restart_down_services" ]; then
+          cat >> $GITHUB_STEP_SUMMARY << 'EOF'
+        **Smart Service Restart Completed**
+        - ✅ Identified and restarted only services that were down
+        - ✅ Preserved running services to minimize disruption  
+        - ✅ Verified service startup after restart operations
+        EOF
+        elif [ "${{ inputs.action }}" = "hard_reset" ]; then
+          cat >> $GITHUB_STEP_SUMMARY << 'EOF'
+        **Hard Reset Completed**
+        - ⚠️ Full system reset with password authentication
+        - ✅ Stopped all services and cleared system caches
+        - ✅ Performed complete cleanup of temporary files and logs
+        - ✅ Restarted all services with fresh configuration
+        EOF
+        fi
+        
+        cat >> $GITHUB_STEP_SUMMARY << 'EOF'
+        
+        ## 📊 Service Status Results
+        | Service | Status | Port | Network Status |
+        |---------|--------|------|----------------|
+        EOF
+        
+        # Determine status icons
+        if [ "$nginx_status" = "running" ]; then
+          nginx_icon="✅"
+        else
+          nginx_icon="❌"
+        fi
+        
+        if [ "$xenogenesis_status" = "running" ]; then
+          xenogenesis_icon="✅"
+        else
+          xenogenesis_icon="❌"
+        fi
+        
+        if [ "$port_80_status" = "listening" ]; then
+          port80_icon="✅"
+        else
+          port80_icon="❌"
+        fi
+        
+        if [ "$port_2000_status" = "listening" ]; then  
+          port2000_icon="✅"
+        else
+          port2000_icon="❌"
+        fi
+        
+        echo "| Nginx Web Server | $nginx_icon $nginx_status | 80 | $port80_icon $port_80_status |" >> $GITHUB_STEP_SUMMARY
+        echo "| XenoGenesis App | $xenogenesis_icon $xenogenesis_status | 2000 | $port2000_icon $port_2000_status |" >> $GITHUB_STEP_SUMMARY
+        
+        cat >> $GITHUB_STEP_SUMMARY << 'EOF'
+        
+        ## 🖥️ System Information  
+        EOF
+        
+        # Add system information
+        echo "- **Uptime**: $(uptime -p 2>/dev/null || uptime | cut -d',' -f1)" >> $GITHUB_STEP_SUMMARY
+        echo "- **Memory Usage**: $(free -h | grep Mem | awk '{print $3"/"$2}' 2>/dev/null || echo 'N/A')" >> $GITHUB_STEP_SUMMARY
+        echo "- **Disk Usage**: $(df -h / | tail -1 | awk '{print $3"/"$2" ("$5" used)"}')" >> $GITHUB_STEP_SUMMARY
+        
+        # Test external connectivity  
+        if curl -s --max-time 5 https://github.com > /dev/null 2>&1; then
+          echo "- **External Connectivity**: ✅ Online and responsive" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "- **External Connectivity**: ❌ Connection issues detected" >> $GITHUB_STEP_SUMMARY
+        fi
+        
+        cat >> $GITHUB_STEP_SUMMARY << 'EOF'
+        
+        ## 🏥 Overall Health Assessment
+        EOF
+        
+        # Overall health determination
+        if [ "$nginx_status" = "running" ] && [ "$xenogenesis_status" = "running" ] && [ "$port_80_status" = "listening" ] && [ "$port_2000_status" = "listening" ]; then
+          cat >> $GITHUB_STEP_SUMMARY << 'EOF'
+        ### ✅ SYSTEM FULLY OPERATIONAL
+        🎉 All services are running normally and responding on expected ports.
+        The XenoGenesis platform is ready for users.
+        EOF
+        elif [ "$nginx_status" = "running" ] || [ "$xenogenesis_status" = "running" ]; then
+          cat >> $GITHUB_STEP_SUMMARY << 'EOF'
+        ### ⚠️ PARTIAL SERVICE AVAILABILITY
+        🔧 Some services are operational but others require attention.
+        Platform functionality may be limited.
+        EOF
+        else
+          cat >> $GITHUB_STEP_SUMMARY << 'EOF'
+        ### ❌ CRITICAL SYSTEM ISSUES
+        🚨 Multiple services are down and require immediate intervention.
+        Platform is likely unavailable to users.
+        EOF
+        fi
+        
+        # Add specific recommendations if services are down
+        if [ "$nginx_status" != "running" ] || [ "$xenogenesis_status" != "running" ]; then
+          cat >> $GITHUB_STEP_SUMMARY << 'EOF'
+        
+        ## 🔧 Recommended Next Steps
+        EOF
+          
+          if [ "$nginx_status" != "running" ]; then
+            echo "- **Nginx Issues**: Web server is down - check configuration and logs" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          if [ "$xenogenesis_status" != "running" ]; then
+            echo "- **XenoGenesis Issues**: Application server is down - check logs and dependencies" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          cat >> $GITHUB_STEP_SUMMARY << 'EOF'
+        
+        ### Quick Actions Available:
+        - 🔄 **Smart Restart**: Run workflow with `restart_down_services` to restart only failed services
+        - 💥 **Complete Reset**: Run workflow with `hard_reset` (requires password) for full system cleanup
+        - 📋 **Detailed Logs**: Check individual step outputs above for specific error messages
+        EOF
+        fi
+        
+        cat >> $GITHUB_STEP_SUMMARY << 'EOF'
+        
+        ## 🔗 Quick Links
+        - [View Workflow Run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+        - [Repository](${{ github.server_url }}/${{ github.repository }})
+        - [Actions History](${{ github.server_url }}/${{ github.repository }}/actions)
+        
+        ---
+        **Troubleshoot Complete** • *Generated: $(date)* • **Runner**: $(hostname)
+        EOF
+        
+        echo "✅ GitHub Step Summary generated successfully"
+        
+    - name: Show Error Logs (if failures occurred)
+      if: failure()
+      run: |
+        echo ""
+        echo "📋 ERROR LOGS:"
+        echo "=============="
+        echo "XenoGenesis service logs (last 10 lines):"
+        journalctl -u xenogenesis -n 10 --no-pager 2>/dev/null || echo "No logs available"
+        echo ""
+        echo "Nginx service logs (last 10 lines):"
+        journalctl -u nginx -n 10 --no-pager 2>/dev/null || echo "No logs available"
