@@ -528,9 +528,11 @@ class DitherEffect {
     
     setupMouseTracking() {
         this.handleMouseMove = (event) => {
-            // Simple approach - use window coordinates and convert
-            this.targetMouse.x = event.clientX / window.innerWidth;
-            this.targetMouse.y = 1.0 - (event.clientY / window.innerHeight) + 0.05; // Added offset to move effect slightly up
+            // Use container-relative coordinates for accurate tracking
+            const rect = this.container.getBoundingClientRect();
+            this.targetMouse.x = (event.clientX - rect.left) / rect.width;
+            // Invert Y coordinate - no offset to test natural centering
+            this.targetMouse.y = 1.0 - ((event.clientY - rect.top) / rect.height);
             
             // Debug log to check if mouse is being tracked
             // console.log('Mouse:', this.targetMouse.x.toFixed(2), this.targetMouse.y.toFixed(2));
@@ -560,9 +562,10 @@ class DitherEffect {
             this.maxHoldRadius = this.material.uniforms.holdRadius.value; // Store final radius
             this.isDissipating = true; // Start cloud dissipation
             
-            // Initialize drift velocity based on current mouse movement or random
-            this.driftVelocity.x = (Math.random() - 0.5) * 0.0003; // Random horizontal drift
-            this.driftVelocity.y = (Math.random() - 0.5) * 0.0002 + 0.0001; // Slight upward bias
+            // Initialize drift velocity to flow NorthEast following cloud motion
+            // NorthEast = Up (negative Y) + Right (positive X) in screen coordinates
+            this.driftVelocity.x = 0.0002 + Math.random() * 0.0001; // Eastward drift (positive X)
+            this.driftVelocity.y = -(0.00015 + Math.random() * 0.00005); // Northward drift (negative Y)
             this.driftPosition.x = this.holdPosition.x; // Start from current position
             this.driftPosition.y = this.holdPosition.y;
             

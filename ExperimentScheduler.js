@@ -11,7 +11,7 @@
  * - 2500 white tokens shared pool  
  * - 441 rounds across 7 blocks of 63 rounds each
  * - 3 conditions: High Culturant, High Operant, Equal Culturant-Operant
- * - 3 incentive types: No Incentive, Culturant Incentive, Operant Incentive
+ * - 3 incentive types: No Incentive, Self Control Incentive, Impulse Incentive
  * - Balanced distribution and counterbalancing
  */
 
@@ -25,8 +25,8 @@ class ExperimentScheduler {
         
         this.incentives = {
             NO_INCENTIVE: 'No Incentive',
-            CULTURANT_INCENTIVE: 'Culturant Incentive',
-            OPERANT_INCENTIVE: 'Operant Incentive'
+            CULTURANT_INCENTIVE: 'Self Control Incentive',
+            OPERANT_INCENTIVE: 'Impulse Incentive'
         };
         
         this.players = ['A', 'B', 'C'];
@@ -120,6 +120,8 @@ class ExperimentScheduler {
         this.validateSchedule(fullSchedule);
         return fullSchedule;
     }
+
+
 
     /**
      * Generate baseline experiment schedule
@@ -326,12 +328,15 @@ class ExperimentScheduler {
             'Player_C_Choice',
             'Player_A_White_Tokens',
             'Player_A_Black_Tokens',
+            'Player_A_Round_Earnings',
             'Player_A_Total_Payout',
             'Player_B_White_Tokens',
             'Player_B_Black_Tokens',
+            'Player_B_Round_Earnings',
             'Player_B_Total_Payout',
             'Player_C_White_Tokens',
             'Player_C_Black_Tokens',
+            'Player_C_Round_Earnings',
             'Player_C_Total_Payout',
             'Culturant_Produced',
             'White_Tokens_Remaining',
@@ -340,30 +345,95 @@ class ExperimentScheduler {
         
         const rows = [headers.join(',')];
         
+        // Track previous round earnings for calculating per-round earnings using username keys
+        const previousEarnings = {};
+        
+        // First pass: collect all unique player usernames to create consistent mapping
+        const allPlayerNames = new Set();
         dataLog.forEach(logEntry => {
-            // Extract player data - normalize to always have A, B, C structure
+            logEntry.players.forEach(player => {
+                if (!player.isModerator) {
+                    allPlayerNames.add(player.username);
+                }
+            });
+        });
+        const sortedPlayerNames = Array.from(allPlayerNames).sort(); // Consistent ordering
+        
+        dataLog.forEach((logEntry, index) => {
+            // Extract player data - normalize to always have A, B, C structure with consistent mapping
             const playerData = { A: null, B: null, C: null };
-            const playerNames = [];
             
-            // Map actual players to A, B, C positions
-            logEntry.players.forEach((player, index) => {
-                if (!player.isModerator) { // Exclude moderators from data export
-                    const position = ['A', 'B', 'C'][playerNames.length];
-                    playerData[position] = player;
-                    playerNames.push(player.username);
+            // Map actual players to A, B, C positions based on consistent username ordering
+            logEntry.players.forEach((player) => {
+                if (!player.isModerator) {
+                    const playerIndex = sortedPlayerNames.indexOf(player.username);
+                    const position = ['A', 'B', 'C'][playerIndex];
+                    if (position) {
+                        playerData[position] = player;
+                        // Initialize previousEarnings for this player if needed
+                        if (!(player.username in previousEarnings)) {
+                            previousEarnings[player.username] = 0;
+                        }
+                    }
                 }
             });
             
             // Determine condition display
             const condition = logEntry.condition || 'Baseline';
-            const phase = logEntry.experimentMode === 'unified' ? 
-                (condition === 'Baseline' ? 'baseline' : 'conditions') :
-                (logEntry.experimentMode === 'baseline' ? 'baseline' : 'conditions');
             
-            // Calculate total payouts (white tokens * $0.01 + black tokens * $0.05)
+            // For Lightning test, use the phase field directly; otherwise use legacy logic
+            let phase;
+            if (logEntry.experimentMode === 'lightning_test' && logEntry.phase) {
+                phase = logEntry.phase;
+            } else {
+                phase = logEntry.experimentMode === 'unified' ? 
+                    (condition === 'Baseline' ? 'baseline' : 'conditions') :
+                    (logEntry.experimentMode === 'baseline' ? 'baseline' : 'conditions');
+            }
+            
+            // Calculate total payouts using correct condition token values
             const calculatePayout = (player) => {
                 if (!player) return 0;
-                return (player.whiteTokens * 0.01) + (player.blackTokens * 0.05);
+                
+                // Get condition-specific token values
+                let whiteValue = 0.01; // Default baseline value
+                let blackValue = 0.05; // Default baseline value
+                
+                // Map condition names to token values
+                switch (condition) {
+                    case 'High Culturant':
+                        whiteValue = 0.02;
+                        blackValue = 0.07;
+                        break;
+                    case 'High Operant':
+                        whiteValue = 0.03;
+                        blackValue = 0.04;
+                        break;
+                    case 'Equal Culturant–Operant':
+                        whiteValue = 0.01;
+                        blackValue = 0.02;
+                        break;
+                    case 'Baseline':
+                    default:
+                        whiteValue = 0.01;
+                        blackValue = 0.05;
+                        break;
+                }
+                
+                return (player.whiteTokens * whiteValue) + (player.blackTokens * blackValue);
+            };
+            
+            // Calculate per-round earnings
+            const calculateRoundEarnings = (player) => {
+                if (!player) return '';
+                
+                // For Lightning test, use the actual stored cumulative earnings
+                // and calculate the difference from previous round for this specific player
+                const currentEarnings = player.earnings || 0;
+                const previousPlayerEarnings = previousEarnings[player.username] || 0;
+                const roundEarnings = currentEarnings - previousPlayerEarnings;
+                previousEarnings[player.username] = currentEarnings;
+                return roundEarnings.toFixed(2);
             };
             
             // Convert choices to ODD/EVEN
@@ -378,20 +448,23 @@ class ExperimentScheduler {
                 condition,
                 phase,
                 logEntry.blockNumber || '',
-                logEntry.incentive || 'No Incentive',
-                logEntry.player || 'None',
+                (logEntry.incentive && logEntry.incentive !== 'No Incentive') ? logEntry.incentive : 'None',
+                (logEntry.incentive && logEntry.incentive !== 'No Incentive') ? (logEntry.player || 'None') : 'None',
                 playerData.A ? getChoiceType(playerData.A.choice) : '',
                 playerData.B ? getChoiceType(playerData.B.choice) : '',
                 playerData.C ? getChoiceType(playerData.C.choice) : '',
                 playerData.A ? playerData.A.whiteTokens : '',
                 playerData.A ? playerData.A.blackTokens : '',
-                playerData.A ? calculatePayout(playerData.A).toFixed(2) : '',
+                calculateRoundEarnings(playerData.A),
+                playerData.A ? (playerData.A.earnings || 0).toFixed(2) : '',
                 playerData.B ? playerData.B.whiteTokens : '',
                 playerData.B ? playerData.B.blackTokens : '',
-                playerData.B ? calculatePayout(playerData.B).toFixed(2) : '',
+                calculateRoundEarnings(playerData.B),
+                playerData.B ? (playerData.B.earnings || 0).toFixed(2) : '',
                 playerData.C ? playerData.C.whiteTokens : '',
                 playerData.C ? playerData.C.blackTokens : '',
-                playerData.C ? calculatePayout(playerData.C).toFixed(2) : '',
+                calculateRoundEarnings(playerData.C),
+                playerData.C ? (playerData.C.earnings || 0).toFixed(2) : '',
                 logEntry.culturantProduced ? 'Yes' : 'No',
                 logEntry.whiteTokensRemaining,
                 logEntry.timestamp

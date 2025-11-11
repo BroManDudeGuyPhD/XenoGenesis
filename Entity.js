@@ -272,15 +272,15 @@ var IncentiveBonuses = {
         description: 'No additional bonus',
         displayName: 'No Incentive'
     },
-    'Culturant Incentive': {
+    'Self Control Incentive': {
         bonus: 0.02, // $0.02 bonus for culturant behavior (choosing even rows when all do)
         description: 'Bonus for cooperative behavior (all choose even rows)',
         displayName: 'Bonus: Choose Even Rows (2, 4, 6, 8)',
         appliesWhen: 'allChoseEven'
     },
-    'Operant Incentive': {
+    'Impulse Incentive': {
         bonus: 0.02, // $0.02 bonus for individual choice
-        description: 'Bonus for individual operant choice',
+        description: 'Bonus for individual impulse choice',
         displayName: 'Bonus: Choose Odd Rows (1, 3, 5, 7)',
         appliesWhen: 'always'
     }
@@ -2417,6 +2417,11 @@ Player.onConnect = function(socket,username,admin,io){
                     startTime: Date.now(),
                     culturantCount: 0, // Track culturant occurrences
                     culturantRounds: [], // Track which rounds had culturants
+                    whiteTokenPool: TOKEN_CONFIG.BASELINE_TOKENS, // Start with baseline pool (100)
+                    baselineTokenPool: TOKEN_CONFIG.BASELINE_TOKENS, // Baseline token pool (100)
+                    conditionsTokenPool: TOKEN_CONFIG.CONDITIONS_TOKENS, // Conditions token pool (2500) 
+                    currentPhase: 'baseline', // Track current phase
+                    baselineRoundsCompleted: 0, // Track baseline completion
                     exchangeRates: {
                         'High Operant': 0.15, // $0.15 per token
                         'High Culturant': 0.10, // $0.10 per token  
@@ -2425,16 +2430,27 @@ Player.onConnect = function(socket,username,admin,io){
                 };
                 
                 // Initialize AI player wallets and earnings in stats
+                gameSession.lightningStats.playerBlackTokens = {}; // Initialize black token tracking
                 lightningAIPlayers.forEach(ai => {
                     gameSession.lightningStats.playerWallets[ai.username] = 0;
+                    gameSession.lightningStats.playerBlackTokens[ai.username] = 0;
                     gameSession.lightningStats.playerEarnings[ai.username] = 0;
                 });
                 
                 // Initialize the experiment scheduler
                 if (!gameSession.conditionsSchedule) {
                     const scheduler = new ExperimentScheduler();
-                    gameSession.conditionsSchedule = scheduler.generateConditionsSchedule();
-                    console.log(`⚡ Generated conditions schedule for lightning test: ${gameSession.conditionsSchedule.length} rounds`);
+                    
+                    // Generate baseline configuration and conditions schedule separately
+                    gameSession.baselineConfig = scheduler.generateBaselineSchedule(100); // Max 100 baseline rounds
+                    gameSession.conditionsSchedule = scheduler.generateConditionsSchedule(); // 441 conditions rounds
+                    
+                    // Set current experiment phase
+                    gameSession.currentExperimentPhase = 'baseline';
+                    gameSession.baselineRoundsRemaining = gameSession.baselineConfig.maxRounds;
+                    gameSession.conditionsRoundIndex = 0; // Track conditions round separately
+                    
+                    console.log(`⚡ Lightning test initialized: ${gameSession.baselineConfig.maxRounds} max baseline rounds + ${gameSession.conditionsSchedule.length} conditions rounds`);
                 }
                 
                 // Send start notification
@@ -4123,14 +4139,14 @@ function calculateIncentiveBonus(player, chosenRow, gameSession) {
     const rowType = chosenRow % 2 === 1 ? 'odd' : 'even';
     
     switch (player.activeIncentive) {
-        case 'Operant Incentive':
-            // Operant incentive: +1 black token for choosing odd rows (high performance choice)
+        case 'Impulse Incentive':
+            // Impulse incentive: +1 black token for choosing odd rows (high performance choice)
             if (rowType === 'odd') {
                 bonusTokens = 1;
             }
             break;
-        case 'Culturant Incentive':
-            // Culturant incentive: +1 black token for choosing even rows (cooperative choice)
+        case 'Self Control Incentive':
+            // Self Control incentive: +1 black token for choosing even rows (cooperative choice)
             if (rowType === 'even') {
                 bonusTokens = 1;
             }
@@ -5212,7 +5228,27 @@ function startLightningTestRound(room, gameSession, io) {
     }
     
     try {
-        const roundInfo = gameSession.conditionsSchedule[gameSession.currentRound - 1];
+        // Get current round info based on current phase
+        let roundInfo = null;
+        
+        if (gameSession.currentExperimentPhase === 'baseline') {
+            // Generate baseline round info dynamically
+            roundInfo = {
+                condition: 'Baseline',
+                player: null,
+                incentive: 'No Incentive',
+                roundNumber: gameSession.currentRound,
+                blockNumber: 0,
+                phase: 'baseline'
+            };
+        } else {
+            // Get from conditions schedule using separate index
+            roundInfo = gameSession.conditionsSchedule[gameSession.conditionsRoundIndex];
+            if (roundInfo) {
+                roundInfo.phase = 'conditions';
+            }
+        }
+        
         if (!roundInfo) {
             // Lightning test completed - show final stats
             console.log(`⚡ Lightning test completed! All ${gameSession.lightningStats.totalRounds} rounds finished in ${room}`);
@@ -5276,37 +5312,54 @@ function startLightningTestRound(room, gameSession, io) {
             .sort((a, b) => a.username.localeCompare(b.username)); // Consistent alphabetical order
         
         console.log(`🎯 [Lightning Round ${gameSession.currentRound}] Player assignment debug:`);
-        console.log(`   Scheduler player: ${roundInfo.player} (index: ${roundInfo.player.charCodeAt(0) - 65})`);
+        console.log(`   Scheduler player: ${roundInfo.player} (index: ${roundInfo.player ? roundInfo.player.charCodeAt(0) - 65 : 'N/A - Baseline'})`);
         console.log(`   AI players in room: [${aiPlayers.map((p, i) => `${i}:${p.username}`).join(', ')}]`);
         
-        // Map scheduler player designation (A, B, C) to actual AI players
-        const playerIndex = roundInfo.player.charCodeAt(0) - 65; // A=0, B=1, C=2
-        const targetPlayer = aiPlayers[playerIndex] || aiPlayers[0]; // Fallback to first player
+        // Map scheduler player designation (A, B, C) to actual AI players (null for baseline)
+        let targetPlayer = null;
+        if (roundInfo.player) {
+            const playerIndex = roundInfo.player.charCodeAt(0) - 65; // A=0, B=1, C=2
+            targetPlayer = aiPlayers[playerIndex] || aiPlayers[0]; // Fallback to first player
+        }
         
-        console.log(`   Target player index: ${playerIndex}, Target player: ${targetPlayer ? targetPlayer.username : 'NONE'}`);
-        console.log(`   Condition: ${roundInfo.condition}, Incentive: ${roundInfo.incentive}`);
+        console.log(`   Target player: ${targetPlayer ? targetPlayer.username : 'NONE (Baseline)'}`);
+        console.log(`   Condition: ${roundInfo.condition}, Incentive: ${roundInfo.incentive}, Phase: ${roundInfo.phase || 'baseline'}`);
         
-        if (!targetPlayer) {
+        if (!targetPlayer && roundInfo.phase !== 'baseline') {
             console.error(`❌ No target player found for Lightning Test round ${gameSession.currentRound}`);
             return;
         }
         
-        // Track which player had which condition
-        if (!gameSession.lightningStats.playerConditions) {
-            gameSession.lightningStats.playerConditions = {};
+        // Track which player had which condition (skip for baseline)
+        if (targetPlayer) {
+            if (!gameSession.lightningStats.playerConditions) {
+                gameSession.lightningStats.playerConditions = {};
+            }
+            
+            if (!gameSession.lightningStats.playerConditions[targetPlayer.username]) {
+                gameSession.lightningStats.playerConditions[targetPlayer.username] = {};
+            }
+            
+            const playerConditionKey = `${roundInfo.condition}`;
+            gameSession.lightningStats.playerConditions[targetPlayer.username][playerConditionKey] = 
+                (gameSession.lightningStats.playerConditions[targetPlayer.username][playerConditionKey] || 0) + 1;
         }
-        
-        if (!gameSession.lightningStats.playerConditions[targetPlayer.username]) {
-            gameSession.lightningStats.playerConditions[targetPlayer.username] = {};
-        }
-        
-        const playerConditionKey = `${roundInfo.condition}`;
-        gameSession.lightningStats.playerConditions[targetPlayer.username][playerConditionKey] = 
-            (gameSession.lightningStats.playerConditions[targetPlayer.username][playerConditionKey] || 0) + 1;
         
         // Simulate AI decisions and track wallet changes
         console.log(`💰 [Round ${gameSession.currentRound}] Processing wallet updates...`);
         console.log(`💰 Current wallet state:`, gameSession.lightningStats.playerWallets);
+        
+        // Check for culturant (unanimous even choice - all choices are even numbers)
+        const allChoices = aiPlayers.map(ai => ai.currentChoice);
+        const isCulturant = allChoices.every(choice => choice % 2 === 0); // All even choices (2,4,6,8)
+        
+        if (isCulturant) {
+            gameSession.lightningStats.culturantCount++;
+            gameSession.lightningStats.culturantRounds.push(gameSession.currentRound);
+            console.log(`🤝 [Round ${gameSession.currentRound}] CULTURANT DETECTED! All players chose even (${allChoices.join(', ')})`);
+        } else {
+            console.log(`💭 [Round ${gameSession.currentRound}] No culturant - choices: ${allChoices.join(', ')}`);
+        }
         
         aiPlayers.forEach(aiPlayer => {
             // Reset for this round
@@ -5318,62 +5371,113 @@ function startLightningTestRound(room, gameSession, io) {
             aiPlayer.currentChoice = choice;
             aiPlayer.isLockedIn = true;
             
-            // Calculate realistic wallet rewards based on actual game mechanics
-            let reward = 0;
-            const isTargetPlayer = (aiPlayer.username === targetPlayer.username);
+            // Use actual game mechanics for token calculation
+            const isTargetPlayer = targetPlayer && (aiPlayer.username === targetPlayer.username);
             
-            console.log(`💰 Player ${aiPlayer.username}: isTarget=${isTargetPlayer}, incentive=${roundInfo.incentive}, condition=${roundInfo.condition}`);
-            
-            if (roundInfo.incentive !== 'No Incentive' && isTargetPlayer) {
-                // Only the target player for this round gets incentive rewards
-                if (roundInfo.condition === 'High Operant') {
-                    // Individual condition: reward based on personal choice
-                    reward = choice <= 4 ? Math.floor(Math.random() * 2) + 1 : Math.floor(Math.random() * 3) + 2; // 1-2 or 2-4 tokens
-                } else if (roundInfo.condition === 'High Culturant') {
-                    // Competition condition: higher variance rewards
-                    const competitionBonus = Math.random() < 0.3 ? 1 : 0; // 30% chance of bonus
-                    reward = Math.floor(Math.random() * 3) + 1 + competitionBonus; // 1-3 + possible bonus
-                } else if (roundInfo.condition === 'Equal Culturant–Operant') {
-                    // Cooperation condition: consistent moderate rewards
-                    reward = Math.floor(Math.random() * 2) + 2; // 2-3 tokens (more consistent)
-                }
-                console.log(`💰 ${aiPlayer.username} earned ${reward} tokens (choice: ${choice})`);
-            } else {
-                console.log(`💰 ${aiPlayer.username} earned 0 tokens (not target or no incentive)`);
+            // Get the condition object for token calculations
+            let condition;
+            switch (roundInfo.condition) {
+                case 'High Culturant':
+                    condition = Conditions.HIGH_CULTURANT;
+                    break;
+                case 'High Operant':
+                    condition = Conditions.HIGH_OPERANT;
+                    break;
+                case 'Equal Culturant–Operant':
+                    condition = Conditions.EQUAL_CULTURANT_OPERANT;
+                    break;
+                default:
+                    condition = Conditions.BASELINE;
             }
             
-            // Update wallet tracking with monetary conversion
-            const oldWallet = gameSession.lightningStats.playerWallets[aiPlayer.username] || 0;
+            // Calculate white tokens using real game mechanics
+            let whiteTokensEarned = condition.getWhiteTokens(choice);
+            
+            // Calculate black tokens (if all chose even rows)
+            const blackTokensEarned = condition.getBlackTokens(isCulturant);
+            
+            // Calculate incentive bonus (black tokens) - only for conditions phase
+            let incentiveBonusTokens = 0;
+            if (roundInfo.phase !== 'baseline' && roundInfo.incentive !== 'No Incentive' && isTargetPlayer) {
+                if (roundInfo.incentive === 'Impulse Incentive' && choice % 2 === 1) {
+                    // Impulse incentive: +1 black token for odd choices
+                    incentiveBonusTokens = 1;
+                } else if (roundInfo.incentive === 'Self Control Incentive' && choice % 2 === 0) {
+                    // Self Control incentive: +1 black token for even choices
+                    incentiveBonusTokens = 1;
+                }
+            }
+            
+            console.log(`💰 Player ${aiPlayer.username}: choice=${choice} (${choice % 2 === 1 ? 'ODD' : 'EVEN'}), condition=${roundInfo.condition}`);
+            console.log(`💰   White tokens: ${whiteTokensEarned}, Black tokens: ${blackTokensEarned}, Incentive bonus: ${incentiveBonusTokens}`);
+            
+            // Update wallet tracking using real game mechanics
+            const oldWhiteTokens = gameSession.lightningStats.playerWallets[aiPlayer.username] || 0;
+            const oldBlackTokens = gameSession.lightningStats.playerBlackTokens[aiPlayer.username] || 0;
             const oldEarnings = gameSession.lightningStats.playerEarnings[aiPlayer.username] || 0;
             
-            gameSession.lightningStats.playerWallets[aiPlayer.username] = oldWallet + reward;
-            
-            // Calculate monetary value based on current condition's exchange rate
-            const exchangeRate = gameSession.lightningStats.exchangeRates[roundInfo.condition] || 0.10;
-            const monetaryValue = reward * exchangeRate;
-            gameSession.lightningStats.playerEarnings[aiPlayer.username] = oldEarnings + monetaryValue;
-            
-            if (aiPlayer.wallet !== undefined) {
-                aiPlayer.wallet += reward;
+            // Handle phase transitions and token pool management
+            if (roundInfo.phase === 'baseline') {
+                // Baseline phase: use baseline token pool and transition logic
+                if (whiteTokensEarned > 0) {
+                    if (gameSession.lightningStats.whiteTokenPool >= whiteTokensEarned) {
+                        gameSession.lightningStats.whiteTokenPool -= whiteTokensEarned;
+                        console.log(`🪙 [BASELINE] Deducted ${whiteTokensEarned} white tokens from baseline pool. Remaining: ${gameSession.lightningStats.whiteTokenPool}`);
+                    } else {
+                        // Baseline pool depleted - transition to conditions phase
+                        console.log(`🔄 BASELINE COMPLETE! Token pool depleted after ${gameSession.lightningStats.baselineRoundsCompleted + 1} rounds`);
+                        const availableTokens = gameSession.lightningStats.whiteTokenPool;
+                        gameSession.lightningStats.whiteTokenPool = 0;
+                        whiteTokensEarned = availableTokens;
+                        
+                        // Transition to conditions phase
+                        gameSession.currentExperimentPhase = 'conditions';
+                        gameSession.lightningStats.whiteTokenPool = gameSession.lightningStats.conditionsTokenPool;
+                        console.log(`🚀 TRANSITIONING TO CONDITIONS PHASE! New token pool: ${gameSession.lightningStats.whiteTokenPool}`);
+                    }
+                }
+                gameSession.baselineRoundsRemaining--;
+            } else {
+                // Conditions phase: use conditions token pool with depletion protection
+                if (whiteTokensEarned > 0) {
+                    if (gameSession.lightningStats.whiteTokenPool >= whiteTokensEarned) {
+                        gameSession.lightningStats.whiteTokenPool -= whiteTokensEarned;
+                        console.log(`🪙 [CONDITIONS] Deducted ${whiteTokensEarned} white tokens from conditions pool. Remaining: ${gameSession.lightningStats.whiteTokenPool}`);
+                    } else {
+                        console.log(`⚠️ [CONDITIONS] Not enough white tokens in pool! Needed: ${whiteTokensEarned}, Available: ${gameSession.lightningStats.whiteTokenPool}`);
+                        // Award only what's available (conditions phase continues with black tokens only)
+                        const availableTokens = gameSession.lightningStats.whiteTokenPool;
+                        gameSession.lightningStats.whiteTokenPool = 0;
+                        whiteTokensEarned = availableTokens;
+                        console.log(`🪙 [CONDITIONS] Awarded ${whiteTokensEarned} white tokens (limited by pool). Pool now: 0`);
+                    }
+                }
             }
             
-            console.log(`💰 ${aiPlayer.username} wallet: ${oldWallet} + ${reward} = ${gameSession.lightningStats.playerWallets[aiPlayer.username]} tokens`);
-            console.log(`💵 ${aiPlayer.username} earnings: $${oldEarnings.toFixed(2)} + $${monetaryValue.toFixed(2)} = $${gameSession.lightningStats.playerEarnings[aiPlayer.username].toFixed(2)} (${roundInfo.condition} @ $${exchangeRate})`);
+            // Update token counts using real game mechanics
+            const totalBlackTokens = blackTokensEarned + incentiveBonusTokens;
+            gameSession.lightningStats.playerWallets[aiPlayer.username] = oldWhiteTokens + whiteTokensEarned;
+            gameSession.lightningStats.playerBlackTokens[aiPlayer.username] = oldBlackTokens + totalBlackTokens;
+            
+            // Calculate monetary value using actual condition token values
+            const whiteEarnings = whiteTokensEarned * condition.whiteTokenValue;
+            const blackEarnings = totalBlackTokens * condition.blackTokenValue;
+            const roundEarnings = whiteEarnings + blackEarnings;
+            gameSession.lightningStats.playerEarnings[aiPlayer.username] = oldEarnings + roundEarnings;
+            
+            // Update AI player's actual wallet for consistency
+            if (aiPlayer.whiteTokens !== undefined) {
+                aiPlayer.whiteTokens = gameSession.lightningStats.playerWallets[aiPlayer.username];
+            }
+            if (aiPlayer.blackTokens !== undefined) {
+                aiPlayer.blackTokens = gameSession.lightningStats.playerBlackTokens[aiPlayer.username];
+            }
+            
+            console.log(`💰 ${aiPlayer.username} tokens: White ${oldWhiteTokens} + ${whiteTokensEarned} = ${gameSession.lightningStats.playerWallets[aiPlayer.username]}, Black ${oldBlackTokens} + ${totalBlackTokens} = ${gameSession.lightningStats.playerBlackTokens[aiPlayer.username]}`);
+            console.log(`💵 ${aiPlayer.username} earnings: $${oldEarnings.toFixed(2)} + $${roundEarnings.toFixed(2)} = $${gameSession.lightningStats.playerEarnings[aiPlayer.username].toFixed(2)}`);
         });
         
         console.log(`💰 [Round ${gameSession.currentRound}] Final wallet state:`, gameSession.lightningStats.playerWallets);
-        
-        // Check for culturant (unanimous self-control choice - all choices <= 4)
-        const allChoices = aiPlayers.map(ai => ai.currentChoice);
-        const isCulturant = allChoices.every(choice => choice <= 4);
-        
-        if (isCulturant) {
-            gameSession.lightningStats.culturantCount++;
-            gameSession.lightningStats.culturantRounds.push(gameSession.currentRound);
-            console.log(`🤝 [Round ${gameSession.currentRound}] CULTURANT DETECTED! All players chose self-control (${allChoices.join(', ')})`);
-        } else {
-            console.log(`💭 [Round ${gameSession.currentRound}] No culturant - choices: ${allChoices.join(', ')}`);
-        }
         
         // Add data to dataLog for CSV export (similar to processRound function)
         gameSession.dataLog.push({
@@ -5384,38 +5488,70 @@ function startLightningTestRound(room, gameSession, io) {
             player: roundInfo.player || null,
             blockNumber: roundInfo.blockNumber || null,
             experimentMode: 'lightning_test',
+            phase: roundInfo.phase || gameSession.lightningStats.currentPhase || 'baseline',
             players: aiPlayers.map(p => ({
                 username: p.username,
                 choice: p.currentChoice.toString(),
                 whiteTokens: gameSession.lightningStats.playerWallets[p.username] || 0,
-                blackTokens: 0, // Lightning test doesn't use black tokens
+                blackTokens: gameSession.lightningStats.playerBlackTokens[p.username] || 0,
                 earnings: gameSession.lightningStats.playerEarnings[p.username] || 0,
                 isAI: true,
                 isModerator: false
             })),
             culturantProduced: isCulturant,
-            whiteTokensRemaining: 2500 // Lightning test doesn't track token pool depletion
+            whiteTokensRemaining: gameSession.lightningStats.whiteTokenPool // Track actual token pool depletion
         });
         
         console.log(`📊 [Round ${gameSession.currentRound}] Added round data to dataLog for CSV export`);
         
+        // Calculate total rounds for progress (baseline + conditions)
+        const totalRounds = gameSession.baselineConfig.maxRounds + gameSession.conditionsSchedule.length;
+        
         // Send progress update to client (every round for smooth progress bar)
         io.to(room).emit('lightningTestProgress', {
             round: gameSession.currentRound,
-            totalRounds: gameSession.conditionsSchedule.length,
+            totalRounds: totalRounds,
             condition: roundInfo.condition,
             incentive: roundInfo.incentive,
-            targetPlayer: targetPlayer.username,
-            progress: (gameSession.currentRound / gameSession.conditionsSchedule.length) * 100,
+            targetPlayer: targetPlayer ? targetPlayer.username : 'None (Baseline)',
+            progress: (gameSession.currentRound / totalRounds) * 100,
             playerWallets: gameSession.lightningStats.playerWallets,
-            playerEarnings: gameSession.lightningStats.playerEarnings
+            playerEarnings: gameSession.lightningStats.playerEarnings,
+            phase: gameSession.currentExperimentPhase
         });
         
+        // Determine next round based on phase and completion status
+        let shouldContinue = true;
+        
+        if (gameSession.currentExperimentPhase === 'baseline') {
+            // Check if baseline should continue (either token pool exists or rounds remaining)
+            if (gameSession.lightningStats.whiteTokenPool <= 0 || gameSession.baselineRoundsRemaining <= 0) {
+                // Baseline is complete, transition to conditions
+                gameSession.currentExperimentPhase = 'conditions';
+                console.log(`🔄 Baseline phase complete. Starting conditions phase.`);
+            }
+        } else {
+            // In conditions phase, advance the conditions round index
+            gameSession.conditionsRoundIndex++;
+            
+            // Check if we've completed all conditions rounds
+            if (gameSession.conditionsRoundIndex >= gameSession.conditionsSchedule.length) {
+                shouldContinue = false;
+            }
+        }
+        
         // Advance to next round quickly
-        setTimeout(() => {
-            gameSession.currentRound++;
-            startLightningTestRound(room, gameSession, io);
-        }, 50); // Fast progression
+        if (shouldContinue) {
+            setTimeout(() => {
+                gameSession.currentRound++;
+                startLightningTestRound(room, gameSession, io);
+            }, 50); // Fast progression
+        } else {
+            // Lightning test completed
+            setTimeout(() => {
+                startLightningTestRound(room, gameSession, io);
+            }, 50);
+        }
         
     } catch (error) {
         console.error(`❌ Error in lightning test round ${gameSession.currentRound}:`, error);

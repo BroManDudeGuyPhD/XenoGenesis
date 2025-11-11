@@ -163,7 +163,7 @@ const sampleDataLog = [
         timestamp: new Date().toISOString(),
         round: 3,
         condition: 'High Culturant',
-        incentive: 'Culturant Incentive',
+        incentive: 'Self Control Incentive',
         player: 'PlayerA',
         blockNumber: 1,
         experimentMode: 'unified',

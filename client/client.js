@@ -4622,7 +4622,7 @@ window.testPlayerCounter = function(conditionKey, playerName) {
         round: 1,
         blockNumber: 1,
         player: playerName,
-        incentive: 'Culturant Incentive'
+        incentive: 'Self Control Incentive'
     };
     
     console.log(`🧪 Simulating conditionUpdate with:`, testData);
@@ -5629,7 +5629,7 @@ window.testLEDTrackerWithPlayers = function() {
             { name: 'AI Player 2', id: 'test3', isAI: true }
         ],
         tokenValues: { white: 0.03, black: 0.01 },
-        incentive: 'Culturant Incentive'
+        incentive: 'Self Control Incentive'
     };
     
     // Simulate the conditionUpdate event
@@ -5645,7 +5645,7 @@ window.testLEDTrackerWithoutPlayers = function() {
         blockNumber: 1,
         player: 'AI Player 1',
         tokenValues: { white: 0.03, black: 0.01 },
-        incentive: 'Operant Incentive'
+        incentive: 'Impulse Incentive'
     };
     
     // Simulate the conditionUpdate event
