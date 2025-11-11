@@ -1,4 +1,12 @@
-name: Troubleshoot Services
+name: 🛠️ Troubleshoot Services
+
+run-name: |
+  ${{ 
+    inputs.action == 'check' && '🔍 System Health Check' ||
+    inputs.action == 'restart_down_services' && '🔄 Smart Service Restart' ||
+    inputs.action == 'hard_reset' && '💥 Hard System Reset' ||
+    '🛠️ Service Troubleshooting'
+  }}
 
 on:
   workflow_dispatch:
