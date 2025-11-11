@@ -132,6 +132,16 @@ jobs:
         # Check recent application logs
         echo "Recent application activity:"
         journalctl -u xenogenesis --no-pager -n 3 --since "5 minutes ago" 2>/dev/null || echo "No recent logs found"
+        
+        # Test production app connectivity
+        echo ""
+        echo "🌍 Production App Connectivity:"
+        echo "Testing connection to https://meta.sirbrobot.com..."
+        if curl -s --max-time 10 https://meta.sirbrobot.com > /dev/null 2>&1; then
+          echo "✅ Production app (meta.sirbrobot.com) is reachable"
+        else
+          echo "❌ Production app (meta.sirbrobot.com) is not responding"
+        fi
         echo ""
         
     - name: Restart Down Services
@@ -220,6 +230,47 @@ jobs:
         echo "Fresh startup logs:"
         journalctl -u xenogenesis --no-pager -n 3 --since "1 minute ago" 2>/dev/null || echo "No fresh logs available"
         
+    - name: Test Production App Connectivity
+      if: inputs.action == 'restart_down_services' || inputs.action == 'hard_reset'
+      run: |
+        echo "🌍 Testing Production App Connectivity..."
+        echo "Checking if changes affect production app at https://meta.sirbrobot.com"
+        echo ""
+        
+        # Wait a moment for services to stabilize
+        sleep 3
+        
+        # Test local app first
+        echo "Local app test (localhost:2000):"
+        if curl -s --max-time 10 http://localhost:2000 > /dev/null 2>&1; then
+          echo "✅ Local XenoGenesis app is responding"
+        else
+          echo "❌ Local XenoGenesis app is not responding"
+        fi
+        
+        echo ""
+        echo "Production app test (meta.sirbrobot.com):"
+        if curl -s --max-time 15 https://meta.sirbrobot.com > /dev/null 2>&1; then
+          echo "✅ Production app (meta.sirbrobot.com) is reachable and responding"
+          
+          # Get response headers for more info
+          response_code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 15 https://meta.sirbrobot.com 2>/dev/null || echo "000")
+          echo "   HTTP Response Code: $response_code"
+          
+          if [ "$response_code" = "200" ]; then
+            echo "   🎉 Production app is fully operational"
+          elif [ "$response_code" != "000" ]; then
+            echo "   ⚠️ Production app responded but with non-200 status"
+          fi
+        else
+          echo "❌ Production app (meta.sirbrobot.com) is not responding"
+          echo "   This could indicate network issues or production server problems"
+        fi
+        
+        echo ""
+        echo "🔗 Production App Link: https://meta.sirbrobot.com"
+        echo ""
+        
     - name: Final Summary and GitHub Summary  
       run: |
         echo ""
@@ -279,9 +330,7 @@ jobs:
         
         echo "- **Action Performed**: \`${{ inputs.action }}\`" >> $GITHUB_STEP_SUMMARY
         echo "- **Execution Time**: $(date)" >> $GITHUB_STEP_SUMMARY  
-        echo "- **Runner**: $(hostname)" >> $GITHUB_STEP_SUMMARY
-        echo "- **Workflow Run**: [#${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})" >> $GITHUB_STEP_SUMMARY
-        
+        echo "- **Runner**: $(hostname)" >> $GITHUB_STEP_SUMMARY 
         cat >> $GITHUB_STEP_SUMMARY << 'EOF'
         
         ## 🎯 Action Summary
@@ -364,6 +413,16 @@ jobs:
           echo "- **External Connectivity**: ❌ Connection issues detected" >> $GITHUB_STEP_SUMMARY
         fi
         
+        # Test production app connectivity (for restart/hard_reset actions)
+        if [ "${{ inputs.action }}" = "restart_down_services" ] || [ "${{ inputs.action }}" = "hard_reset" ]; then
+          if curl -s --max-time 10 https://meta.sirbrobot.com > /dev/null 2>&1; then
+            production_status="✅ Online"
+          else
+            production_status="❌ Not responding"
+          fi
+          echo "- **Production App**: $production_status ([meta.sirbrobot.com](https://meta.sirbrobot.com))" >> $GITHUB_STEP_SUMMARY
+        fi
+        
         cat >> $GITHUB_STEP_SUMMARY << 'EOF'
         
         ## 🏥 Overall Health Assessment
@@ -417,6 +476,7 @@ jobs:
         cat >> $GITHUB_STEP_SUMMARY << 'EOF'
         
         ## 🔗 Quick Links
+        - [🌍 Production App](https://meta.sirbrobot.com) - Live MetaMatching platform
         - [View Workflow Run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
         - [Repository](${{ github.server_url }}/${{ github.repository }})
         - [Actions History](${{ github.server_url }}/${{ github.repository }}/actions)
