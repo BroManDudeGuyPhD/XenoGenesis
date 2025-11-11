@@ -162,8 +162,18 @@ jobs:
         # Check and restart nginx if down
         if ! systemctl is-active --quiet nginx 2>/dev/null; then
           echo "Restarting nginx..."
-          sudo systemctl restart nginx
-          services_restarted=$((services_restarted + 1))
+          if sudo -n systemctl restart nginx 2>/dev/null; then
+            echo "✅ Restarted nginx with sudo"
+            services_restarted=$((services_restarted + 1))
+          else
+            echo "⚠️ Trying nginx restart without sudo..."
+            if systemctl --user restart nginx 2>/dev/null; then
+              echo "✅ Restarted nginx as user"
+              services_restarted=$((services_restarted + 1))
+            else
+              echo "❌ Cannot restart nginx"
+            fi
+          fi
           sleep 2
         else
           echo "nginx is already running"
@@ -172,8 +182,18 @@ jobs:
         # Check and restart xenogenesis if down
         if ! systemctl is-active --quiet xenogenesis 2>/dev/null; then
           echo "Restarting xenogenesis..."
-          sudo systemctl restart xenogenesis
-          services_restarted=$((services_restarted + 1))
+          if sudo -n systemctl restart xenogenesis 2>/dev/null; then
+            echo "✅ Restarted xenogenesis with sudo"
+            services_restarted=$((services_restarted + 1))
+          else
+            echo "⚠️ Trying xenogenesis restart without sudo..."
+            if systemctl --user restart xenogenesis 2>/dev/null; then
+              echo "✅ Restarted xenogenesis as user"
+              services_restarted=$((services_restarted + 1))
+            else
+              echo "❌ Cannot restart xenogenesis"
+            fi
+          fi
           sleep 3
         else
           echo "xenogenesis is already running"
@@ -194,39 +214,79 @@ jobs:
         echo "⚠️ PERFORMING HARD RESET..."
         echo "This will stop all services, clear caches, and restart everything"
         
+        # Check if we can use sudo without password or need to run differently
+        echo "Current user: $(whoami)"
+        echo "Checking sudo access..."
+        
         # Stop services gracefully
         echo "Stopping services..."
-        sudo systemctl stop xenogenesis 2>/dev/null || true
-        sudo systemctl stop nginx 2>/dev/null || true
+        if sudo -n systemctl stop xenogenesis 2>/dev/null; then
+          echo "✅ Stopped xenogenesis with sudo"
+        else
+          echo "⚠️ Cannot use sudo, trying systemctl directly..."
+          systemctl --user stop xenogenesis 2>/dev/null || echo "Cannot stop xenogenesis"
+        fi
+        
+        if sudo -n systemctl stop nginx 2>/dev/null; then
+          echo "✅ Stopped nginx with sudo"
+        else
+          echo "⚠️ Cannot use sudo, trying systemctl directly..."
+          systemctl --user stop nginx 2>/dev/null || echo "Cannot stop nginx"
+        fi
         
         # Force kill any remaining processes
         echo "Force killing remaining processes..."
-        sudo pkill -f "node.*app.js" 2>/dev/null || true
-        sudo pkill -f nginx 2>/dev/null || true
+        pkill -f "node.*app.js" 2>/dev/null || true
+        pkill -f nginx 2>/dev/null || true
         sleep 2
         
-        # Clear service logs to free space and reset state
+        # Clear service logs to free space and reset state (try both methods)
         echo "Clearing service logs..."
-        sudo journalctl --rotate 2>/dev/null || true
-        sudo journalctl --vacuum-time=1s 2>/dev/null || true
+        if sudo -n journalctl --rotate 2>/dev/null && sudo -n journalctl --vacuum-time=1s 2>/dev/null; then
+          echo "✅ Cleared logs with sudo"
+        else
+          echo "⚠️ Cannot clear system logs without sudo privileges"
+        fi
         
         # Clear application temporary files
         echo "Clearing temporary files..."
-        sudo rm -rf /tmp/xenogenesis* 2>/dev/null || true
-        sudo rm -rf /var/tmp/xenogenesis* 2>/dev/null || true
+        rm -rf /tmp/xenogenesis* 2>/dev/null || true
+        rm -rf /var/tmp/xenogenesis* 2>/dev/null || true
         
         # Clear any application cache directories
         [ -d ~/.cache/xenogenesis ] && rm -rf ~/.cache/xenogenesis 2>/dev/null || true
-        [ -d /var/cache/xenogenesis ] && sudo rm -rf /var/cache/xenogenesis 2>/dev/null || true
+        if [ -d /var/cache/xenogenesis ]; then
+          if sudo -n rm -rf /var/cache/xenogenesis 2>/dev/null; then
+            echo "✅ Cleared system cache with sudo"
+          else
+            echo "⚠️ Cannot clear system cache without sudo"
+          fi
+        fi
         
         # Force reload systemd in case of any service definition changes
-        sudo systemctl daemon-reload 2>/dev/null || true
+        if sudo -n systemctl daemon-reload 2>/dev/null; then
+          echo "✅ Reloaded systemd with sudo"
+        else
+          systemctl --user daemon-reload 2>/dev/null || echo "⚠️ Cannot reload systemd"
+        fi
         
         # Restart services with clean state
         echo "Restarting services..."
-        sudo systemctl start nginx
+        if sudo -n systemctl start nginx 2>/dev/null; then
+          echo "✅ Started nginx with sudo"
+        else
+          echo "⚠️ Trying to start nginx without sudo..."
+          systemctl --user start nginx 2>/dev/null || echo "❌ Cannot start nginx"
+        fi
+        
         sleep 2
-        sudo systemctl start xenogenesis
+        
+        if sudo -n systemctl start xenogenesis 2>/dev/null; then
+          echo "✅ Started xenogenesis with sudo"
+        else
+          echo "⚠️ Trying to start xenogenesis without sudo..."
+          systemctl --user start xenogenesis 2>/dev/null || echo "❌ Cannot start xenogenesis"
+        fi
         sleep 5
         
         echo "🔥 Hard reset complete!"
