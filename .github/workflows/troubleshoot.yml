@@ -420,7 +420,7 @@ jobs:
           else
             production_status="❌ Not responding"
           fi
-          echo "- **Production App**: $production_status ([meta.sirbrobot.com](https://meta.sirbrobot.com))" >> $GITHUB_STEP_SUMMARY
+          echo "- **Production App**: $production_status (<a href=\"https://meta.sirbrobot.com\" target=\"_blank\">meta.sirbrobot.com</a>)" >> $GITHUB_STEP_SUMMARY
         fi
         
         cat >> $GITHUB_STEP_SUMMARY << 'EOF'
@@ -476,7 +476,7 @@ jobs:
         cat >> $GITHUB_STEP_SUMMARY << 'EOF'
         
         ## 🔗 Quick Links
-        - [🌍 Production App](https://meta.sirbrobot.com) - Live MetaMatching platform
+        - <a href="https://meta.sirbrobot.com" target="_blank">🌍 Production App</a> - Live MetaMatching platform
         - [View Workflow Run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
         - [Repository](${{ github.server_url }}/${{ github.repository }})
         - [Actions History](${{ github.server_url }}/${{ github.repository }}/actions)
