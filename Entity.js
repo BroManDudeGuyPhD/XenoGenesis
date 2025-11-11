@@ -222,6 +222,13 @@ var GlobalTokenPool = {
             this.whiteTokens = experiment.totalWhiteTokenPool; // CONDITIONS_TOKENS
             console.log(`🔄 Token pool transitioned to conditions phase: ${this.whiteTokens} white tokens`);
         }
+    },
+    
+    // Reset token pool to default state for new experiments
+    reset: function() {
+        this.whiteTokens = 100; // Default baseline tokens
+        this.blackTokens = Infinity; // Always unlimited
+        console.log(`🧹 GlobalTokenPool reset to defaults: ${this.whiteTokens} white tokens, ∞ black tokens`);
     }
 };
 
@@ -289,7 +296,7 @@ var IncentiveBonuses = {
 // AI Player Configuration
 var AIConfig = {
     enabled: true,
-    maxAIPlayers: 2, // Up to 2 AI players per triad
+    maxAIPlayers: 3, // Up to 3 AI players per room (for 4-player experiments)
     decisionDelay: 2000, // AI decision delay in milliseconds (2 seconds)
     speedTestDelay: 250, // Fast AI decisions for speed tests (250ms)
     behaviorTypes: {
@@ -2223,24 +2230,34 @@ Player.onConnect = function(socket,username,admin,io){
         }
         
         // Get current room information using the correct Player.list structure
-        const roomPlayers = Object.values(Player.list).filter(p => p.room === room);
+        const roomPlayers = Object.values(Player.list || {}).filter(p => p.room === room);
         const humanPlayers = roomPlayers.filter(player => !player.isAI);
         const aiPlayers = roomPlayers.filter(player => player.isAI);
         
-        // Smart triad formation logic
+        // Define constants first
         const maxTriadSize = 3; // Triad formation requires exactly 3 players (excluding moderator)
         const currentTotalPlayers = roomPlayers.length; // Current human + AI players
         
-        // Calculate how many AI players are needed to reach triad formation
-        const aiPlayersNeeded = Math.max(0, maxTriadSize - currentTotalPlayers);
+        // Check if specific count was requested, otherwise use triad formation logic
+        let aiPlayersNeeded;
+        if (data.count && data.count > 0) {
+            // Use requested count
+            aiPlayersNeeded = data.count;
+            console.log(`🤖 Requested specific count: ${aiPlayersNeeded} AI players`);
+        } else {
+            // Default triad formation logic
+            aiPlayersNeeded = Math.max(0, maxTriadSize - currentTotalPlayers);
+            console.log(`🤖 Using triad formation: need ${aiPlayersNeeded} AI players for ${maxTriadSize} total`);
+        }
         
         // Ensure we don't exceed the configured AI limit
         const maxAI = Math.min(aiPlayersNeeded, AIConfig.maxAIPlayers - aiPlayers.length);
         
         if (maxAI <= 0) {
-            if (currentTotalPlayers >= maxTriadSize) {
+            const targetPlayers = data.count ? (roomPlayers.length + data.count) : maxTriadSize;
+            if (aiPlayersNeeded <= 0) {
                 socket.emit('systemMessage', { 
-                    message: `Triad formation complete - room already has ${currentTotalPlayers} players (${humanPlayers.length} human, ${aiPlayers.length} AI)` 
+                    message: `Room already filled - has ${currentTotalPlayers} players (${humanPlayers.length} human, ${aiPlayers.length} AI)` 
                 });
             } else {
                 socket.emit('systemMessage', { 
@@ -2251,15 +2268,28 @@ Player.onConnect = function(socket,username,admin,io){
         }
         
         // Add AI players
-        for (let i = 0; i < maxAI; i++) {
-            const playerNumber = roomPlayers.length + i + 1;
-            const behaviorType = i === 0 ? 'COOPERATIVE' : 'RANDOM'; // Mix behaviors
-            const aiPlayer = AIPlayer.create(room, playerNumber, behaviorType);
-            
-            // Add to Player.list using the existing structure
-            Player.list[aiPlayer.id] = aiPlayer;
-            
-            console.log(`✅ Added ${aiPlayer.username} to room ${room}`);
+        try {
+            for (let i = 0; i < maxAI; i++) {
+                const playerNumber = roomPlayers.length + i + 1;
+                const behaviorType = i === 0 ? 'COOPERATIVE' : 'RANDOM'; // Mix behaviors
+                const aiPlayer = AIPlayer.create(room, playerNumber, behaviorType);
+                
+                if (!aiPlayer) {
+                    console.error(`❌ Failed to create AI player ${i + 1} for room ${room}`);
+                    continue;
+                }
+                
+                // Add to Player.list using the existing structure
+                Player.list[aiPlayer.id] = aiPlayer;
+                
+                console.log(`✅ Added ${aiPlayer.username} to room ${room}`);
+            }
+        } catch (error) {
+            console.error(`❌ Error adding AI players to room ${room}:`, error);
+            socket.emit('systemMessage', { 
+                message: 'Error adding AI players. Please try again.' 
+            });
+            return;
         }
         
         // Reassign positions after adding AI players
@@ -2302,11 +2332,95 @@ Player.onConnect = function(socket,username,admin,io){
         const finalHumanPlayers = humanPlayers.length;
         const finalAIPlayers = aiPlayers.length + maxAI;
         
+        const successMessage = data.count 
+            ? `Successfully filled room with ${maxAI} AI player(s). Total: ${finalTotalPlayers} players (${finalHumanPlayers} human, ${finalAIPlayers} AI)`
+            : `Successfully added ${maxAI} AI player(s) to room ${room}. Triad formation: ${finalTotalPlayers}/3 players (${finalHumanPlayers} human, ${finalAIPlayers} AI)`;
+        
         socket.emit('systemMessage', { 
-            message: `Successfully added ${maxAI} AI player(s) to room ${room}. Triad formation: ${finalTotalPlayers}/3 players (${finalHumanPlayers} human, ${finalAIPlayers} AI)` 
+            message: successMessage
         });
         
         console.log(`🤖 Successfully added ${maxAI} AI players to room ${room}. Final count: ${finalTotalPlayers} total (${finalHumanPlayers} human, ${finalAIPlayers} AI)`);
+    });
+
+    socket.on('removeAIPlayers', (data) => {
+        // Try to get user from session-based system first
+        const sessionUser = getCurrentUser(socket.id);
+        const username = sessionUser ? sessionUser.username : 'Unknown';
+        const room = data.room || "Global";
+        
+        console.log(`🚫 ${username} requested to remove AI players from room: ${room}`);
+        
+        // Check if the player has permission to remove AI
+        if (room === "Global") {
+            socket.emit('systemMessage', { message: 'Cannot remove AI players from Global chat' });
+            return;
+        }
+        
+        // Get current AI players in the room
+        const roomPlayers = Object.values(Player.list || {}).filter(p => p.room === room);
+        const aiPlayersInRoom = roomPlayers.filter(player => player.isAI);
+        const humanPlayers = roomPlayers.filter(player => !player.isAI);
+        
+        if (aiPlayersInRoom.length === 0) {
+            socket.emit('systemMessage', { 
+                message: 'No AI players to remove from this room' 
+            });
+            return;
+        }
+        
+        // Remove all AI players
+        let removedCount = 0;
+        try {
+            aiPlayersInRoom.forEach(aiPlayer => {
+                console.log(`🚫 Removing AI player: ${aiPlayer.username} (${aiPlayer.id})`);
+                delete Player.list[aiPlayer.id];
+                removedCount++;
+            });
+            
+            console.log(`✅ Successfully removed ${removedCount} AI players from room ${room}`);
+            
+            // Reassign positions after removing AI players
+            GameSession.assignTriadPositions(room);
+            
+            // Notify all players in the room about the AI removal
+            const allRoomUsers = getRoomUsers(room);
+            const currentRoom = roomList.find(r => r.name === room);
+            
+            // Create updated player list (only human players now)
+            const playersWithModerator = allRoomUsers.map(user => ({
+                username: user.username,
+                id: user.id,
+                isAI: false,
+                isModerator: currentRoom && user.username === currentRoom.creator
+            }));
+            
+            console.log(`📡 Emitting playersInRoom after AI removal for ${room}:`, playersWithModerator);
+            io.to(room).emit('playersInRoom', { 
+                room: room, 
+                players: playersWithModerator
+            });
+            
+            // Send success message
+            const finalHumanPlayers = humanPlayers.length;
+            socket.emit('systemMessage', { 
+                message: `Successfully removed ${removedCount} AI player(s) from room. Remaining: ${finalHumanPlayers} human player(s)`
+            });
+            
+            // Emit specific AI removal event to force UI updates
+            console.log(`📡 Emitting aiPlayersRemoved event to socket ${socket.id}`);
+            socket.emit('aiPlayersRemoved', {
+                room: room,
+                removedCount: removedCount,
+                remainingPlayers: finalHumanPlayers
+            });
+            
+        } catch (error) {
+            console.error(`❌ Error removing AI players from room ${room}:`, error);
+            socket.emit('systemMessage', { 
+                message: 'Error removing AI players. Please try again.' 
+            });
+        }
     });
 
     socket.on('runSpeedTest', (data) => {
@@ -4892,6 +5006,17 @@ function endExperiment(roomName, gameSession) {
             });
         }
     });
+    
+    // Clean up all game elements for the room to reset for next experiment
+    console.log(`🧹 Cleaning up room ${roomName} after experiment end`);
+    Player.cleanupRoom(roomName);
+    
+    // Also reset any global token pool state
+    if (typeof GlobalTokenPool !== 'undefined') {
+        GlobalTokenPool.reset();
+    }
+    
+    console.log(`✅ Experiment end cleanup completed for room: ${roomName}`);
 }
 
 // Export data function (can be called by admin)

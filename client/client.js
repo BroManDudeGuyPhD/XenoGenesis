@@ -934,15 +934,9 @@ function showExperimentEndedModal(message, moderator) {
 
 // Function to close experiment ended modal and return to global chat
 function closeExperimentEndedModal() {
-    const modal = document.getElementById('experimentEndedModal');
-    if (modal) {
-        modal.style.animation = 'fadeOut 0.3s ease-in';
-        setTimeout(() => {
-            if (modal.parentNode) {
-                modal.remove();
-            }
-        }, 300);
-    }
+    // Immediate refresh when "Return to Global Chat" is clicked
+    console.log('🔄 Refreshing page immediately after experiment end...');
+    window.location.reload();
     
     // Ensure proper UI state when returning to global chat
     // Hide the login screen (landing page) and show the chat interface
@@ -2262,6 +2256,105 @@ function addColumnHoverEffects() {
 // Chat Objects (will be initialized when DOM is ready)
 let chatForm, globalChatMessages, globalNameText, roomChatMessages, roomNameText, userList, userCount, gameDiv;
 
+// Experiment UI cleanup function
+function clearExperimentUI() {
+    console.log('🧹 Clearing all experiment UI elements');
+    
+    // Hide all experiment phases
+    const decisionPhase = document.getElementById('decisionPhase');
+    const resultsPhase = document.getElementById('resultsPhase');
+    const finalResults = document.getElementById('finalResults');
+    
+    if (decisionPhase) decisionPhase.style.display = 'none';
+    if (resultsPhase) resultsPhase.style.display = 'none';
+    if (finalResults) finalResults.style.display = 'none';
+    
+    // Hide moderator switchboard
+    const moderatorSwitchboard = document.getElementById('moderatorSwitchboard');
+    if (moderatorSwitchboard) moderatorSwitchboard.style.display = 'none';
+    
+    // Reset grid display
+    const gridContainer = document.getElementById('gridContainer');
+    if (gridContainer) {
+        gridContainer.innerHTML = '';
+        gridContainer.style.display = 'none';
+    }
+    
+    // Clear any round displays
+    const roundDisplay = document.getElementById('roundNumber');
+    const conditionDisplay = document.getElementById('currentCondition');
+    const tokenDisplay = document.getElementById('tokenPool');
+    
+    if (roundDisplay) roundDisplay.textContent = '';
+    if (conditionDisplay) conditionDisplay.textContent = '';
+    if (tokenDisplay) tokenDisplay.textContent = '';
+    
+    // Reset button states
+    const lightningBtn = document.getElementById('lightningBtn');
+    if (lightningBtn) {
+        lightningBtn.textContent = '⚡ Lightning Test';
+        lightningBtn.disabled = false;
+        lightningBtn.style.opacity = '1';
+    }
+    
+    // Clear any experiment progress modals
+    const existingModal = document.getElementById('lightningProgressModal');
+    if (existingModal) {
+        existingModal.remove();
+    }
+    
+    // Clear floating animations and locked-in player states
+    if (typeof lockedInPlayers !== 'undefined' && lockedInPlayers instanceof Map) {
+        console.log('🧹 Clearing locked-in player animations');
+        lockedInPlayers.forEach((data, username) => {
+            if (data.cleanupTimeout) {
+                clearTimeout(data.cleanupTimeout);
+            }
+        });
+        lockedInPlayers.clear();
+    }
+    
+    // Force restore all player seats to original positions
+    if (typeof restoreFloatingPlayers === 'function') {
+        restoreFloatingPlayers();
+    }
+    
+    // Targeted animation cleanup - no lag inducing DOM scanning
+    console.log('🧹 Performing targeted animation cleanup...');
+    
+    // Specifically clear player seat states
+    const playerSeats = document.querySelectorAll('[id$="Player"], .player-seat');
+    playerSeats.forEach(seat => {
+        seat.classList.remove('floating-player', 'floating-left', 'floating-right', 'floating-top', 'floating-back');
+        // Reset any inline styles that might have been applied
+        seat.style.transform = '';
+        seat.style.zIndex = '';
+        seat.style.left = '';
+        seat.style.right = '';
+        seat.style.top = '';
+        seat.style.animation = '';
+    });
+    
+    // Clear any player status indicators on seats
+    const playerNames = document.querySelectorAll('.player-name');
+    const playerStatuses = document.querySelectorAll('.player-status');
+    playerNames.forEach(nameEl => {
+        nameEl.textContent = '';
+        nameEl.classList.remove('locked-in', 'decision-made', 'waiting');
+        nameEl.style.animation = '';
+    });
+    playerStatuses.forEach(statusEl => {
+        statusEl.textContent = 'Empty';
+        statusEl.classList.remove('locked-in', 'decision-made', 'waiting');
+        statusEl.style.animation = '';
+    });
+    
+    // Force clear body classes that might affect UI state
+    document.body.classList.remove('game-active', 'experiment-running', 'lightning-active');
+    
+    console.log('✅ Comprehensive experiment UI and animations cleared');
+}
+
 // Poker table visualization functions
 function clearPokerTable() {
     // Clear all seats
@@ -2874,11 +2967,16 @@ socket.on('playersInRoom', function(data) {
         if (startExperimentBtn) {
             if (newModerator && isCurrentUserModerator) {
                 startExperimentBtn.style.display = 'block';
-                console.log('✅ Showing Start Experiment button for moderator');
+                startExperimentBtn.style.visibility = 'visible';
+                startExperimentBtn.style.opacity = '1';
+                console.log('✅ Showing Start Experiment button for moderator via playersInRoom');
             } else {
                 startExperimentBtn.style.display = 'none';
-                console.log('❌ Hiding Start Experiment button - not moderator');
+                console.log('❌ Hiding Start Experiment button - not moderator via playersInRoom');
+                console.log('   Debug: newModerator =', newModerator, 'isCurrentUserModerator =', isCurrentUserModerator);
             }
+        } else {
+            console.error('❌ startExperimentBtn not found in playersInRoom handler');
         }
         
         // Show/hide "Add AI Players" button based on moderator status
@@ -2888,7 +2986,7 @@ socket.on('playersInRoom', function(data) {
             if (!addAIBtn && startExperimentBtn) {
                 addAIBtn = document.createElement('button');
                 addAIBtn.id = 'addAIBtn';
-                addAIBtn.textContent = '🤖 Add AI Players';
+                addAIBtn.textContent = '🤖 Fill Room with AI';
                 addAIBtn.style.cssText = 'background: linear-gradient(135deg, #5865f2 0%, #4752c4 100%); color: white; padding: 8px 16px; font-size: 14px; border: none; border-radius: 6px; cursor: pointer; margin-left: 8px; font-weight: 500; box-shadow: 0 2px 8px rgba(88, 101, 242, 0.3); transition: all 0.2s ease;';
                 addAIBtn.addEventListener('mouseover', () => {
                     addAIBtn.style.transform = 'translateY(-1px)';
@@ -2900,20 +2998,51 @@ socket.on('playersInRoom', function(data) {
                 });
                 startExperimentBtn.parentNode.appendChild(addAIBtn);
                 
-                // Add event listener for Add AI button
+                // Add event listener for Add AI button with toggle functionality
                 addAIBtn.addEventListener('click', (e) => {
                     e.preventDefault();
                     
-                    // Emit request to server to add AI players
-                    socket.emit('addAIPlayers', { 
-                        room: currentRoom || 'Global'
-                    });
-                    console.log('🤖 Requested AI players for room:', currentRoom || 'Global');
+                    // Check current button state to determine action (more reliable than checking stale data)
+                    const isRemovalMode = addAIBtn.textContent.includes('Remove');
+                    
+                    if (isRemovalMode) {
+                        // Remove all AI players
+                        console.log(`🚫 Button in removal mode - removing all AI players from room`);
+                        socket.emit('removeAIPlayers', { 
+                            room: currentRoom || 'Global'
+                        });
+                        console.log('🚫 Requested removal of all AI players from room:', currentRoom || 'Global');
+                    } else {
+                        // Add AI players to fill room - get current player count dynamically
+                        console.log('🤖 Button in add mode - requesting fresh room state for accurate count');
+                        
+                        // Request current room state and then add AI in the response
+                        window.pendingAIAdd = true;
+                        socket.emit('requestRoomState', { room: currentRoom });
+                    }
                 });
                 console.log('✅ Created Add AI Players button for moderator');
             } else if (addAIBtn) {
                 addAIBtn.style.display = 'block';
                 console.log('✅ Showing Add AI Players button for moderator');
+            }
+            
+            // Update button appearance based on whether AI players exist
+            if (addAIBtn) {
+                const aiPlayersInRoom = data.players.filter(p => p.isAI);
+                if (aiPlayersInRoom.length > 0) {
+                    // Change to removal mode - red glowing button
+                    addAIBtn.textContent = '❌🤖 Democratically Remove AI';
+                    addAIBtn.style.background = 'linear-gradient(135deg, #dc2626 0%, #b91c1c 100%)';
+                    addAIBtn.style.boxShadow = '0 0 20px rgba(220, 38, 38, 0.6), 0 2px 8px rgba(220, 38, 38, 0.4)';
+                    addAIBtn.style.animation = 'subtlePulse 2s infinite';
+                } else {
+                    // Default add mode - blue button
+                    addAIBtn.textContent = '🤖 Fill Room with AI';
+                    addAIBtn.style.background = 'linear-gradient(135deg, #5865f2 0%, #4752c4 100%)';
+                    addAIBtn.style.boxShadow = '0 2px 8px rgba(88, 101, 242, 0.3)';
+                    addAIBtn.style.animation = '';
+                }
             }
         } else if (addAIBtn) {
             addAIBtn.style.display = 'none';
@@ -3002,11 +3131,54 @@ socket.on('playersInRoom', function(data) {
             console.log('❌ Hiding Speed Test button - not admin or not test room');
         }
         
-        if (!moderatorChanged && !participantsChanged && data.players.length <= 2) {
-            // Only skip updates if there are no significant changes AND we have minimal players
-            // Always update when AI players are added (length > 2) to ensure UI is properly populated
+        // Check if this is an AI removal scenario or forced update
+        const previousAICount = currentPlayers.filter(name => {
+            // Check if any previous player names suggest they were AI
+            return name && (name.includes('AI Player') || name.includes('Bot'));
+        }).length;
+        const newAICount = data.players.filter(p => p.isAI).length;
+        const aiPlayersRemoved = previousAICount > newAICount;
+        const forceUpdate = window.forceNextPlayersUpdate === true;
+        
+        if (forceUpdate) {
+            console.log('🔄 Forced playersInRoom update requested');
+            window.forceNextPlayersUpdate = false; // Clear the flag
+        }
+        
+        // Handle pending AI add request
+        if (window.pendingAIAdd) {
+            console.log('🤖 Processing pending AI add request...');
+            window.pendingAIAdd = false;
+            
+            const currentPlayerCount = data.players.length;
+            const maxPlayers = 4;
+            const aiPlayersNeeded = maxPlayers - currentPlayerCount;
+            
+            if (aiPlayersNeeded > 0) {
+                console.log(`🤖 Current players: ${currentPlayerCount}, Adding ${aiPlayersNeeded} AI players to fill room`);
+                socket.emit('addAIPlayers', { 
+                    room: currentRoom || 'Global',
+                    count: aiPlayersNeeded
+                });
+            } else {
+                console.log(`🤖 Room already at capacity (${currentPlayerCount} players)`);
+            }
+            
+            // Don't process the rest of playersInRoom since we're about to get another update
+            return;
+        }
+        
+        if (!moderatorChanged && !participantsChanged && data.players.length <= 2 && !aiPlayersRemoved && !forceUpdate) {
+            // Only skip updates if there are no significant changes AND we have minimal players AND no AI was removed AND not forced
             console.log('🔄 playersInRoom received but no changes detected - skipping UI rebuild to preserve game state');
             return;
+        }
+        
+        if (aiPlayersRemoved) {
+            console.log('🤖 AI players removed detected - forcing UI update');
+        }
+        if (forceUpdate) {
+            console.log('🔄 Force flag detected - processing UI update');
         }
         
         console.log('🔄 Player list changed, updating UI:', {
@@ -3282,7 +3454,13 @@ socket.on('message', (message) => {
 });
 
 socket.on('roomCreated', (roomName) => {
-    console.log("Room Created: "+roomName)
+    console.log("Room Created: "+roomName);
+    
+    // Force clear any experiment state that might interfere with UI
+    gameActive = false;
+    currentRoundNumber = 0;
+    document.body.classList.remove('game-active', 'experiment-running', 'lightning-active');
+    
     roomNameText.style.display ="";
     socket.emit('joinRoom', roomName );
     currentRoom = roomName; // Update current room tracking
@@ -3290,6 +3468,11 @@ socket.on('roomCreated', (roomName) => {
     
     // Show game interface immediately when moderator creates room
     showGameInterface();
+    
+    // Initialize moderator status and buttons for room creator (with delay to ensure DOM ready)
+    setTimeout(() => {
+        initializeModeratorUI(roomName);
+    }, 10);
     
     // Copy room name to clipboard
     if (navigator.clipboard) {
@@ -3339,6 +3522,76 @@ socket.on('copyToClipboard', (data) => {
 
 // Chat initialization and event handlers will be set up in DOMContentLoaded
 
+// Function to initialize moderator UI when creating or joining a room as moderator
+function initializeModeratorUI(roomName) {
+    console.log('🎯 Initializing moderator UI for room:', roomName);
+    
+    // Force establish moderator status aggressively 
+    window.currentUserIsModerator = true;
+    currentUsername = localStorage.getItem('username');
+    
+    // Comprehensive button visibility setup with detailed debugging
+    const setupButton = (attempt = 1) => {
+        console.log(`🔧 Button setup attempt ${attempt}...`);
+        const startExperimentBtn = document.getElementById('startExperimentBtn');
+        
+        if (startExperimentBtn) {
+            // Log current state
+            console.log('🔍 Button found - current state:', {
+                display: startExperimentBtn.style.display,
+                visibility: startExperimentBtn.style.visibility,
+                opacity: startExperimentBtn.style.opacity,
+                computedDisplay: window.getComputedStyle(startExperimentBtn).display,
+                computedVisibility: window.getComputedStyle(startExperimentBtn).visibility
+            });
+            
+            // Force show with multiple approaches
+            startExperimentBtn.style.cssText = startExperimentBtn.style.cssText.replace(/display\s*:\s*none/gi, '');
+            startExperimentBtn.style.display = 'block';
+            startExperimentBtn.style.visibility = 'visible';
+            startExperimentBtn.style.opacity = '1';
+            startExperimentBtn.style.pointerEvents = 'auto';
+            
+            // Remove any classes that might hide it
+            startExperimentBtn.classList.remove('hidden', 'invisible', 'd-none');
+            
+            // Verify it's actually visible
+            const finalState = window.getComputedStyle(startExperimentBtn);
+            console.log('✅ Button configured - final state:', {
+                display: finalState.display,
+                visibility: finalState.visibility,
+                opacity: finalState.opacity
+            });
+            
+            if (finalState.display === 'none') {
+                console.warn('⚠️ Button still hidden after setup - CSS override detected');
+                // Try using !important
+                startExperimentBtn.setAttribute('style', 
+                    startExperimentBtn.getAttribute('style') + '; display: block !important; visibility: visible !important;'
+                );
+            }
+            
+            return true;
+        } else {
+            console.warn(`⚠️ startExperimentBtn not found on attempt ${attempt}`);
+            return false;
+        }
+    };
+    
+    // Immediate setup
+    if (!setupButton(1)) {
+        // Fallback attempts with increasing delays
+        setTimeout(() => setupButton(2), 50);
+        setTimeout(() => setupButton(3), 150);
+        setTimeout(() => setupButton(4), 300);
+    }
+    
+    // Update card visibility with new context
+    updateCardVisibility();
+    
+    console.log('✅ Moderator UI initialization complete with comprehensive button setup');
+}
+
 // Function to show game interface inline
 function showGameInterface() {
     console.log('🎮 showGameInterface() called for room:', currentRoom);
@@ -3373,6 +3626,17 @@ function showGameInterface() {
             if (currentRoom && currentRoom !== 'Global') {
                 console.log('🔍 Requesting room state for:', currentRoom);
                 socket.emit('requestRoomState', { room: currentRoom });
+                
+                // Fallback: Check button visibility after room state request
+                setTimeout(() => {
+                    const startBtn = document.getElementById('startExperimentBtn');
+                    if (startBtn && window.currentUserIsModerator && startBtn.style.display === 'none') {
+                        console.log('🔧 FALLBACK: Force showing Start Experiment button for moderator');
+                        startBtn.style.display = 'block';
+                        startBtn.style.visibility = 'visible';
+                        startBtn.style.opacity = '1';
+                    }
+                }, 200);
             }
         }, 100);
     } else {
@@ -3385,13 +3649,14 @@ function showGameInterface() {
         socket.emit('requestRoomState', { room: currentRoom });
     }
     
-    gameActive = true;
-    document.body.classList.add('game-active');
+    // Don't automatically set gameActive = true here
+    // This will be set when an experiment actually starts
+    // For now, just show the room interface without game-active state
     
-    // Update card visibility for game context
+    // Update card visibility for room context (not game context yet)
     updateCardVisibility();
     
-    // Clear inline styles to let CSS take over (CSS will hide them with game-active class)
+    // Clear inline styles to let CSS take over
     if (createRoomButton) {
         createRoomButton.style.display = '';
     }
@@ -3686,8 +3951,9 @@ socket.on('leftRoom', function(data) {
         console.log('✅ Chat container shown');
     }
     
-    // Clear the poker table completely
+    // Clear the poker table and all experiment UI
     clearPokerTable();
+    clearExperimentUI();
     
     // Hide control buttons
     const startBtn = document.getElementById('startExperimentBtn');
@@ -3808,11 +4074,30 @@ socket.on('experimentEnded', function(data) {
     // Show glassmorphic experiment ended modal
     showExperimentEndedModal(data.message, data.moderator);
     
-    // Reset game state immediately
+    // User will refresh by clicking "Return to Global Chat" button
+    
+    // Reset game state immediately and completely
     gameActive = false;
-    document.body.classList.remove('game-active');
+    document.body.classList.remove('game-active', 'experiment-running', 'lightning-active');
     currentRoom = 'Global';
     currentRoundNumber = 0;
+    
+    // Simple targeted cleanup
+    console.log('🧹 Performing targeted experiment cleanup...');
+    
+    // Clear all experiment UI elements
+    clearExperimentUI();
+    
+    // Clear the poker table completely
+    clearPokerTable();
+    
+    // Reset Player.list to clear any lingering player data
+    Player.list = {};
+    
+    // Clear locked-in players map
+    if (typeof lockedInPlayers !== 'undefined' && lockedInPlayers instanceof Map) {
+        lockedInPlayers.clear();
+    }
     
     // Update card visibility for global context
     updateCardVisibility();
@@ -3820,8 +4105,14 @@ socket.on('experimentEnded', function(data) {
     // Hide any open modals or menus
     hideModeratorContextMenu();
     
-    // The server also sends a 'leftRoom' event which will handle the UI transition
     console.log('🛑 Experiment ended, waiting for leftRoom event to handle UI transition...');
+    
+    // Simple post-cleanup state verification
+    setTimeout(() => {
+        console.log('🔍 Post-cleanup: Ensuring Global state is properly established');
+        currentRoom = 'Global';
+        document.body.classList.remove('game-active', 'experiment-running', 'lightning-active');
+    }, 100);
 });
 
 // Lightning Test Progress Handler
@@ -7606,6 +7897,79 @@ socket.on('systemMessageSent', function(data) {
     }
 });
 
+// Handle AI players removal confirmation
+socket.on('aiPlayersRemoved', function(data) {
+    console.log('🤖 AI players removed confirmation received:', data);
+    console.log('🤖 Current room:', currentRoom, 'Event room:', data.room);
+    
+    if (data.room === currentRoom) {
+        console.log('🔄 Room match - executing lobby reset...');
+        // Force complete lobby reset to pre-AI state
+        resetLobbyToPreAIState();
+        console.log('✅ Lobby reset to pre-AI state completed');
+    } else {
+        console.log('❌ Room mismatch - skipping reset');
+    }
+});
+
+// Function to reset lobby to clean pre-AI state
+function resetLobbyToPreAIState() {
+    console.log('🔄 Resetting lobby to pre-AI state...');
+    
+    // 1. Reset AI button to add mode
+    const addAIBtn = document.getElementById('addAIBtn');
+    if (addAIBtn) {
+        addAIBtn.textContent = '🤖 Fill Room with AI';
+        addAIBtn.style.background = 'linear-gradient(135deg, #5865f2 0%, #4752c4 100%)';
+        addAIBtn.style.boxShadow = '0 2px 8px rgba(88, 101, 242, 0.3)';
+        addAIBtn.style.animation = '';
+        console.log('✅ Reset AI button to add mode');
+    }
+    
+    // 2. Clear ALL participant seats completely
+    SEAT_IDS.forEach(seatId => {
+        const seat = document.getElementById(seatId);
+        if (seat) {
+            const nameDiv = seat.querySelector('.player-name');
+            const statusDiv = seat.querySelector('.player-status');
+            const aiDiv = seat.querySelector('.ai-indicator');
+            const walletDiv = seat.querySelector('.player-wallet');
+            
+            // Clear everything
+            if (nameDiv) nameDiv.textContent = '';
+            if (statusDiv) statusDiv.textContent = 'Empty';
+            if (aiDiv) aiDiv.style.display = 'none';
+            if (walletDiv) walletDiv.textContent = '';
+            seat.style.borderColor = '#72767d';
+            seat.removeAttribute('data-player-username');
+            
+            // Remove any special classes
+            seat.classList.remove('floating-player', 'floating-left', 'floating-right', 'floating-top', 'floating-back');
+            seat.classList.remove('locked-in', 'decision-made', 'waiting');
+            
+            console.log('🧹 Completely cleared seat:', seatId);
+        }
+    });
+    
+    // 3. Force request fresh room state to populate only human players
+    setTimeout(() => {
+        console.log('🔍 Requesting fresh room state after AI removal...');
+        window.forceNextPlayersUpdate = true; // Flag to force next playersInRoom update
+        socket.emit('requestRoomState', { room: currentRoom });
+    }, 100);
+}
+
+// Handle system messages (including AI removal confirmations)
+socket.on('systemMessage', function(data) {
+    console.log('📢 System message received:', data);
+    
+    // Check if this is an AI removal confirmation message
+    if (data.message && data.message.includes('Successfully removed') && data.message.includes('AI player')) {
+        console.log('🤖 AI removal detected via system message - triggering reset...');
+        resetLobbyToPreAIState();
+    }
+});
+
 // Handle system notification popups
 socket.on('systemNotification', function(data) {
     console.log('📢 System notification received:', data);
@@ -9884,17 +10248,6 @@ function showEndExperimentConfirmation() {
                 animation: modalSlideIn 0.5s cubic-bezier(0.4, 0, 0.2, 1);
             ">
                 <!-- Danger gradient bar -->
-                <div style="
-                    position: absolute;
-                    top: -3px;
-                    left: -3px;
-                    right: -3px;
-                    height: 6px;
-                    background: linear-gradient(90deg, #ef4444, #dc2626, #b91c1c, #dc2626, #ef4444);
-                    border-radius: 24px 24px 0 0;
-                    opacity: 0.9;
-                    animation: dangerPulse 2s infinite;
-                "></div>
                 
                 <div style="
                     display: flex;
