@@ -1,4 +1,12 @@
-name: Troubleshoot Services
+name: 🛠️ Troubleshoot Services
+
+run-name: |
+  ${{ 
+    inputs.action == 'check' && '🔍 System Health Check' ||
+    inputs.action == 'restart_down_services' && '🔄 Smart Service Restart' ||
+    inputs.action == 'hard_reset' && '💥 Hard System Reset' ||
+    '🛠️ Service Troubleshooting'
+  }}
 
 on:
   workflow_dispatch:
@@ -132,6 +140,16 @@ jobs:
         # Check recent application logs
         echo "Recent application activity:"
         journalctl -u xenogenesis --no-pager -n 3 --since "5 minutes ago" 2>/dev/null || echo "No recent logs found"
+        
+        # Test production app connectivity
+        echo ""
+        echo "🌍 Production App Connectivity:"
+        echo "Testing connection to https://meta.sirbrobot.com..."
+        if curl -s --max-time 10 https://meta.sirbrobot.com > /dev/null 2>&1; then
+          echo "✅ Production app (meta.sirbrobot.com) is reachable"
+        else
+          echo "❌ Production app (meta.sirbrobot.com) is not responding"
+        fi
         echo ""
         
     - name: Restart Down Services
@@ -144,8 +162,18 @@ jobs:
         # Check and restart nginx if down
         if ! systemctl is-active --quiet nginx 2>/dev/null; then
           echo "Restarting nginx..."
-          sudo systemctl restart nginx
-          services_restarted=$((services_restarted + 1))
+          if sudo -n systemctl restart nginx 2>/dev/null; then
+            echo "✅ Restarted nginx with sudo"
+            services_restarted=$((services_restarted + 1))
+          else
+            echo "⚠️ Trying nginx restart without sudo..."
+            if systemctl --user restart nginx 2>/dev/null; then
+              echo "✅ Restarted nginx as user"
+              services_restarted=$((services_restarted + 1))
+            else
+              echo "❌ Cannot restart nginx"
+            fi
+          fi
           sleep 2
         else
           echo "nginx is already running"
@@ -154,8 +182,18 @@ jobs:
         # Check and restart xenogenesis if down
         if ! systemctl is-active --quiet xenogenesis 2>/dev/null; then
           echo "Restarting xenogenesis..."
-          sudo systemctl restart xenogenesis
-          services_restarted=$((services_restarted + 1))
+          if sudo -n systemctl restart xenogenesis 2>/dev/null; then
+            echo "✅ Restarted xenogenesis with sudo"
+            services_restarted=$((services_restarted + 1))
+          else
+            echo "⚠️ Trying xenogenesis restart without sudo..."
+            if systemctl --user restart xenogenesis 2>/dev/null; then
+              echo "✅ Restarted xenogenesis as user"
+              services_restarted=$((services_restarted + 1))
+            else
+              echo "❌ Cannot restart xenogenesis"
+            fi
+          fi
           sleep 3
         else
           echo "xenogenesis is already running"
@@ -176,39 +214,79 @@ jobs:
         echo "⚠️ PERFORMING HARD RESET..."
         echo "This will stop all services, clear caches, and restart everything"
         
+        # Check if we can use sudo without password or need to run differently
+        echo "Current user: $(whoami)"
+        echo "Checking sudo access..."
+        
         # Stop services gracefully
         echo "Stopping services..."
-        sudo systemctl stop xenogenesis 2>/dev/null || true
-        sudo systemctl stop nginx 2>/dev/null || true
+        if sudo -n systemctl stop xenogenesis 2>/dev/null; then
+          echo "✅ Stopped xenogenesis with sudo"
+        else
+          echo "⚠️ Cannot use sudo, trying systemctl directly..."
+          systemctl --user stop xenogenesis 2>/dev/null || echo "Cannot stop xenogenesis"
+        fi
+        
+        if sudo -n systemctl stop nginx 2>/dev/null; then
+          echo "✅ Stopped nginx with sudo"
+        else
+          echo "⚠️ Cannot use sudo, trying systemctl directly..."
+          systemctl --user stop nginx 2>/dev/null || echo "Cannot stop nginx"
+        fi
         
         # Force kill any remaining processes
         echo "Force killing remaining processes..."
-        sudo pkill -f "node.*app.js" 2>/dev/null || true
-        sudo pkill -f nginx 2>/dev/null || true
+        pkill -f "node.*app.js" 2>/dev/null || true
+        pkill -f nginx 2>/dev/null || true
         sleep 2
         
-        # Clear service logs to free space and reset state
+        # Clear service logs to free space and reset state (try both methods)
         echo "Clearing service logs..."
-        sudo journalctl --rotate 2>/dev/null || true
-        sudo journalctl --vacuum-time=1s 2>/dev/null || true
+        if sudo -n journalctl --rotate 2>/dev/null && sudo -n journalctl --vacuum-time=1s 2>/dev/null; then
+          echo "✅ Cleared logs with sudo"
+        else
+          echo "⚠️ Cannot clear system logs without sudo privileges"
+        fi
         
         # Clear application temporary files
         echo "Clearing temporary files..."
-        sudo rm -rf /tmp/xenogenesis* 2>/dev/null || true
-        sudo rm -rf /var/tmp/xenogenesis* 2>/dev/null || true
+        rm -rf /tmp/xenogenesis* 2>/dev/null || true
+        rm -rf /var/tmp/xenogenesis* 2>/dev/null || true
         
         # Clear any application cache directories
         [ -d ~/.cache/xenogenesis ] && rm -rf ~/.cache/xenogenesis 2>/dev/null || true
-        [ -d /var/cache/xenogenesis ] && sudo rm -rf /var/cache/xenogenesis 2>/dev/null || true
+        if [ -d /var/cache/xenogenesis ]; then
+          if sudo -n rm -rf /var/cache/xenogenesis 2>/dev/null; then
+            echo "✅ Cleared system cache with sudo"
+          else
+            echo "⚠️ Cannot clear system cache without sudo"
+          fi
+        fi
         
         # Force reload systemd in case of any service definition changes
-        sudo systemctl daemon-reload 2>/dev/null || true
+        if sudo -n systemctl daemon-reload 2>/dev/null; then
+          echo "✅ Reloaded systemd with sudo"
+        else
+          systemctl --user daemon-reload 2>/dev/null || echo "⚠️ Cannot reload systemd"
+        fi
         
         # Restart services with clean state
         echo "Restarting services..."
-        sudo systemctl start nginx
+        if sudo -n systemctl start nginx 2>/dev/null; then
+          echo "✅ Started nginx with sudo"
+        else
+          echo "⚠️ Trying to start nginx without sudo..."
+          systemctl --user start nginx 2>/dev/null || echo "❌ Cannot start nginx"
+        fi
+        
         sleep 2
-        sudo systemctl start xenogenesis
+        
+        if sudo -n systemctl start xenogenesis 2>/dev/null; then
+          echo "✅ Started xenogenesis with sudo"
+        else
+          echo "⚠️ Trying to start xenogenesis without sudo..."
+          systemctl --user start xenogenesis 2>/dev/null || echo "❌ Cannot start xenogenesis"
+        fi
         sleep 5
         
         echo "🔥 Hard reset complete!"
@@ -219,6 +297,47 @@ jobs:
         # Show fresh logs to verify clean startup
         echo "Fresh startup logs:"
         journalctl -u xenogenesis --no-pager -n 3 --since "1 minute ago" 2>/dev/null || echo "No fresh logs available"
+        
+    - name: Test Production App Connectivity
+      if: inputs.action == 'restart_down_services' || inputs.action == 'hard_reset'
+      run: |
+        echo "🌍 Testing Production App Connectivity..."
+        echo "Checking if changes affect production app at https://meta.sirbrobot.com"
+        echo ""
+        
+        # Wait a moment for services to stabilize
+        sleep 3
+        
+        # Test local app first
+        echo "Local app test (localhost:2000):"
+        if curl -s --max-time 10 http://localhost:2000 > /dev/null 2>&1; then
+          echo "✅ Local XenoGenesis app is responding"
+        else
+          echo "❌ Local XenoGenesis app is not responding"
+        fi
+        
+        echo ""
+        echo "Production app test (meta.sirbrobot.com):"
+        if curl -s --max-time 15 https://meta.sirbrobot.com > /dev/null 2>&1; then
+          echo "✅ Production app (meta.sirbrobot.com) is reachable and responding"
+          
+          # Get response headers for more info
+          response_code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 15 https://meta.sirbrobot.com 2>/dev/null || echo "000")
+          echo "   HTTP Response Code: $response_code"
+          
+          if [ "$response_code" = "200" ]; then
+            echo "   🎉 Production app is fully operational"
+          elif [ "$response_code" != "000" ]; then
+            echo "   ⚠️ Production app responded but with non-200 status"
+          fi
+        else
+          echo "❌ Production app (meta.sirbrobot.com) is not responding"
+          echo "   This could indicate network issues or production server problems"
+        fi
+        
+        echo ""
+        echo "🔗 Production App Link: https://meta.sirbrobot.com"
+        echo ""
         
     - name: Final Summary and GitHub Summary  
       run: |
@@ -279,9 +398,7 @@ jobs:
         
         echo "- **Action Performed**: \`${{ inputs.action }}\`" >> $GITHUB_STEP_SUMMARY
         echo "- **Execution Time**: $(date)" >> $GITHUB_STEP_SUMMARY  
-        echo "- **Runner**: $(hostname)" >> $GITHUB_STEP_SUMMARY
-        echo "- **Workflow Run**: [#${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})" >> $GITHUB_STEP_SUMMARY
-        
+        echo "- **Runner**: $(hostname)" >> $GITHUB_STEP_SUMMARY 
         cat >> $GITHUB_STEP_SUMMARY << 'EOF'
         
         ## 🎯 Action Summary
@@ -364,6 +481,16 @@ jobs:
           echo "- **External Connectivity**: ❌ Connection issues detected" >> $GITHUB_STEP_SUMMARY
         fi
         
+        # Test production app connectivity (for restart/hard_reset actions)
+        if [ "${{ inputs.action }}" = "restart_down_services" ] || [ "${{ inputs.action }}" = "hard_reset" ]; then
+          if curl -s --max-time 10 https://meta.sirbrobot.com > /dev/null 2>&1; then
+            production_status="✅ Online"
+          else
+            production_status="❌ Not responding"
+          fi
+          echo "- **Production App**: $production_status [meta.sirbrobot.com](https://meta.sirbrobot.com)" >> $GITHUB_STEP_SUMMARY
+        fi
+        
         cat >> $GITHUB_STEP_SUMMARY << 'EOF'
         
         ## 🏥 Overall Health Assessment
@@ -417,6 +544,7 @@ jobs:
         cat >> $GITHUB_STEP_SUMMARY << 'EOF'
         
         ## 🔗 Quick Links
+        - 🌍 **Production App**: https://meta.sirbrobot.com
         - [View Workflow Run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
         - [Repository](${{ github.server_url }}/${{ github.repository }})
         - [Actions History](${{ github.server_url }}/${{ github.repository }}/actions)
