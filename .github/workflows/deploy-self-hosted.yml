@@ -1,0 +1,37 @@
+name: Game Build
+
+on:
+  push:
+    branches: [ mave ]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ironman
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Show runner user info
+      run: |
+        whoami
+        id
+      
+    - name: Sync code to repository location
+      run: |
+        echo "Syncing from $(pwd) to /home/server/XenoGenesis"
+        rsync -av --delete ./ /home/server/XenoGenesis/
+
+    - name: Set script permissions
+      run: |
+        chmod +x /home/server/XenoGenesis/setup/update_service.sh
+        ls -la /home/server/XenoGenesis/setup/update_service.sh
+
+    - name: Update service
+      run: |
+        echo "Currently in $(pwd)"
+        echo "Repository location contents:"
+        ls -la /home/server/XenoGenesis/
+        echo "Updating service..."
+        sudo /home/server/XenoGenesis/setup/update_service.sh

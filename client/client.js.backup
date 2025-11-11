@@ -8,30 +8,52 @@ const TOKEN_CONFIG = {
 // Store user admin status globally so we can use it for invite visibility
 let isGlobalAdmin = false;
 
-// Global function to update token pool display
+// Global function to update token pool display with comprehensive debugging
 function updateTokenPoolDisplay(currentTokens, maxTokens) {
+    console.log(`🎯 updateTokenPoolDisplay called with: currentTokens=${currentTokens}, maxTokens=${maxTokens}`);
+    
     // Ensure gameDiv is visible so we can access the token pool elements
     const gameDiv = document.getElementById('gameDiv');
     if (gameDiv && (gameDiv.style.display === 'none' || gameDiv.style.display === '')) {
         gameDiv.style.display = 'inline-block';
+        console.log('🎯 Made gameDiv visible to access token pool elements');
     }
     
     const globalTokenPoolElement = document.getElementById('globalTokenPool');
     const tokenPoolMaxElement = document.getElementById('tokenPoolMax');
     const tokenPoolBar = document.getElementById('tokenPoolBar');
     
+    console.log(`🎯 DOM elements found:`, {
+        globalTokenPool: !!globalTokenPoolElement,
+        tokenPoolMax: !!tokenPoolMaxElement,
+        tokenPoolBar: !!tokenPoolBar,
+        globalTokenPoolValue: globalTokenPoolElement ? globalTokenPoolElement.textContent : 'NOT_FOUND',
+        tokenPoolMaxValue: tokenPoolMaxElement ? tokenPoolMaxElement.textContent : 'NOT_FOUND',
+        gameDivVisible: gameDiv ? gameDiv.style.display : 'NOT_FOUND'
+    });
+    
     if (globalTokenPoolElement) {
+        const oldValue = globalTokenPoolElement.textContent;
         globalTokenPoolElement.textContent = currentTokens;
+        console.log(`🎯 Updated token pool display: ${oldValue} → ${currentTokens}`);
+    } else {
+        console.error('🎯 globalTokenPool element not found!');
     }
     
     if (tokenPoolMaxElement && maxTokens) {
+        const oldValue = tokenPoolMaxElement.textContent;
         tokenPoolMaxElement.textContent = `/${maxTokens}`;
+        console.log(`🎯 Updated token pool max: ${oldValue} → /${maxTokens}`);
     }
     
     // Update progress bar if it exists
     if (tokenPoolBar && maxTokens > 0) {
         const percentage = (currentTokens / maxTokens) * 100;
+        const oldWidth = tokenPoolBar.style.width;
         tokenPoolBar.style.width = `${percentage}%`;
+        console.log(`🎯 Updated token pool bar: ${oldWidth} → ${percentage.toFixed(1)}%`);
+    } else if (!tokenPoolBar) {
+        console.error('🎯 tokenPoolBar element not found!');
     }
 }
 
@@ -80,6 +102,7 @@ function updateCardVisibility() {
             createCard.classList.add('card-hidden');
             joinCard.classList.remove('card-visible');
             joinCard.classList.add('card-hidden');
+            console.log(`❌ Hiding create/join cards - ${menuContext.context} context`);
         }
     }
     
@@ -87,18 +110,21 @@ function updateCardVisibility() {
     updateInviteVisibility();
 }
 
-// Function to update invite card visibility based on admin status only
+// Function to update invite card visibility based on admin/moderator status  
 function updateInviteVisibility() {
     const inviteCard = document.getElementById('invite-card');
     const inviteFab = document.getElementById('invite-fab');
     const menuContext = getMenuContext();
     
-    // Show invite options ONLY if user is a global admin
-    // Removed moderator access - invite cards are admin-only feature
+    // Show invite options if user is either:
+    // 1. Global admin in global chat or room lobby (not during active games)
+    // 2. Room moderator in their room lobby (not during active games)
     let shouldShowInvite = false;
     
-    if (isGlobalAdmin && (menuContext.isInGlobalChat || menuContext.isInRoomLobby)) {
-        shouldShowInvite = true; // Global admin in global chat or room lobby
+    if (menuContext.isInGlobalChat && isGlobalAdmin) {
+        shouldShowInvite = true; // Global admin in global chat
+    } else if (menuContext.isInRoomLobby && isCurrentRoomModerator()) {
+        shouldShowInvite = true; // Room moderator in room lobby  
     }
     // Note: Never show invite during active games
     
@@ -131,6 +157,7 @@ function updateAdminStatusBadge() {
     if (adminBuildPill) {
         if (isGlobalAdmin) {
             adminBuildPill.style.display = 'flex';
+            console.log('✅ Showing admin build status pill');
         } else {
             adminBuildPill.style.display = 'none';
         }
@@ -155,53 +182,6 @@ let pendingSessionRestore = null;
 
 // Signin debounce to prevent double-submission
 let signinInProgress = false;
-
-// Global handleSignIn function
-function handleSignIn(e) {
-    e.preventDefault();
-    e.stopPropagation();
-    
-    // Prevent multiple rapid signin attempts
-    if (signinInProgress) {
-        return;
-    }
-    
-    const signDivUsername = document.getElementById('username');
-    const signDivPassword = document.getElementById('password');
-    const signDivSignIn = document.getElementById('signIn');
-        
-    if (signDivUsername && signDivPassword && signDivUsername.value && signDivPassword.value) {
-        signinInProgress = true;
-        
-        // Simple visual feedback
-        if (signDivSignIn) {
-            signDivSignIn.style.background = '#16a34a';
-            signDivSignIn.textContent = 'Logging in...';
-        }
-        
-        socket.emit('signIn', { 
-            username: signDivUsername.value, 
-            password: signDivPassword.value 
-        });
-        
-        // Close modal
-        const modal = document.getElementById('id01');
-        if (modal) modal.style.display = "none";
-        
-        // Reset button after delay
-        setTimeout(() => {
-            signinInProgress = false;
-            if (signDivSignIn) {
-                signDivSignIn.style.background = '#22c55e';
-                signDivSignIn.innerHTML = '<span style="font-size: 12px;">🔐</span> Login';
-            }
-        }, 2000);
-        
-    } else {
-        console.error('❌ Username or password missing!');
-        alert('Please enter both username and password');
-    }
-}
 
 // Socket connection monitoring
 socket.on('disconnect', function() {
@@ -934,9 +914,15 @@ function showExperimentEndedModal(message, moderator) {
 
 // Function to close experiment ended modal and return to global chat
 function closeExperimentEndedModal() {
-    // Immediate refresh when "Return to Global Chat" is clicked
-    console.log('🔄 Refreshing page immediately after experiment end...');
-    window.location.reload();
+    const modal = document.getElementById('experimentEndedModal');
+    if (modal) {
+        modal.style.animation = 'fadeOut 0.3s ease-in';
+        setTimeout(() => {
+            if (modal.parentNode) {
+                modal.remove();
+            }
+        }, 300);
+    }
     
     // Ensure proper UI state when returning to global chat
     // Hide the login screen (landing page) and show the chat interface
@@ -1043,7 +1029,7 @@ function returnToGlobalChat() {
 }
 
 // Function to show Lightning Test results modal
-function showLightningTestResults(message, stats, duration, csvData) {
+function showLightningTestResults(message, stats, duration) {
     // Remove any existing modal
     const existingModal = document.getElementById('lightningTestResultsModal');
     if (existingModal) {
@@ -1161,48 +1147,10 @@ function showLightningTestResults(message, stats, duration, csvData) {
                 
                 <div style="
                     display: flex;
-                    flex-direction: column;
                     gap: 12px;
                     margin-top: 30px;
-                    align-items: center;
+                    justify-content: center;
                 ">
-                    <!-- Download CSV Button -->
-                    <button onclick="downloadLightningTestCSV()" style="
-                        background: linear-gradient(135deg, rgba(34, 197, 94, 0.9) 0%, rgba(16, 185, 129, 0.9) 100%);
-                        color: white;
-                        padding: 15px 28px;
-                        border: 2px solid rgba(34, 197, 94, 0.6);
-                        border-radius: 12px;
-                        cursor: pointer;
-                        font-weight: 600;
-                        font-size: 16px;
-                        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-                        box-shadow: 
-                            0 6px 20px rgba(34, 197, 94, 0.6),
-                            0 3px 10px rgba(0, 0, 0, 0.3);
-                        display: flex;
-                        align-items: center;
-                        gap: 8px;
-                        min-width: 200px;
-                        justify-content: center;
-                    "
-                    onmouseover="
-                        this.style.background='linear-gradient(135deg, rgba(16, 185, 129, 1) 0%, rgba(5, 150, 105, 1) 100%)';
-                        this.style.transform='translateY(-2px)';
-                        this.style.boxShadow='0 8px 25px rgba(34, 197, 94, 0.7), 0 4px 15px rgba(0, 0, 0, 0.4)';
-                    "
-                    onmouseout="
-                        this.style.background='linear-gradient(135deg, rgba(34, 197, 94, 0.9) 0%, rgba(16, 185, 129, 0.9) 100%)';
-                        this.style.transform='translateY(0)';
-                        this.style.boxShadow='0 6px 20px rgba(34, 197, 94, 0.6), 0 3px 10px rgba(0, 0, 0, 0.3)';
-                    "
-                    onmousedown="this.style.transform='translateY(0) scale(0.98)'"
-                    onmouseup="this.style.transform='translateY(-2px) scale(1)'">
-                        <span style="font-size: 14px;">📊</span>
-                        Download CSV Results
-                    </button>
-                    
-                    <!-- Continue Button -->
                     <button onclick="closeLightningTestResults()" style="
                         background: linear-gradient(135deg, rgba(192, 38, 211, 0.9) 0%, rgba(124, 58, 237, 0.9) 100%);
                         color: white;
@@ -1219,8 +1167,6 @@ function showLightningTestResults(message, stats, duration, csvData) {
                         display: flex;
                         align-items: center;
                         gap: 8px;
-                        min-width: 200px;
-                        justify-content: center;
                     "
                     onmouseover="
                         this.style.background='linear-gradient(135deg, rgba(124, 58, 237, 1) 0%, rgba(147, 51, 234, 1) 100%)';
@@ -1267,121 +1213,6 @@ function closeLightningTestResults() {
                 modal.remove();
             }
         }, 300);
-    }
-}
-
-// Function to download lightning test CSV results
-function downloadLightningTestCSV() {
-    try {
-        // Check if CSV data is available
-        if (!window.lightningTestCsvData) {
-            console.error('No CSV data available for download');
-            alert('CSV data is not available. Please run the lightning test again.');
-            return;
-        }
-        
-        // Create filename with timestamp
-        const now = new Date();
-        const timestamp = now.toISOString().replace(/[:.]/g, '-').slice(0, -5);
-        const filename = `lightning_test_results_${timestamp}.csv`;
-        
-        // Create blob and download
-        const blob = new Blob([window.lightningTestCsvData], { type: 'text/csv;charset=utf-8;' });
-        const link = document.createElement('a');
-        
-        if (link.download !== undefined) {
-            // Create download link
-            const url = URL.createObjectURL(blob);
-            link.setAttribute('href', url);
-            link.setAttribute('download', filename);
-            link.style.visibility = 'hidden';
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            
-            console.log(`📊 Lightning test CSV downloaded: ${filename}`);
-            
-            // Show success feedback
-            const button = event.target;
-            const originalText = button.innerHTML;
-            button.innerHTML = '<span style="font-size: 14px;">✅</span> Downloaded!';
-            button.style.background = 'linear-gradient(135deg, rgba(34, 197, 94, 1) 0%, rgba(16, 185, 129, 1) 100%)';
-            
-            setTimeout(() => {
-                button.innerHTML = originalText;
-                button.style.background = 'linear-gradient(135deg, rgba(34, 197, 94, 0.9) 0%, rgba(16, 185, 129, 0.9) 100%)';
-            }, 2000);
-        } else {
-            // Fallback for older browsers
-            console.error('File download not supported in this browser');
-            alert('File download not supported in this browser. Please copy the CSV data manually.');
-        }
-        
-    } catch (error) {
-        console.error('Error downloading CSV:', error);
-        alert('Error downloading CSV file. Please try again.');
-    }
-}
-
-// Function to download experiment CSV from moderator panel
-function downloadExperimentCSV() {
-    try {
-        // Check if we have an active experiment room
-        if (!currentRoom || currentRoom === 'Global') {
-            console.error('No active experiment found');
-            alert('No active experiment found. Join an experiment room to enable CSV download.');
-            return;
-        }
-
-        // Create direct download URL with room ID as parameter
-        const downloadUrl = `/api/download-experiment-csv/${encodeURIComponent(currentRoom)}`;
-        
-        // Create filename with timestamp and room ID
-        const now = new Date();
-        const timestamp = now.toISOString().replace(/[:.]/g, '-').slice(0, -5);
-        const filename = `experiment_data_${currentRoom}_${timestamp}.csv`;
-        
-        // Create temporary link for download
-        const link = document.createElement('a');
-        link.href = downloadUrl;
-        link.download = filename;
-        link.style.display = 'none';
-        
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        
-        console.log(`📊 Experiment CSV download initiated: ${filename}`);
-        
-        // Show success feedback
-        const button = document.getElementById('csvDownloadBtn');
-        if (button) {
-            const originalText = button.innerHTML;
-            button.innerHTML = '<span style="font-size: 14px;">✅</span> Downloaded!';
-            button.style.background = 'linear-gradient(135deg, rgba(34, 197, 94, 1) 0%, rgba(16, 185, 129, 1) 100%)';
-            
-            setTimeout(() => {
-                button.innerHTML = originalText;
-                button.style.background = 'linear-gradient(135deg, rgba(46, 159, 255, 0.9) 0%, rgba(0, 123, 255, 0.85) 100%)';
-            }, 2000);
-        }
-        
-        // Update status
-        updateCSVStatus(`Downloaded ${filename}`);
-        
-    } catch (error) {
-        console.error('Error downloading experiment CSV:', error);
-        alert('Error downloading CSV file. Please try again.');
-        updateCSVStatus('Error downloading CSV');
-    }
-}
-
-// Helper function to update CSV status display
-function updateCSVStatus(message) {
-    const statusElement = document.getElementById('csvStatus');
-    if (statusElement) {
-        statusElement.textContent = message;
-        statusElement.style.color = message.includes('Error') ? '#e74c3c' : '#43b581';
     }
 }
 
@@ -1935,14 +1766,14 @@ function performSessionRestore(data) {
     
     // Check if user has an active game session - stay in the game room
     if (data.room && data.room !== 'Global' && data.hasActiveGame) {
-        console.log('🎮 User has active game in room:', data.room, '- staying in game room');
+        console.log('� User has active game in room:', data.room, '- staying in game room');
         currentRoom = data.room;
         
         // Show game interface immediately for active games
         const gameDiv = document.getElementById('gameDiv');
         if (gameDiv) {
             gameDiv.style.display = 'block';
-            console.log('🎮 Game interface shown - staying in active game room');
+            console.log('� Game interface shown - staying in active game room');
         }
         
         // Join the active game room directly
@@ -2256,105 +2087,6 @@ function addColumnHoverEffects() {
 // Chat Objects (will be initialized when DOM is ready)
 let chatForm, globalChatMessages, globalNameText, roomChatMessages, roomNameText, userList, userCount, gameDiv;
 
-// Experiment UI cleanup function
-function clearExperimentUI() {
-    console.log('🧹 Clearing all experiment UI elements');
-    
-    // Hide all experiment phases
-    const decisionPhase = document.getElementById('decisionPhase');
-    const resultsPhase = document.getElementById('resultsPhase');
-    const finalResults = document.getElementById('finalResults');
-    
-    if (decisionPhase) decisionPhase.style.display = 'none';
-    if (resultsPhase) resultsPhase.style.display = 'none';
-    if (finalResults) finalResults.style.display = 'none';
-    
-    // Hide moderator switchboard
-    const moderatorSwitchboard = document.getElementById('moderatorSwitchboard');
-    if (moderatorSwitchboard) moderatorSwitchboard.style.display = 'none';
-    
-    // Reset grid display
-    const gridContainer = document.getElementById('gridContainer');
-    if (gridContainer) {
-        gridContainer.innerHTML = '';
-        gridContainer.style.display = 'none';
-    }
-    
-    // Clear any round displays
-    const roundDisplay = document.getElementById('roundNumber');
-    const conditionDisplay = document.getElementById('currentCondition');
-    const tokenDisplay = document.getElementById('tokenPool');
-    
-    if (roundDisplay) roundDisplay.textContent = '';
-    if (conditionDisplay) conditionDisplay.textContent = '';
-    if (tokenDisplay) tokenDisplay.textContent = '';
-    
-    // Reset button states
-    const lightningBtn = document.getElementById('lightningBtn');
-    if (lightningBtn) {
-        lightningBtn.textContent = '⚡ Lightning Test';
-        lightningBtn.disabled = false;
-        lightningBtn.style.opacity = '1';
-    }
-    
-    // Clear any experiment progress modals
-    const existingModal = document.getElementById('lightningProgressModal');
-    if (existingModal) {
-        existingModal.remove();
-    }
-    
-    // Clear floating animations and locked-in player states
-    if (typeof lockedInPlayers !== 'undefined' && lockedInPlayers instanceof Map) {
-        console.log('🧹 Clearing locked-in player animations');
-        lockedInPlayers.forEach((data, username) => {
-            if (data.cleanupTimeout) {
-                clearTimeout(data.cleanupTimeout);
-            }
-        });
-        lockedInPlayers.clear();
-    }
-    
-    // Force restore all player seats to original positions
-    if (typeof restoreFloatingPlayers === 'function') {
-        restoreFloatingPlayers();
-    }
-    
-    // Targeted animation cleanup - no lag inducing DOM scanning
-    console.log('🧹 Performing targeted animation cleanup...');
-    
-    // Specifically clear player seat states
-    const playerSeats = document.querySelectorAll('[id$="Player"], .player-seat');
-    playerSeats.forEach(seat => {
-        seat.classList.remove('floating-player', 'floating-left', 'floating-right', 'floating-top', 'floating-back');
-        // Reset any inline styles that might have been applied
-        seat.style.transform = '';
-        seat.style.zIndex = '';
-        seat.style.left = '';
-        seat.style.right = '';
-        seat.style.top = '';
-        seat.style.animation = '';
-    });
-    
-    // Clear any player status indicators on seats
-    const playerNames = document.querySelectorAll('.player-name');
-    const playerStatuses = document.querySelectorAll('.player-status');
-    playerNames.forEach(nameEl => {
-        nameEl.textContent = '';
-        nameEl.classList.remove('locked-in', 'decision-made', 'waiting');
-        nameEl.style.animation = '';
-    });
-    playerStatuses.forEach(statusEl => {
-        statusEl.textContent = 'Empty';
-        statusEl.classList.remove('locked-in', 'decision-made', 'waiting');
-        statusEl.style.animation = '';
-    });
-    
-    // Force clear body classes that might affect UI state
-    document.body.classList.remove('game-active', 'experiment-running', 'lightning-active');
-    
-    console.log('✅ Comprehensive experiment UI and animations cleared');
-}
-
 // Poker table visualization functions
 function clearPokerTable() {
     // Clear all seats
@@ -2533,21 +2265,6 @@ socket.on('signInResponse', function (data) {
         // Store admin status and update UI
         isGlobalAdmin = data.isAdmin || false;
         
-        // Immediately set currentRoom to ensure context is correct
-        currentRoom = 'Global';
-        console.log('🌐 Set currentRoom to Global after login');
-        
-        // Show loading state for user count immediately using the global userCount variable
-        if (userCount) {
-            userCount.innerText = 'Loading...';
-        } else {
-            // Fallback to direct DOM access if userCount not initialized yet
-            const userCountElement = document.getElementById('userCount');
-            if (userCountElement) {
-                userCountElement.innerText = 'Loading...';
-            }
-        }
-        
         //signDiv.style.display = 'none';
         landingPage.style.display = "none";
         switchToLoggedInUI(data.username);
@@ -2560,10 +2277,7 @@ socket.on('signInResponse', function (data) {
         }
         
         // Update card visibility AFTER UI elements are shown
-        setTimeout(() => {
-            updateCardVisibility();
-            console.log('🃏 Called updateCardVisibility after login');
-        }, 50);
+        updateCardVisibility();
         
         // Ensure invite card visibility is updated with additional retries
         setTimeout(() => {
@@ -2623,8 +2337,9 @@ socket.on('signInResponse', function (data) {
         
         // Shorter timeout for faster login experience
         setTimeout(() => {
-            if (!sessionRestorationHandled && currentRoom === 'Global') {
+            if (!sessionRestorationHandled && !currentRoom) {
                 console.log('🌐 No session restoration - joining Global chat');
+                currentRoom = 'Global';
                 
                 // Update leave button visibility (hide for Global)
                 updateLeaveButtonVisibility();
@@ -2636,11 +2351,10 @@ socket.on('signInResponse', function (data) {
                     console.log('🌐 Game UI hidden - joining Global chat');
                 }
                 
-                // Join Global chat immediately
-                console.log('🔌 Emitting joinRoom for Global after login');
+                // Join Global chat
                 socket.emit('joinRoom', { room: 'Global' });
             }
-        }, 10); // Reduced from 100ms to 10ms for immediate user count update
+        }, 100); // Reduced from 500ms to 100ms for faster login
     }
 
     else {
@@ -2783,7 +2497,6 @@ socket.on('signUpResponse', function (data) {
                     }
                     
                     // Join Global chat
-                    console.log(`🔗 Session restore: Emitting joinRoom for Global chat`);
                     socket.emit('joinRoom', { room: 'Global' });
                 }
             }, 100);
@@ -2849,31 +2562,18 @@ socket.on('inviteCodeResponse', function (data) {
 
 // Get room and users
 socket.on('roomUsers', ({ room, users, usersCount }) => {
-    console.log(`🏠 roomUsers event received for room: ${room}, users count: ${users ? users.length : 0}, currentRoom: ${currentRoom}`);
-    
     // Use actual users array length instead of potentially incorrect usersCount from server
     const actualUserCount = users ? users.length : 0;
     
     // Only update the display if this roomUsers event is for the room the user is actually in
     if (room === currentRoom) {
-        console.log(`✅ Room matches currentRoom, updating user count display`);
         if (room === "Global") {
             // Update global chat users
             outputUsers(users);
-            console.log(`🔍 Looking for userCount element...`);
             if (userCount) {
-                console.log(`✅ Found userCount element, updating to: ${actualUserCount} online`);
                 userCount.innerText = `${actualUserCount} online`;
             } else {
                 console.error('❌ userCount element not found for Global room');
-                // Try direct DOM access as fallback
-                const userCountElement = document.getElementById('userCount');
-                if (userCountElement) {
-                    console.log(`✅ Found userCount via getElementById, updating to: ${actualUserCount} online`);
-                    userCountElement.innerText = `${actualUserCount} online`;
-                } else {
-                    console.error('❌ userCount element not found via getElementById either');
-                }
             }
         } else {
             // Update room name and users for specific rooms
@@ -2967,16 +2667,11 @@ socket.on('playersInRoom', function(data) {
         if (startExperimentBtn) {
             if (newModerator && isCurrentUserModerator) {
                 startExperimentBtn.style.display = 'block';
-                startExperimentBtn.style.visibility = 'visible';
-                startExperimentBtn.style.opacity = '1';
-                console.log('✅ Showing Start Experiment button for moderator via playersInRoom');
+                console.log('✅ Showing Start Experiment button for moderator');
             } else {
                 startExperimentBtn.style.display = 'none';
-                console.log('❌ Hiding Start Experiment button - not moderator via playersInRoom');
-                console.log('   Debug: newModerator =', newModerator, 'isCurrentUserModerator =', isCurrentUserModerator);
+                console.log('❌ Hiding Start Experiment button - not moderator');
             }
-        } else {
-            console.error('❌ startExperimentBtn not found in playersInRoom handler');
         }
         
         // Show/hide "Add AI Players" button based on moderator status
@@ -2986,7 +2681,7 @@ socket.on('playersInRoom', function(data) {
             if (!addAIBtn && startExperimentBtn) {
                 addAIBtn = document.createElement('button');
                 addAIBtn.id = 'addAIBtn';
-                addAIBtn.textContent = '🤖 Fill Room with AI';
+                addAIBtn.textContent = '🤖 Add AI Players';
                 addAIBtn.style.cssText = 'background: linear-gradient(135deg, #5865f2 0%, #4752c4 100%); color: white; padding: 8px 16px; font-size: 14px; border: none; border-radius: 6px; cursor: pointer; margin-left: 8px; font-weight: 500; box-shadow: 0 2px 8px rgba(88, 101, 242, 0.3); transition: all 0.2s ease;';
                 addAIBtn.addEventListener('mouseover', () => {
                     addAIBtn.style.transform = 'translateY(-1px)';
@@ -2998,51 +2693,20 @@ socket.on('playersInRoom', function(data) {
                 });
                 startExperimentBtn.parentNode.appendChild(addAIBtn);
                 
-                // Add event listener for Add AI button with toggle functionality
+                // Add event listener for Add AI button
                 addAIBtn.addEventListener('click', (e) => {
                     e.preventDefault();
                     
-                    // Check current button state to determine action (more reliable than checking stale data)
-                    const isRemovalMode = addAIBtn.textContent.includes('Remove');
-                    
-                    if (isRemovalMode) {
-                        // Remove all AI players
-                        console.log(`🚫 Button in removal mode - removing all AI players from room`);
-                        socket.emit('removeAIPlayers', { 
-                            room: currentRoom || 'Global'
-                        });
-                        console.log('🚫 Requested removal of all AI players from room:', currentRoom || 'Global');
-                    } else {
-                        // Add AI players to fill room - get current player count dynamically
-                        console.log('🤖 Button in add mode - requesting fresh room state for accurate count');
-                        
-                        // Request current room state and then add AI in the response
-                        window.pendingAIAdd = true;
-                        socket.emit('requestRoomState', { room: currentRoom });
-                    }
+                    // Emit request to server to add AI players
+                    socket.emit('addAIPlayers', { 
+                        room: currentRoom || 'Global'
+                    });
+                    console.log('🤖 Requested AI players for room:', currentRoom || 'Global');
                 });
                 console.log('✅ Created Add AI Players button for moderator');
             } else if (addAIBtn) {
                 addAIBtn.style.display = 'block';
                 console.log('✅ Showing Add AI Players button for moderator');
-            }
-            
-            // Update button appearance based on whether AI players exist
-            if (addAIBtn) {
-                const aiPlayersInRoom = data.players.filter(p => p.isAI);
-                if (aiPlayersInRoom.length > 0) {
-                    // Change to removal mode - red glowing button
-                    addAIBtn.textContent = '❌🤖 Democratically Remove AI';
-                    addAIBtn.style.background = 'linear-gradient(135deg, #dc2626 0%, #b91c1c 100%)';
-                    addAIBtn.style.boxShadow = '0 0 20px rgba(220, 38, 38, 0.6), 0 2px 8px rgba(220, 38, 38, 0.4)';
-                    addAIBtn.style.animation = 'subtlePulse 2s infinite';
-                } else {
-                    // Default add mode - blue button
-                    addAIBtn.textContent = '🤖 Fill Room with AI';
-                    addAIBtn.style.background = 'linear-gradient(135deg, #5865f2 0%, #4752c4 100%)';
-                    addAIBtn.style.boxShadow = '0 2px 8px rgba(88, 101, 242, 0.3)';
-                    addAIBtn.style.animation = '';
-                }
             }
         } else if (addAIBtn) {
             addAIBtn.style.display = 'none';
@@ -3131,54 +2795,11 @@ socket.on('playersInRoom', function(data) {
             console.log('❌ Hiding Speed Test button - not admin or not test room');
         }
         
-        // Check if this is an AI removal scenario or forced update
-        const previousAICount = currentPlayers.filter(name => {
-            // Check if any previous player names suggest they were AI
-            return name && (name.includes('AI Player') || name.includes('Bot'));
-        }).length;
-        const newAICount = data.players.filter(p => p.isAI).length;
-        const aiPlayersRemoved = previousAICount > newAICount;
-        const forceUpdate = window.forceNextPlayersUpdate === true;
-        
-        if (forceUpdate) {
-            console.log('🔄 Forced playersInRoom update requested');
-            window.forceNextPlayersUpdate = false; // Clear the flag
-        }
-        
-        // Handle pending AI add request
-        if (window.pendingAIAdd) {
-            console.log('🤖 Processing pending AI add request...');
-            window.pendingAIAdd = false;
-            
-            const currentPlayerCount = data.players.length;
-            const maxPlayers = 4;
-            const aiPlayersNeeded = maxPlayers - currentPlayerCount;
-            
-            if (aiPlayersNeeded > 0) {
-                console.log(`🤖 Current players: ${currentPlayerCount}, Adding ${aiPlayersNeeded} AI players to fill room`);
-                socket.emit('addAIPlayers', { 
-                    room: currentRoom || 'Global',
-                    count: aiPlayersNeeded
-                });
-            } else {
-                console.log(`🤖 Room already at capacity (${currentPlayerCount} players)`);
-            }
-            
-            // Don't process the rest of playersInRoom since we're about to get another update
-            return;
-        }
-        
-        if (!moderatorChanged && !participantsChanged && data.players.length <= 2 && !aiPlayersRemoved && !forceUpdate) {
-            // Only skip updates if there are no significant changes AND we have minimal players AND no AI was removed AND not forced
+        if (!moderatorChanged && !participantsChanged && data.players.length <= 2) {
+            // Only skip updates if there are no significant changes AND we have minimal players
+            // Always update when AI players are added (length > 2) to ensure UI is properly populated
             console.log('🔄 playersInRoom received but no changes detected - skipping UI rebuild to preserve game state');
             return;
-        }
-        
-        if (aiPlayersRemoved) {
-            console.log('🤖 AI players removed detected - forcing UI update');
-        }
-        if (forceUpdate) {
-            console.log('🔄 Force flag detected - processing UI update');
         }
         
         console.log('🔄 Player list changed, updating UI:', {
@@ -3406,7 +3027,7 @@ socket.on('playersInRoom', function(data) {
             if (!isInLobbyPhase) reasons.push('not in lobby phase');
             if (!isNotInDecisionPhase) reasons.push('in decision phase');
             
-            console.log('⚠️ Skipping triad formation popup:', reasons.join(', '));
+            console.log('� Skipping triad formation popup:', reasons.join(', '));
         }
     } else {
         console.log(`🚫 Ignoring playersInRoom for ${data.room} - current room is ${currentRoom}`);
@@ -3454,13 +3075,7 @@ socket.on('message', (message) => {
 });
 
 socket.on('roomCreated', (roomName) => {
-    console.log("Room Created: "+roomName);
-    
-    // Force clear any experiment state that might interfere with UI
-    gameActive = false;
-    currentRoundNumber = 0;
-    document.body.classList.remove('game-active', 'experiment-running', 'lightning-active');
-    
+    console.log("Room Created: "+roomName)
     roomNameText.style.display ="";
     socket.emit('joinRoom', roomName );
     currentRoom = roomName; // Update current room tracking
@@ -3468,11 +3083,6 @@ socket.on('roomCreated', (roomName) => {
     
     // Show game interface immediately when moderator creates room
     showGameInterface();
-    
-    // Initialize moderator status and buttons for room creator (with delay to ensure DOM ready)
-    setTimeout(() => {
-        initializeModeratorUI(roomName);
-    }, 10);
     
     // Copy room name to clipboard
     if (navigator.clipboard) {
@@ -3522,76 +3132,6 @@ socket.on('copyToClipboard', (data) => {
 
 // Chat initialization and event handlers will be set up in DOMContentLoaded
 
-// Function to initialize moderator UI when creating or joining a room as moderator
-function initializeModeratorUI(roomName) {
-    console.log('🎯 Initializing moderator UI for room:', roomName);
-    
-    // Force establish moderator status aggressively 
-    window.currentUserIsModerator = true;
-    currentUsername = localStorage.getItem('username');
-    
-    // Comprehensive button visibility setup with detailed debugging
-    const setupButton = (attempt = 1) => {
-        console.log(`🔧 Button setup attempt ${attempt}...`);
-        const startExperimentBtn = document.getElementById('startExperimentBtn');
-        
-        if (startExperimentBtn) {
-            // Log current state
-            console.log('🔍 Button found - current state:', {
-                display: startExperimentBtn.style.display,
-                visibility: startExperimentBtn.style.visibility,
-                opacity: startExperimentBtn.style.opacity,
-                computedDisplay: window.getComputedStyle(startExperimentBtn).display,
-                computedVisibility: window.getComputedStyle(startExperimentBtn).visibility
-            });
-            
-            // Force show with multiple approaches
-            startExperimentBtn.style.cssText = startExperimentBtn.style.cssText.replace(/display\s*:\s*none/gi, '');
-            startExperimentBtn.style.display = 'block';
-            startExperimentBtn.style.visibility = 'visible';
-            startExperimentBtn.style.opacity = '1';
-            startExperimentBtn.style.pointerEvents = 'auto';
-            
-            // Remove any classes that might hide it
-            startExperimentBtn.classList.remove('hidden', 'invisible', 'd-none');
-            
-            // Verify it's actually visible
-            const finalState = window.getComputedStyle(startExperimentBtn);
-            console.log('✅ Button configured - final state:', {
-                display: finalState.display,
-                visibility: finalState.visibility,
-                opacity: finalState.opacity
-            });
-            
-            if (finalState.display === 'none') {
-                console.warn('⚠️ Button still hidden after setup - CSS override detected');
-                // Try using !important
-                startExperimentBtn.setAttribute('style', 
-                    startExperimentBtn.getAttribute('style') + '; display: block !important; visibility: visible !important;'
-                );
-            }
-            
-            return true;
-        } else {
-            console.warn(`⚠️ startExperimentBtn not found on attempt ${attempt}`);
-            return false;
-        }
-    };
-    
-    // Immediate setup
-    if (!setupButton(1)) {
-        // Fallback attempts with increasing delays
-        setTimeout(() => setupButton(2), 50);
-        setTimeout(() => setupButton(3), 150);
-        setTimeout(() => setupButton(4), 300);
-    }
-    
-    // Update card visibility with new context
-    updateCardVisibility();
-    
-    console.log('✅ Moderator UI initialization complete with comprehensive button setup');
-}
-
 // Function to show game interface inline
 function showGameInterface() {
     console.log('🎮 showGameInterface() called for room:', currentRoom);
@@ -3626,17 +3166,6 @@ function showGameInterface() {
             if (currentRoom && currentRoom !== 'Global') {
                 console.log('🔍 Requesting room state for:', currentRoom);
                 socket.emit('requestRoomState', { room: currentRoom });
-                
-                // Fallback: Check button visibility after room state request
-                setTimeout(() => {
-                    const startBtn = document.getElementById('startExperimentBtn');
-                    if (startBtn && window.currentUserIsModerator && startBtn.style.display === 'none') {
-                        console.log('🔧 FALLBACK: Force showing Start Experiment button for moderator');
-                        startBtn.style.display = 'block';
-                        startBtn.style.visibility = 'visible';
-                        startBtn.style.opacity = '1';
-                    }
-                }, 200);
             }
         }, 100);
     } else {
@@ -3649,14 +3178,13 @@ function showGameInterface() {
         socket.emit('requestRoomState', { room: currentRoom });
     }
     
-    // Don't automatically set gameActive = true here
-    // This will be set when an experiment actually starts
-    // For now, just show the room interface without game-active state
+    gameActive = true;
+    document.body.classList.add('game-active');
     
-    // Update card visibility for room context (not game context yet)
+    // Update card visibility for game context
     updateCardVisibility();
     
-    // Clear inline styles to let CSS take over
+    // Clear inline styles to let CSS take over (CSS will hide them with game-active class)
     if (createRoomButton) {
         createRoomButton.style.display = '';
     }
@@ -3794,7 +3322,7 @@ if(message.room !== "Global"){
     switch (message.admin) {
         case true:
             p.style.color = "magenta";
-            p.innerHTML = `<span style="color: magenta; font-weight: bold;">${message.username}</span> <span style="color: #ff6b35; font-size: 14px;">🪪</span>`;
+            p.innerText = message.username + "  (admin)";
             break;
     }
     p.innerHTML += `<span>  ${message.time}</span>`;
@@ -3901,18 +3429,6 @@ socket.on("joinRoom", (room) => {
     showGameInterface();
     console.log('🎮 Showing game board for player joining room');
 
-    // Enable CSV download button since we're in an experiment room
-    const csvDownloadBtn = document.getElementById('csvDownloadBtn');
-    const csvStatus = document.getElementById('csvStatus');
-    if (csvDownloadBtn) {
-        csvDownloadBtn.disabled = false;
-        csvDownloadBtn.title = 'Download experiment data as CSV';
-    }
-    if (csvStatus) {
-        csvStatus.textContent = `Ready for ${roomName}`;
-        csvStatus.style.color = '#43b581';
-    }
-
     // Handle chat switching if elements are available
     if (globalChatMessages) globalChatMessages.style.display = "none";
     if (globalNameText) globalNameText.style.backgroundColor = "#667aff";
@@ -3951,9 +3467,8 @@ socket.on('leftRoom', function(data) {
         console.log('✅ Chat container shown');
     }
     
-    // Clear the poker table and all experiment UI
+    // Clear the poker table completely
     clearPokerTable();
-    clearExperimentUI();
     
     // Hide control buttons
     const startBtn = document.getElementById('startExperimentBtn');
@@ -3963,18 +3478,6 @@ socket.on('leftRoom', function(data) {
     if (startBtn) startBtn.style.display = 'none';
     if (aiBtn) aiBtn.style.display = 'none';
     if (addAIBtn) addAIBtn.remove(); // Remove dynamically created button
-    
-    // Disable CSV download button since we're leaving the experiment room
-    const csvDownloadBtn = document.getElementById('csvDownloadBtn');
-    const csvStatus = document.getElementById('csvStatus');
-    if (csvDownloadBtn) {
-        csvDownloadBtn.disabled = true;
-        csvDownloadBtn.title = 'Start an experiment to enable CSV download';
-    }
-    if (csvStatus) {
-        csvStatus.textContent = 'No data available';
-        csvStatus.style.color = '#b9bbbe';
-    }
     
     // Reset game state FIRST (before showing cards)
     gameActive = false;
@@ -3995,7 +3498,7 @@ socket.on('leftRoom', function(data) {
         actionCardsContainer.style.opacity = '';
     }
     
-    // Update invite visibility for admins
+    // Update invite visibility for moderators/admins
     updateInviteVisibility();
     
     // Clear any inline styles to let CSS take over
@@ -4074,30 +3577,11 @@ socket.on('experimentEnded', function(data) {
     // Show glassmorphic experiment ended modal
     showExperimentEndedModal(data.message, data.moderator);
     
-    // User will refresh by clicking "Return to Global Chat" button
-    
-    // Reset game state immediately and completely
+    // Reset game state immediately
     gameActive = false;
-    document.body.classList.remove('game-active', 'experiment-running', 'lightning-active');
+    document.body.classList.remove('game-active');
     currentRoom = 'Global';
     currentRoundNumber = 0;
-    
-    // Simple targeted cleanup
-    console.log('🧹 Performing targeted experiment cleanup...');
-    
-    // Clear all experiment UI elements
-    clearExperimentUI();
-    
-    // Clear the poker table completely
-    clearPokerTable();
-    
-    // Reset Player.list to clear any lingering player data
-    Player.list = {};
-    
-    // Clear locked-in players map
-    if (typeof lockedInPlayers !== 'undefined' && lockedInPlayers instanceof Map) {
-        lockedInPlayers.clear();
-    }
     
     // Update card visibility for global context
     updateCardVisibility();
@@ -4105,14 +3589,8 @@ socket.on('experimentEnded', function(data) {
     // Hide any open modals or menus
     hideModeratorContextMenu();
     
+    // The server also sends a 'leftRoom' event which will handle the UI transition
     console.log('🛑 Experiment ended, waiting for leftRoom event to handle UI transition...');
-    
-    // Simple post-cleanup state verification
-    setTimeout(() => {
-        console.log('🔍 Post-cleanup: Ensuring Global state is properly established');
-        currentRoom = 'Global';
-        document.body.classList.remove('game-active', 'experiment-running', 'lightning-active');
-    }, 100);
 });
 
 // Lightning Test Progress Handler
@@ -4150,13 +3628,9 @@ socket.on('lightningTestComplete', function(data) {
         lightningBtn.style.opacity = '1';
     }
     
-    // Store CSV data globally for download
-    window.lightningTestCsvData = data.csvData;
-    window.lightningTestDataLog = data.dataLog;
-    
     // Show completion modal with stats after a brief delay
     setTimeout(() => {
-        showLightningTestResults(data.message, data.stats, data.duration, data.csvData);
+        showLightningTestResults(data.message, data.stats, data.duration);
     }, 500);
 });
 
@@ -4913,7 +4387,7 @@ window.testPlayerCounter = function(conditionKey, playerName) {
         round: 1,
         blockNumber: 1,
         player: playerName,
-        incentive: 'Self Control Incentive'
+        incentive: 'Culturant Incentive'
     };
     
     console.log(`🧪 Simulating conditionUpdate with:`, testData);
@@ -5920,7 +5394,7 @@ window.testLEDTrackerWithPlayers = function() {
             { name: 'AI Player 2', id: 'test3', isAI: true }
         ],
         tokenValues: { white: 0.03, black: 0.01 },
-        incentive: 'Self Control Incentive'
+        incentive: 'Culturant Incentive'
     };
     
     // Simulate the conditionUpdate event
@@ -5936,7 +5410,7 @@ window.testLEDTrackerWithoutPlayers = function() {
         blockNumber: 1,
         player: 'AI Player 1',
         tokenValues: { white: 0.03, black: 0.01 },
-        incentive: 'Impulse Incentive'
+        incentive: 'Operant Incentive'
     };
     
     // Simulate the conditionUpdate event
@@ -6242,15 +5716,6 @@ function updateLeaveButtonVisibility() {
 // Set up event listeners for behavioral experiment
 document.addEventListener('DOMContentLoaded', function() {
     console.log('🔄 DOM loaded, initializing...');
-    
-    // Check userCount element availability immediately
-    console.log(`🔍 DOMContentLoaded: Checking userCount element availability`);
-    const userCountCheck = document.getElementById('userCount');
-    console.log(`📊 userCount element found: ${userCountCheck ? 'YES' : 'NO'}`);
-    if (userCountCheck) {
-        console.log(`📊 Current userCount text: "${userCountCheck.textContent || userCountCheck.innerText}"`);
-    }
-    
     domLoaded = true;
     
     // Check if we have session data from server
@@ -6263,8 +5728,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 success: true,
                 username: window.sessionData.username,
                 room: window.sessionData.room,
-                roomRestored: window.sessionData.roomRestored,
-                isAdmin: window.sessionData.isAdmin
+                roomRestored: window.sessionData.roomRestored
             });
         } else {
             console.log('🔄 No valid session data found');
@@ -6285,80 +5749,6 @@ document.addEventListener('DOMContentLoaded', function() {
         performSessionRestore(pendingSessionRestore);
         pendingSessionRestore = null;
     }
-    
-    // Double-check: If we have valid session data but login button is still visible, fix it
-    setTimeout(() => {
-        console.log('🔧 FAILSAFE 1: Checking login button visibility after DOM load');
-        if (window.sessionData && window.sessionData.isLoggedIn && window.sessionData.username) {
-            const loginButton = document.getElementById('loginNav');
-            const profileMenuContainer = document.querySelector('.profile-menu-container');
-            
-            console.log('🔧 FAILSAFE 1: Session data indicates logged in user:', window.sessionData.username);
-            console.log('🔧 FAILSAFE 1: Login button display:', loginButton ? loginButton.style.display : 'NOT_FOUND');
-            console.log('🔧 FAILSAFE 1: Profile menu display:', profileMenuContainer ? profileMenuContainer.style.display : 'NOT_FOUND');
-            
-            if (loginButton && (loginButton.style.display === 'block' || loginButton.style.display === '')) {
-                console.log('🔧 FIXING 1: Login button still visible despite valid session - hiding it');
-                switchToLoggedInUI(window.sessionData.username);
-                
-                // Additional check after switchToLoggedInUI
-                setTimeout(() => {
-                    console.log('🔧 POST-FIX 1: Login button display after switchToLoggedInUI:', loginButton.style.display);
-                    console.log('🔧 POST-FIX 1: Profile menu display after switchToLoggedInUI:', profileMenuContainer ? profileMenuContainer.style.display : 'NOT_FOUND');
-                }, 50);
-            } else {
-                console.log('🔧 FAILSAFE 1: Login button already properly hidden');
-            }
-        } else {
-            console.log('🔧 FAILSAFE 1: No valid session data found, login button should be visible');
-        }
-    }, 100);
-    
-    // Second failsafe check after a longer delay
-    setTimeout(() => {
-        console.log('🔧 FAILSAFE 2: Secondary check for login button persistence');
-        if (window.sessionData && window.sessionData.isLoggedIn && window.sessionData.username) {
-            const loginButton = document.getElementById('loginNav');
-            const profileMenuContainer = document.querySelector('.profile-menu-container');
-            
-            if (loginButton && (loginButton.style.display === 'block' || loginButton.style.display === '')) {
-                console.log('🔧 FIXING 2: Login button STILL visible after first failsafe - forcing hide');
-                loginButton.style.setProperty('display', 'none', 'important');
-                
-                if (profileMenuContainer) {
-                    profileMenuContainer.style.setProperty('display', 'block', 'important');
-                }
-                
-                console.log('🔧 FORCED: Used !important to override any conflicting styles');
-            } else {
-                console.log('🔧 FAILSAFE 2: Login button properly hidden, no action needed');
-            }
-        }
-    }, 500);
-    
-    // Third failsafe check after even longer delay
-    setTimeout(() => {
-        console.log('🔧 FAILSAFE 3: Final check for login button state');
-        if (window.sessionData && window.sessionData.isLoggedIn && window.sessionData.username) {
-            const loginButton = document.getElementById('loginNav');
-            
-            if (loginButton && (loginButton.style.display === 'block' || loginButton.style.display === '')) {
-                console.log('🔧 CRITICAL: Login button STILL showing after all failsafes - investigating CSS conflicts');
-                console.log('🔧 Login button computed style:', window.getComputedStyle(loginButton).display);
-                console.log('🔧 Login button inline style:', loginButton.style.display);
-                console.log('🔧 Login button class list:', loginButton.classList.toString());
-                
-                // Force hide with multiple approaches
-                loginButton.style.setProperty('display', 'none', 'important');
-                loginButton.hidden = true;
-                loginButton.classList.add('force-hidden');
-                
-                console.log('🔧 NUCLEAR: Applied display:none !important, hidden attribute, and force-hidden class');
-            } else {
-                console.log('🔧 FAILSAFE 3: All good - login button properly hidden');
-            }
-        }
-    }, 1000);
     
     // Initialize chat system elements
     chatForm = document.getElementById('chat-form');
@@ -6385,31 +5775,10 @@ document.addEventListener('DOMContentLoaded', function() {
             const modal = document.getElementById('id01');
             if (modal) {
                 modal.style.display = 'block';
-                
-                // Reinitialize login elements after modal is shown
+                // Focus on username input
                 setTimeout(() => {
-                    console.log('🔑 Reinitializing login elements after modal open');
-                    const signDivUsername = document.getElementById('username');
-                    const signDivPassword = document.getElementById('password');
-                    const signDivSignIn = document.getElementById('signIn');
-                    
-                    console.log('🔑 Elements found:');
-                    console.log('  - username:', !!signDivUsername);
-                    console.log('  - password:', !!signDivPassword);
-                    console.log('  - signIn:', !!signDivSignIn);
-                    
-                    // Focus on username input
-                    if (signDivUsername) {
-                        signDivUsername.focus();
-                    }
-                    
-                    // Setup event listeners for sign in button
-                    if (signDivSignIn && !signDivSignIn.hasAttribute('data-handler-added')) {
-                        signDivSignIn.addEventListener('click', handleSignIn);
-                        signDivSignIn.addEventListener('touchend', handleSignIn, { passive: false });
-                        signDivSignIn.setAttribute('data-handler-added', 'true');
-                        console.log('🔑 Event handlers added to sign in button');
-                    }
+                    const usernameInput = document.getElementById('username');
+                    if (usernameInput) usernameInput.focus();
                 }, 100);
             } else {
                 console.error('❌ Login modal not found!');
@@ -6422,11 +5791,29 @@ document.addEventListener('DOMContentLoaded', function() {
     // Clean initialization - header should work with normal CSS now
     console.log('🔧 Header initialized with normal CSS styling');
     
-    // Hide emergency header since main header should be working
+    if (header) {
+
+        // Header should work with normal CSS now
+        console.log('� NUCLEAR: Header forced with fixed positioning');
+    }
+    
+    if (navbar) {
+        // Navbar should work with normal CSS now
+
+    }
+    
+    if (loginButton) {
+        // Login button should work with normal CSS now
+        console.log('� NUCLEAR: Login button forced visible');
+    }
+    
+    // Nav logo should work with normal CSS now
+    
+    // Hide emergency header since we're forcing main header
     const emergencyHeader = document.getElementById('emergencyHeader');
     if (emergencyHeader) {
         emergencyHeader.style.display = 'none';
-        console.log('🔧 Emergency header hidden');
+        console.log('� Emergency header hidden');
     }
     
     createRoomButton = document.getElementById('create-card');
@@ -6580,8 +5967,58 @@ document.addEventListener('DOMContentLoaded', function() {
     // Set up profile menu functionality
     setupProfileMenu();
 
-    // Note: signIn button event handlers are now setup when modal opens
-    // since the button doesn't exist in DOM until modal is displayed
+    if (signDivSignIn) {
+        console.log('🔑 Login button found - setting up simple event handler');
+        
+        // Simple, reliable event handling
+        function handleSignIn(e) {
+            console.log('� Login button clicked/tapped!');
+            e.preventDefault();
+            e.stopPropagation();
+            
+            // Prevent multiple rapid signin attempts
+            if (signinInProgress) {
+                console.log('⚠️ Signin already in progress');
+                return;
+            }
+            
+            console.log('🔑 Username:', signDivUsername ? signDivUsername.value : 'NOT FOUND');
+            console.log('🔑 Password:', signDivPassword ? signDivPassword.value : 'NOT FOUND');
+                
+            if (signDivUsername && signDivPassword && signDivUsername.value && signDivPassword.value) {
+                signinInProgress = true;
+                console.log('🔑 Sending login request...');
+                
+                // Simple visual feedback
+                signDivSignIn.style.background = '#16a34a';
+                signDivSignIn.textContent = 'Logging in...';
+                
+                socket.emit('signIn', { 
+                    username: signDivUsername.value, 
+                    password: signDivPassword.value 
+                });
+                
+                if (modal) modal.style.display = "none";
+                
+                // Reset button after delay
+                setTimeout(() => {
+                    signinInProgress = false;
+                    signDivSignIn.style.background = '#22c55e';
+                    signDivSignIn.innerHTML = '<span style="font-size: 12px;">🔐</span> Login';
+                }, 2000);
+            } else {
+                console.error('❌ Username or password missing!');
+                alert('Please enter both username and password');
+            }
+        }
+        
+        // Add both touch and click handlers (simple approach)
+        signDivSignIn.addEventListener('touchend', handleSignIn, { passive: false });
+        signDivSignIn.addEventListener('click', handleSignIn);
+        
+    } else {
+        console.error('❌ Login button (signIn) not found in DOM!');
+    }
 
     // Old signup handler removed - now handled by modal system in login.ejs
 
@@ -7116,15 +6553,10 @@ document.addEventListener('DOMContentLoaded', function() {
     } else {
     }
 
-    // Final check: ensure logged-out state if no user (but only if no valid session data exists)
-    if (!currentUsername && !(window.sessionData && window.sessionData.isLoggedIn)) {
-        console.log('🔒 No current username AND no valid session data - switching to logged-out UI');
+    // Final check: ensure logged-out state if no user
+    if (!currentUsername) {
         switchToLoggedOutUI();
         console.log('🔒 Switched to logged-out UI for anonymous user');
-    } else if (!currentUsername && window.sessionData && window.sessionData.isLoggedIn) {
-        console.log('🔒 No current username but valid session data exists - skipping logged-out UI switch');
-    } else if (currentUsername) {
-        console.log('🔒 Current username exists:', currentUsername, '- staying in logged-in state');
     }
     // Set up Floating Action Button (FAB) for mobile
     const fabMain = document.getElementById('fab-main');
@@ -7894,79 +7326,6 @@ socket.on('systemMessageSent', function(data) {
     } else {
         // Fall back to modal for non-game contexts
         showGlassmorphismAlert(data.title || '📢 System Announcement', data.message, data.type || 'info');
-    }
-});
-
-// Handle AI players removal confirmation
-socket.on('aiPlayersRemoved', function(data) {
-    console.log('🤖 AI players removed confirmation received:', data);
-    console.log('🤖 Current room:', currentRoom, 'Event room:', data.room);
-    
-    if (data.room === currentRoom) {
-        console.log('🔄 Room match - executing lobby reset...');
-        // Force complete lobby reset to pre-AI state
-        resetLobbyToPreAIState();
-        console.log('✅ Lobby reset to pre-AI state completed');
-    } else {
-        console.log('❌ Room mismatch - skipping reset');
-    }
-});
-
-// Function to reset lobby to clean pre-AI state
-function resetLobbyToPreAIState() {
-    console.log('🔄 Resetting lobby to pre-AI state...');
-    
-    // 1. Reset AI button to add mode
-    const addAIBtn = document.getElementById('addAIBtn');
-    if (addAIBtn) {
-        addAIBtn.textContent = '🤖 Fill Room with AI';
-        addAIBtn.style.background = 'linear-gradient(135deg, #5865f2 0%, #4752c4 100%)';
-        addAIBtn.style.boxShadow = '0 2px 8px rgba(88, 101, 242, 0.3)';
-        addAIBtn.style.animation = '';
-        console.log('✅ Reset AI button to add mode');
-    }
-    
-    // 2. Clear ALL participant seats completely
-    SEAT_IDS.forEach(seatId => {
-        const seat = document.getElementById(seatId);
-        if (seat) {
-            const nameDiv = seat.querySelector('.player-name');
-            const statusDiv = seat.querySelector('.player-status');
-            const aiDiv = seat.querySelector('.ai-indicator');
-            const walletDiv = seat.querySelector('.player-wallet');
-            
-            // Clear everything
-            if (nameDiv) nameDiv.textContent = '';
-            if (statusDiv) statusDiv.textContent = 'Empty';
-            if (aiDiv) aiDiv.style.display = 'none';
-            if (walletDiv) walletDiv.textContent = '';
-            seat.style.borderColor = '#72767d';
-            seat.removeAttribute('data-player-username');
-            
-            // Remove any special classes
-            seat.classList.remove('floating-player', 'floating-left', 'floating-right', 'floating-top', 'floating-back');
-            seat.classList.remove('locked-in', 'decision-made', 'waiting');
-            
-            console.log('🧹 Completely cleared seat:', seatId);
-        }
-    });
-    
-    // 3. Force request fresh room state to populate only human players
-    setTimeout(() => {
-        console.log('🔍 Requesting fresh room state after AI removal...');
-        window.forceNextPlayersUpdate = true; // Flag to force next playersInRoom update
-        socket.emit('requestRoomState', { room: currentRoom });
-    }, 100);
-}
-
-// Handle system messages (including AI removal confirmations)
-socket.on('systemMessage', function(data) {
-    console.log('📢 System message received:', data);
-    
-    // Check if this is an AI removal confirmation message
-    if (data.message && data.message.includes('Successfully removed') && data.message.includes('AI player')) {
-        console.log('🤖 AI removal detected via system message - triggering reset...');
-        resetLobbyToPreAIState();
     }
 });
 
@@ -8985,7 +8344,7 @@ socket.on('gameStateRestore', function(data) {
         const roundDisplays = document.querySelectorAll('.round-display, .current-round, [class*="round"]');
         roundDisplays.forEach(display => {
             if (display.textContent.includes('Round') || display.id.includes('round')) {
-                console.log(`🔄 Updating round display: Round ${data.gameSession.currentRound}`);
+                console.log(`� Updating round display: Round ${data.gameSession.currentRound}`);
                 display.textContent = `Round ${data.gameSession.currentRound}`;
             }
         });
@@ -9464,14 +8823,10 @@ function setupProfileMenu() {
 
 // Helper function to switch between login and profile menu
 function switchToLoggedInUI(username) {
-    console.log(`👤 switchToLoggedInUI called with username: ${username}. Call stack:`, new Error().stack.split('\n').slice(1, 4).join(' | '));
-    
     const loginButton = document.getElementById('loginNav');
     const profileMenuContainer = document.querySelector('.profile-menu-container');
     const profileUsername = document.getElementById('profileUsername');
     const emergencyLoginButton = document.getElementById('emergencyLoginButton');
-    
-    console.log(`👤 Before state change: login button display = ${loginButton ? loginButton.style.display : 'NOT_FOUND'}, profile menu display = ${profileMenuContainer ? profileMenuContainer.style.display : 'NOT_FOUND'}`);
     
     // Ensure main header is visible when logging in
     const header = document.querySelector('.header');
@@ -9482,65 +8837,36 @@ function switchToLoggedInUI(username) {
         console.log('🔍 Main header ensured visible during login');
     }
     
-    if (loginButton) {
-        loginButton.style.display = 'none';
-        console.log('👤 ✅ Login button hidden');
-    } else {
-        console.log('👤 ❌ Login button not found');
-    }
-    
-    if (profileMenuContainer) {
-        profileMenuContainer.style.display = 'block';
-        console.log('👤 ✅ Profile menu shown');
-    } else {
-        console.log('👤 ❌ Profile menu container not found');
-    }
-    
-    if (profileUsername && username) {
-        profileUsername.textContent = username;
-        console.log(`👤 ✅ Username set to: ${username}`);
-    }
-    
+    if (loginButton) loginButton.style.display = 'none';
+    if (profileMenuContainer) profileMenuContainer.style.display = 'block';
+    if (profileUsername && username) profileUsername.textContent = username;
     if (emergencyLoginButton) emergencyLoginButton.style.display = 'none';
     
     // Hide emergency header when logged in since main header should be visible
     const emergencyHeader = document.getElementById('emergencyHeader');
     if (emergencyHeader) emergencyHeader.style.display = 'none';
     
-    console.log(`👤 After state change: login button display = ${loginButton ? loginButton.style.display : 'NOT_FOUND'}, profile menu display = ${profileMenuContainer ? profileMenuContainer.style.display : 'NOT_FOUND'}`);
     console.log('👤 UI switched to logged-in state with profile menu and main header visible');
 }
 
 function switchToLoggedOutUI() {
-    console.log('👤 switchToLoggedOutUI called. Call stack:', new Error().stack.split('\n').slice(1, 4).join(' | '));
-    
+    console.log('� switchToLoggedOutUI called');
     const loginButton = document.getElementById('loginNav');
     const profileMenuContainer = document.querySelector('.profile-menu-container');
     const profileDropdown = document.getElementById('profileDropdown');
     const profileChevron = document.getElementById('profileChevron');
     
-    console.log(`👤 Before logout state: login button display = ${loginButton ? loginButton.style.display : 'NOT_FOUND'}, profile menu display = ${profileMenuContainer ? profileMenuContainer.style.display : 'NOT_FOUND'}`);
-    
     // Show login button, hide profile menu
     if (loginButton) {
         loginButton.style.display = 'block';
-        console.log('👤 ✅ Login button shown');
-    } else {
-        console.log('👤 ❌ Login button not found');
+        console.log('� Login button shown');
     }
     
     // Hide profile menu elements
-    if (profileMenuContainer) {
-        profileMenuContainer.style.display = 'none';
-        console.log('👤 ✅ Profile menu hidden');
-    } else {
-        console.log('👤 ❌ Profile menu container not found');
-    }
-    
+    if (profileMenuContainer) profileMenuContainer.style.display = 'none';
     if (profileDropdown) profileDropdown.style.display = 'none';
     if (profileChevron) profileChevron.style.transform = 'rotate(0deg)';
     
-    console.log(`👤 After logout state: login button display = ${loginButton ? loginButton.style.display : 'NOT_FOUND'}, profile menu display = ${profileMenuContainer ? profileMenuContainer.style.display : 'NOT_FOUND'}`);
     console.log('👤 UI switched to logged-out state');
 }
 
@@ -10248,6 +9574,17 @@ function showEndExperimentConfirmation() {
                 animation: modalSlideIn 0.5s cubic-bezier(0.4, 0, 0.2, 1);
             ">
                 <!-- Danger gradient bar -->
+                <div style="
+                    position: absolute;
+                    top: -3px;
+                    left: -3px;
+                    right: -3px;
+                    height: 6px;
+                    background: linear-gradient(90deg, #ef4444, #dc2626, #b91c1c, #dc2626, #ef4444);
+                    border-radius: 24px 24px 0 0;
+                    opacity: 0.9;
+                    animation: dangerPulse 2s infinite;
+                "></div>
                 
                 <div style="
                     display: flex;
@@ -11162,8 +10499,7 @@ function initializeInfoTooltips() {
         'ai-behavior': 'Control how AI players make decisions. Use for testing specific scenarios or forcing particular behavioral patterns.',
         'system-messages': 'Send messages to all players. Use preset buttons for common messages or type custom announcements.',
         'system-controls': 'PAUSE: Stops AI decision-making. RESUME: Restarts AI. RESET: Restarts the current round.',
-        'incentives': 'Set special bonus conditions for players. Performance, collaboration, consistency, and leadership bonuses available.',
-        'csv-export': 'Download comprehensive experiment data including player choices, payoffs, timestamps, and behavioral metrics. Available during active experiments or after completion. Data includes ODD/EVEN choices, individual/group rewards, AI decisions, and round-by-round progression.'
+        'incentives': 'Set special bonus conditions for players. Performance, collaboration, consistency, and leadership bonuses available.'
     };
     
     document.querySelectorAll('.info-btn').forEach(button => {
