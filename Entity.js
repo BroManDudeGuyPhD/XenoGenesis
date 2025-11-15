@@ -4754,13 +4754,23 @@ function processRound(roomName, gameSession) {
             if (gameSession.roundHistory && gameSession.roundHistory.length > 0) {
                 const previousRound = gameSession.roundHistory[gameSession.roundHistory.length - 1];
                 if (previousRound && previousRound.players) {
-                    previousRoundPlayers = previousRound.players.map(player => ({
-                        username: player.username,
-                        whiteTokens: player.tokensAwarded?.white || 0,
-                        blackTokens: player.tokensAwarded?.black || 0,
-                        incentiveBonus: player.tokensAwarded?.incentiveBonus || 0,
-                        isAI: player.isAI || false
-                    }));
+                    previousRoundPlayers = previousRound.players.map(player => {
+                        // Calculate round earnings for this specific round
+                        const whiteEarnings = (player.tokensAwarded?.white || 0) * (previousRoundTokenValues.white || previousRound.condition?.whiteValue || 0);
+                        const blackEarnings = (player.tokensAwarded?.black || 0) * (previousRoundTokenValues.black || previousRound.condition?.blackValue || 0);
+                        const incentiveEarnings = player.tokensAwarded?.incentiveBonus || 0;
+                        const roundEarnings = whiteEarnings + blackEarnings + incentiveEarnings;
+                        
+                        return {
+                            username: player.username,
+                            whiteTokens: player.tokensAwarded?.white || 0,
+                            blackTokens: player.tokensAwarded?.black || 0,
+                            incentiveBonus: player.tokensAwarded?.incentiveBonus || 0,
+                            roundEarnings: roundEarnings,
+                            seatPosition: player.seatPosition || 'unknown',
+                            isAI: player.isAI || false
+                        };
+                    });
                 }
                 if (previousRound && previousRound.condition) {
                     previousRoundTokenValues = {
@@ -4777,6 +4787,7 @@ function processRound(roomName, gameSession) {
                     whiteTokens: p.whiteTokens,
                     blackTokens: p.blackTokens,
                     totalEarnings: p.totalEarnings,
+                    seatPosition: p.seatPosition || 'unknown',
                     isAI: p.isAI || false,
                     choice: p.currentChoice
                 })),

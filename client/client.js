@@ -1087,18 +1087,6 @@ function showLightningTestResults(message, stats, duration, csvData) {
                 position: relative;
                 animation: modalSlideIn 0.4s cubic-bezier(0.4, 0, 0.2, 1);
             ">
-                <!-- Decorative lightning border -->
-                <div style="
-                    position: absolute;
-                    top: -2px;
-                    left: -2px;
-                    right: -2px;
-                    height: 4px;
-                    background: linear-gradient(90deg, #c026d3, #7c3aed, #c026d3);
-                    border-radius: 20px 20px 0 0;
-                    opacity: 0.8;
-                    animation: lightningShimmer 3s infinite;
-                "></div>
                 
                 <div style="
                     display: flex;
@@ -1125,18 +1113,6 @@ function showLightningTestResults(message, stats, duration, csvData) {
                     ">Lightning Test Complete</h2>
                 </div>
                 
-                <!-- Decorative lightning border - results modal -->
-                <div style="
-                    position: absolute;
-                    top: 0px;
-                    left: 0px;
-                    right: 0px;
-                    height: 4px;
-                    background: linear-gradient(90deg, #c026d3, #7c3aed, #c026d3);
-                    border-radius: 20px 20px 0 0;
-                    opacity: 0.8;
-                    animation: lightningShimmer 3s infinite;
-                "></div>
                 
                 <div style="
                     background: rgba(15, 15, 15, 0.7);
@@ -11357,19 +11333,17 @@ function updateRoundResultsPanel(roundData) {
         return;
     }
     
-    // Update title and hide waiting message
-    const isBaseline = roundData.condition === 'Baseline';
-    const conditionText = isBaseline ? 'Baseline' : roundData.condition;
-    roundResultsTitle.textContent = `${conditionText} Round ${roundData.round} completed`;
-    roundResultsTitle.style.color = '#43b581'; // Make title green
+    // Hide waiting message and show panel
     if (roundResults) roundResults.style.display = 'none';
+    if (roundResultsTitle) roundResultsTitle.style.display = 'none';
     roundResultsPanel.style.display = 'block';
     
-    // 1. SEPARATE TABLE: Previous Round Player Token Distribution 
+    // 1. SWAPPED: Show Previous Round first, then Totals
     if (conversionRateInfo && roundData.previousRoundPlayers) {
+        const previousRoundNumber = roundData.round;
         let previousDistributionHTML = `
             <div style="background: rgba(40, 43, 48, 0.6); border-radius: 6px; padding: 12px; margin-bottom: 8px;">
-                <div style="color: #ffffff; font-weight: 600; font-size: 13px; margin-bottom: 8px;">Previous Round Player Token Distribution</div>`;
+                <div style="color: #ffffff; font-weight: 600; font-size: 13px; margin-bottom: 8px;">Round <span style="color: #43b581;">${previousRoundNumber}</span> Results</div>`;
         
         // Add token values subheader if available
         if (roundData.tokenValues) {
@@ -11387,39 +11361,48 @@ function updateRoundResultsPanel(roundData) {
                     <div style="color: #b9bbbe; font-weight: 500;">Player</div>
                     <div style="color: #b9bbbe; font-weight: 500; text-align: right;">⚪</div>
                     <div style="color: #b9bbbe; font-weight: 500; text-align: right;">⚫</div>
-                    <div style="color: #b9bbbe; font-weight: 500; text-align: right;">💲</div>
+                    <div style="color: #b9bbbe; font-weight: 500; text-align: right;">Round $</div>
         `;
+        
+        // Sort players by their seat position (left-to-right: left, top, right)
+        const seatOrder = { 'left': 1, 'top': 2, 'right': 3 };
+        const sortedPreviousPlayers = [...roundData.previousRoundPlayers].sort((a, b) => {
+            const seatA = seatOrder[a.seatPosition] || 999;
+            const seatB = seatOrder[b.seatPosition] || 999;
+            return seatA - seatB;
+        });
         
         // Calculate totals for previous round
         let prevTotalWhite = 0;
         let prevTotalBlack = 0;
-        let prevTotalEarnings = 0;
+        let prevTotalRoundEarnings = 0;
         
-        roundData.previousRoundPlayers.forEach(player => {
+        sortedPreviousPlayers.forEach(player => {
             const whiteTokens = player.whiteTokens || 0;
             const blackTokens = player.blackTokens || 0;
-            const totalEarnings = player.totalEarnings || 0;
+            // Use roundEarnings instead of totalEarnings for previous round values
+            const roundEarnings = player.roundEarnings || 0;
             const isAI = player.isAI ? ' (AI)' : '';
             
             prevTotalWhite += whiteTokens;
             prevTotalBlack += blackTokens;
-            prevTotalEarnings += totalEarnings;
+            prevTotalRoundEarnings += roundEarnings;
             
             previousDistributionHTML += `
                 <div style="color: #ffffff;">${player.username}${isAI}</div>
                 <div style="color: #43b581; text-align: right;">${whiteTokens}</div>
                 <div style="color: #e74c3c; text-align: right;">${blackTokens}</div>
-                <div style="color: #faa61a; text-align: right; font-weight: 500;">$${totalEarnings.toFixed(2)}</div>
+                <div style="color: #faa61a; text-align: right; font-weight: 500;">$${roundEarnings.toFixed(2)}</div>
             `;
         });
         
         // Add totals row for previous round
         previousDistributionHTML += `
                 <div style="grid-column: 1 / -1; height: 1px; background: rgba(255, 255, 255, 0.1); margin: 8px 0;"></div>
-                <div style="color: #ffffff; font-weight: 600;">PREVIOUS TOTALS</div>
+                <div style="color: #ffffff; font-weight: 600;">PREVIOUS ROUND TOTALS</div>
                 <div style="color: #43b581; text-align: right; font-weight: 600;">${prevTotalWhite}</div>
                 <div style="color: #e74c3c; text-align: right; font-weight: 600;">${prevTotalBlack}</div>
-                <div style="color: #faa61a; text-align: right; font-weight: 600;">$${prevTotalEarnings.toFixed(2)}</div>
+                <div style="color: #faa61a; text-align: right; font-weight: 600;">$${prevTotalRoundEarnings.toFixed(2)}</div>
             </div>
         </div>
         `;
@@ -11427,35 +11410,32 @@ function updateRoundResultsPanel(roundData) {
         conversionRateInfo.innerHTML = previousDistributionHTML;
     }
     
-    // 2. Previous Round Token Values now integrated above
-
-    // 2. Horizontal Break Separator
-    if (conversionRateInfo) {
-        conversionRateInfo.innerHTML += `
-            <div style="margin: 16px 0; border-bottom: 2px solid rgba(255, 255, 255, 0.1); position: relative;">
-                <div style="position: absolute; left: 50%; top: -1px; transform: translateX(-50%); background: rgba(40, 43, 48, 1); padding: 0 12px; color: #b9bbbe; font-size: 11px; font-weight: 500;">CURRENT ROUND</div>
-            </div>
-        `;
-    }
-    
-    // 3. Combined Player Token Earnings with Round Totals
+    // 2. SWAPPED: Show Cumulative Totals second
     if (playerResultsTable && roundData.players) {
         const totalWhite = roundData.players.reduce((sum, p) => sum + (p.whiteTokens || 0), 0);
         const totalBlack = roundData.players.reduce((sum, p) => sum + (p.blackTokens || 0), 0);
         const totalEarnings = roundData.players.reduce((sum, p) => sum + (p.totalEarnings || 0), 0);
         
+        // Sort players by their seat position (left-to-right: left, top, right)
+        const seatOrder = { 'left': 1, 'top': 2, 'right': 3 };
+        const sortedPlayers = [...roundData.players].sort((a, b) => {
+            const seatA = seatOrder[a.seatPosition] || 999;
+            const seatB = seatOrder[b.seatPosition] || 999;
+            return seatA - seatB;
+        });
+        
         let tableHTML = `
             <div style="background: rgba(40, 43, 48, 0.6); border-radius: 6px; padding: 12px; margin-bottom: 8px;">
-                <div style="color: #ffffff; font-weight: 600; font-size: 13px; margin-bottom: 8px;">Player Token Earnings</div>
+                <div style="color: #ffffff; font-weight: 600; font-size: 13px; margin-bottom: 8px;">Cumulative Player Earnings</div>
                 <div style="display: grid; grid-template-columns: 1fr auto auto auto; gap: 8px; font-size: 12px;">
                     <div style="color: #b9bbbe; font-weight: 500;">Player</div>
                     <div style="color: #b9bbbe; font-weight: 500; text-align: right;">⚪</div>
                     <div style="color: #b9bbbe; font-weight: 500; text-align: right;">⚫</div>
-                    <div style="color: #b9bbbe; font-weight: 500; text-align: right;">Total</div>
+                    <div style="color: #b9bbbe; font-weight: 500; text-align: right;">Total $</div>
         `;
         
-        // Add individual player rows
-        roundData.players.forEach(player => {
+        // Add individual player rows in correct order
+        sortedPlayers.forEach(player => {
             const whiteTokens = player.whiteTokens || 0;
             const blackTokens = player.blackTokens || 0;
             const totalEarnings = player.totalEarnings || 0;
@@ -11472,7 +11452,7 @@ function updateRoundResultsPanel(roundData) {
         // Add separator line and totals row
         tableHTML += `
                     <div style="grid-column: 1 / -1; height: 1px; background: rgba(255, 255, 255, 0.1); margin: 8px 0;"></div>
-                    <div style="color: #ffffff; font-weight: 600;">ROUND TOTALS</div>
+                    <div style="color: #ffffff; font-weight: 600;">EXPERIMENT TOTALS</div>
                     <div style="color: #43b581; text-align: right; font-weight: 600;">${totalWhite}</div>
                     <div style="color: #e74c3c; text-align: right; font-weight: 600;">${totalBlack}</div>
                     <div style="color: #faa61a; text-align: right; font-weight: 600;">$${totalEarnings.toFixed(2)}</div>
