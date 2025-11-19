@@ -4603,6 +4603,7 @@ function processRound(roomName, gameSession) {
             return {
                 username: p.username,
                 isAI: p.isAI || false,
+                seatPosition: p.seatPosition || 'unknown',
                 tokensAwarded: {
                     white: gameSession.currentCondition.getWhiteTokens(pChosenRow),
                     black: gameSession.currentCondition.getBlackTokens(allChooseEvenRows),
@@ -4741,67 +4742,70 @@ function processRound(roomName, gameSession) {
     // Broadcast final round status to moderators
     broadcastPlayerStatusUpdate(roomName);
     
-    // Send round results panel data to moderators
-    const roomForModerator = roomList.find(r => r.name === roomName);
-    if (roomForModerator) {
-        const moderatorSocket = Object.values(Player.list)
-            .find(p => p.room === roomName && p.username === roomForModerator.creator)?.socket;
-        
-        if (moderatorSocket) {
-            // Get previous round player data
-            let previousRoundPlayers = [];
-            let previousRoundTokenValues = { white: 0, black: 0 };
-            if (gameSession.roundHistory && gameSession.roundHistory.length > 0) {
-                const previousRound = gameSession.roundHistory[gameSession.roundHistory.length - 1];
-                if (previousRound && previousRound.players) {
-                    previousRoundPlayers = previousRound.players.map(player => {
-                        // Calculate round earnings for this specific round
-                        const whiteEarnings = (player.tokensAwarded?.white || 0) * (previousRoundTokenValues.white || previousRound.condition?.whiteValue || 0);
-                        const blackEarnings = (player.tokensAwarded?.black || 0) * (previousRoundTokenValues.black || previousRound.condition?.blackValue || 0);
-                        const incentiveEarnings = player.tokensAwarded?.incentiveBonus || 0;
-                        const roundEarnings = whiteEarnings + blackEarnings + incentiveEarnings;
-                        
-                        return {
-                            username: player.username,
-                            whiteTokens: player.tokensAwarded?.white || 0,
-                            blackTokens: player.tokensAwarded?.black || 0,
-                            incentiveBonus: player.tokensAwarded?.incentiveBonus || 0,
-                            roundEarnings: roundEarnings,
-                            seatPosition: player.seatPosition || 'unknown',
-                            isAI: player.isAI || false
-                        };
-                    });
-                }
-                if (previousRound && previousRound.condition) {
-                    previousRoundTokenValues = {
-                        white: previousRound.condition.whiteValue || 0,
-                        black: previousRound.condition.blackValue || 0
+    // Send round results panel data to ALL players in the room
+    const roomForResults = roomList.find(r => r.name === roomName);
+    if (roomForResults) {
+        // Get previous round player data
+        let previousRoundPlayers = [];
+        let previousRoundTokenValues = { white: 0, black: 0 };
+        if (gameSession.roundHistory && gameSession.roundHistory.length > 0) {
+            const previousRound = gameSession.roundHistory[gameSession.roundHistory.length - 1];
+            if (previousRound && previousRound.players) {
+                previousRoundPlayers = previousRound.players.map(player => {
+                    // Calculate round earnings for this specific round
+                    const whiteEarnings = (player.tokensAwarded?.white || 0) * (previousRoundTokenValues.white || previousRound.condition?.whiteValue || 0);
+                    const blackEarnings = (player.tokensAwarded?.black || 0) * (previousRoundTokenValues.black || previousRound.condition?.blackValue || 0);
+                    const incentiveEarnings = player.tokensAwarded?.incentiveBonus || 0;
+                    const roundEarnings = whiteEarnings + blackEarnings + incentiveEarnings;
+                    
+                    return {
+                        username: player.username,
+                        whiteTokens: player.tokensAwarded?.white || 0,
+                        blackTokens: player.tokensAwarded?.black || 0,
+                        incentiveBonus: player.tokensAwarded?.incentiveBonus || 0,
+                        roundEarnings: roundEarnings,
+                        seatPosition: player.seatPosition || 'unknown',
+                        isAI: player.isAI || false
                     };
-                }
+                });
             }
-            
-            moderatorSocket.emit('roundResultsPanel', {
-                round: gameSession.currentRound,
-                players: orderedRoomPlayers.map(p => ({
-                    username: p.username,
-                    whiteTokens: p.whiteTokens,
-                    blackTokens: p.blackTokens,
-                    totalEarnings: p.totalEarnings,
-                    seatPosition: p.seatPosition || 'unknown',
-                    isAI: p.isAI || false,
-                    choice: p.currentChoice
-                })),
-                previousRoundPlayers: previousRoundPlayers,
-                previousRoundTokenValues: previousRoundTokenValues,
-                tokenValues: {
-                    white: gameSession.currentCondition?.whiteTokenValue || 0.10, // Default baseline value
-                    black: gameSession.currentCondition?.blackTokenValue || 0.05  // Default baseline value
-                },
-                condition: gameSession.currentCondition?.name || 'Baseline',
-                incentive: gameSession.currentIncentive || 'No Incentive'
-            });
-            console.log(`📊 Sent round results panel data to moderator for round ${gameSession.currentRound} (${previousRoundPlayers.length} previous round players)`);
+            if (previousRound && previousRound.condition) {
+                previousRoundTokenValues = {
+                    white: previousRound.condition.whiteValue || 0,
+                    black: previousRound.condition.blackValue || 0
+                };
+            }
         }
+        
+        const roundResultsData = {
+            round: gameSession.currentRound,
+            players: orderedRoomPlayers.map(p => ({
+                username: p.username,
+                whiteTokens: p.whiteTokens,
+                blackTokens: p.blackTokens,
+                totalEarnings: p.totalEarnings,
+                seatPosition: p.seatPosition || 'unknown',
+                isAI: p.isAI || false,
+                choice: p.currentChoice
+            })),
+            previousRoundPlayers: previousRoundPlayers,
+            previousRoundTokenValues: previousRoundTokenValues,
+            tokenValues: {
+                white: gameSession.currentCondition?.whiteTokenValue || 0.10, // Default baseline value
+                black: gameSession.currentCondition?.blackTokenValue || 0.05  // Default baseline value
+            },
+            condition: gameSession.currentCondition?.name || 'Baseline',
+            incentive: gameSession.currentIncentive || 'No Incentive'
+        };
+        
+        // Emit to all players in the room (excluding AI players without sockets)
+        Object.values(Player.list)
+            .filter(p => p.room === roomName && p.socket)
+            .forEach(player => {
+                player.socket.emit('roundResultsPanel', roundResultsData);
+            });
+        
+        console.log(`📊 Sent round results panel data to all players in room ${roomName} for round ${gameSession.currentRound} (${previousRoundPlayers.length} previous round players)`);
     }
     
     // Reset round processing flag

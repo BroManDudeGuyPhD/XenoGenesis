@@ -2,3 +2,6 @@ node_modules
 
 # Experiment results and data files
 experiment_results/
+
+# AI agent instructions (project-specific)
+.github/copilot-instructions.md

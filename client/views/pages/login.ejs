@@ -1069,45 +1069,12 @@
                 </div>
             </div>
 
-            <!-- Poker Table Container -->
-            <div id="pokerTable" style="position: relative; width: 100%; height: 400px; background-color: #2c2f33; border-radius: 10px; margin-bottom: 20px;">
+            <!-- Game Content Wrapper: Side-by-side on wide screens, stacked on narrow -->
+            <div id="gameContentWrapper">
                 
-                <div id="leftPlayer" class="poker-seat" style="position: absolute; left: 20px; top: 50%; transform: translateY(-50%); width: 120px; height: 80px; background-color: #36393f; border: 2px solid #7289da; border-radius: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center;">
-                    <div class="player-name" style="color: #ffffff; font-size: 16px; font-weight: bold;"></div>
-                    <div class="player-status" style="color: #b9bbbe; font-size: 14px;"></div>
-                    <div class="ai-indicator" style="color: #faa61a; font-size: 12px; display: none;">🤖 AI</div>
-                    <div class="player-wallet" style="color: #43b581; font-size: 12px; margin-top: 2px;"></div>
-                </div>
-                
-                <div id="topPlayer" class="poker-seat" style="position: absolute; top: 20px; left: 50%; transform: translateX(-50%); width: 120px; height: 80px; background-color: #36393f; border: 2px solid #7289da; border-radius: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center;">
-                    <div class="player-name" style="color: #ffffff; font-size: 16px; font-weight: bold;"></div>
-                    <div class="player-status" style="color: #b9bbbe; font-size: 14px;"></div>
-                    <div class="ai-indicator" style="color: #faa61a; font-size: 12px; display: none;">🤖 AI</div>
-                    <div class="player-wallet" style="color: #43b581; font-size: 12px; margin-top: 2px;"></div>
-                </div>
-                
-                <div id="rightPlayer" class="poker-seat" style="position: absolute; right: 20px; top: 50%; transform: translateY(-50%); width: 120px; height: 80px; background-color: #36393f; border: 2px solid #7289da; border-radius: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center;">
-                    <div class="player-name" style="color: #ffffff; font-size: 16px; font-weight: bold;"></div>
-                    <div class="player-status" style="color: #b9bbbe; font-size: 14px;"></div>
-                    <div class="ai-indicator" style="color: #faa61a; font-size: 12px; display: none;">🤖 AI</div>
-                    <div class="player-wallet" style="color: #43b581; font-size: 12px; margin-top: 2px;"></div>
-                </div>
-                
-                <!-- Moderator Position -->
-                <div id="moderatorPosition" class="moderator-seat" style="position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); width: 120px; height: 70px; background-color: #2c2f33; border: 2px solid #9b59b6; border-radius: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center;">
-                    <div class="moderator-name" style="color: #9b59b6; font-size: 13px; font-weight: bold;">Waiting for Moderator...</div>
-                    <div style="color: #9b59b6; font-size: 12px; font-weight: bold;">Moderator</div>
-                    <div style="color: #b9bbbe; font-size: 9px;">Game Host</div>
-                </div>
-                
-                <!-- Table Center -->
-                <div id="tableCenter" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 100px; height: 60px; background-color: #2c2f33; border: 2px solid #72767d; border-radius: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center;">
-                    <div style="color: #ffffff; font-size: 12px; font-weight: bold;">Round</div>
-                    <div id="tableRound" style="color: #7289da; font-size: 16px;">0</div>
-                </div>
-            </div>
-
-            <!-- Main Game Area -->
+                <!-- Game Board Section (left side on wide screens) -->
+                <div id="gameBoardSection">
+                    <!-- Main Game Area -->
             <div id="gameArea" style="background-color: #40444b; padding: 20px; border-radius: 5px; margin-bottom: 20px; min-height: 400px;">
                 
                 <!-- Lobby Phase -->
@@ -1126,97 +1093,8 @@
                     <!-- Decision Grid and Results Container -->
                     <div id="decisionGridContainer" style="display: flex; gap: 30px; margin: 30px auto; justify-content: center; align-items: flex-start; flex-wrap: wrap;">
                         
-                        <!-- Left Side: Round Results Panel -->
-                        <div style="flex: 0 0 auto; min-width: 300px; max-width: 350px; align-self: flex-start;">
-                            
-                            <!-- Lock In Section - positioned above Round Results -->
-                            <div id="selectionSection" style="display: none; margin-bottom: 20px;">
-                                <div style="background: rgba(54, 57, 63, 0.8); backdrop-filter: blur(12px); border-radius: 8px; padding: 14px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2); border: 1px solid rgba(114, 118, 125, 0.2); width: 100%;">
-                                    <div style="display: flex; align-items: center; justify-content: center; gap: 6px; margin-bottom: 10px;">
-                                        <div style="width: 4px; height: 4px; background-color: #7289da; border-radius: 50%; animation: subtlePulse 2s infinite;"></div>
-                                        <div id="selectedChoice" style="color: #dcddde; font-size: 13px; font-weight: 500;">No selection made</div>
-                                        <div style="width: 4px; height: 4px; background-color: #7289da; border-radius: 50%; animation: subtlePulse 2s infinite;"></div>
-                                    </div>
-                                    
-                                    <button id="lockInBtn" style="
-                                        background: linear-gradient(135deg, #5865f2, #4752c4);
-                                        color: white;
-                                        padding: 8px 16px;
-                                        font-size: 12px;
-                                        font-weight: 500;
-                                        border: none;
-                                        border-radius: 6px;
-                                        cursor: pointer;
-                                        position: relative;
-                                        overflow: hidden;
-                                        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-                                        box-shadow: 0 2px 6px rgba(88, 101, 242, 0.25);
-                                        letter-spacing: 0.3px;
-                                        width: 100%;
-                                    " disabled onmouseover="
-                                        if (!this.disabled) {
-                                            this.style.transform = 'translateY(-1px)';
-                                            this.style.boxShadow = '0 4px 12px rgba(88, 101, 242, 0.35)';
-                                        }
-                                    " onmouseout="
-                                        if (!this.disabled) {
-                                            this.style.transform = 'translateY(0)';
-                                            this.style.boxShadow = '0 2px 6px rgba(88, 101, 242, 0.25)';
-                                        }
-                                    ">
-                                        <span id="lockInText" style="position: relative; z-index: 1;">🔒 Lock In Choice</span>
-                                    </button>
-                                </div>
-                            </div>
-                            
-                            <!-- Token Conversion Rate Display -->
-                            <div id="tokenConversionDisplay" style="display: none; margin-bottom: 15px;">
-                                <div style="background: rgba(54, 57, 63, 0.9); backdrop-filter: blur(12px); border-radius: 6px; padding: 12px; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15); border: 1px solid rgba(114, 118, 125, 0.3);">
-                                    <div style="color: #faa61a; font-size: 12px; font-weight: 600; margin-bottom: 8px; text-align: center; opacity: 0.8;">Current Token Values</div>
-                                    <div style="display: flex; align-items: center; justify-content: space-around; gap: 12px;">
-                                        <div style="display: flex; align-items: center; gap: 6px;">
-                                            <span style="font-size: 14px;">⚪</span>
-                                            <span id="whiteTokenValue" style="color: #ffffff; font-size: 13px; font-weight: 500;">$0.01</span>
-                                        </div>
-                                        <div style="display: flex; align-items: center; gap: 6px;">
-                                            <span style="font-size: 14px;">⚫</span>
-                                            <span id="blackTokenValue" style="color: #ffffff; font-size: 13px; font-weight: 500;">$0.05</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <!-- Round Results Phase -->
-                            <div id="resultsPhase" style="display: block; width: 100%;">
-                                <div style="background: rgba(64, 68, 75, 0.8); backdrop-filter: blur(12px); border-radius: 8px; padding: 16px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2); border: 1px solid rgba(114, 118, 125, 0.2); height: 480px; overflow-y: auto;">
-                                    <h4 id="roundResultsTitle" style="color: #ffffff; margin: 0 0 12px 0; font-size: 16px;">Experiment Ready</h4>
-                                    <div id="roundResults" style="color: #b9bbbe; margin-bottom: 12px; font-size: 14px;">Waiting for first round to begin...</div>
-                                    
-                                    <!-- Round Results Details Panel -->
-                                    <div id="roundResultsPanel" style="display: none;">
-                                        <div id="roundSummary" style="color: #43b581; font-size: 14px; margin-bottom: 12px; font-weight: 500;"></div>
-                                        <div id="playerResultsTable" style="margin-bottom: 16px;"></div>
-                                        <div id="conversionRateInfo" style="color: #7289da; font-size: 13px; margin-bottom: 12px;"></div>
-                                        <div id="roundTotals" style="color: #faa61a; font-size: 13px; border-top: 1px solid rgba(114, 118, 125, 0.3); padding-top: 12px;"></div>
-                                    </div>
-                                    
-                                    <div id="tokenUpdate" style="color: #43b581; font-size: 15px; margin-bottom: 8px; font-weight: 500;"></div>
-                                    <div id="roundEarnings" style="color: #43b581; font-size: 14px; margin-bottom: 10px; font-weight: 500;"></div>
-                                    <div id="culturantStatus" style="color: #7289da; font-size: 13px;"></div>
-                                    <div id="activeIncentive" style="color: #faa61a; font-size: 12px; margin-top: 8px;"></div>
-                                    <div id="baselineExitNotification" style="display: none; background: linear-gradient(135deg, #43b581, #5bc0de); color: #ffffff; font-size: 12px; font-weight: 600; margin-top: 8px; padding: 8px 12px; border-radius: 6px; cursor: pointer; box-shadow: 0 2px 8px rgba(67, 181, 129, 0.3); border: 1px solid rgba(255, 255, 255, 0.2); transition: all 0.3s ease;" onclick="this.style.display='none';" onmouseover="this.style.transform='scale(1.02)'; this.style.boxShadow='0 4px 16px rgba(67, 181, 129, 0.5)';" onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='0 2px 8px rgba(67, 181, 129, 0.3)';">
-                                        <div style="display: flex; align-items: center; gap: 8px;">
-                                            <span style="font-size: 16px;">🎯</span>
-                                            <span id="baselineExitText">Baseline condition exited on turn X</span>
-                                            <span style="font-size: 11px; opacity: 0.8; margin-left: auto;">(click to dismiss)</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <!-- Right Side: 8x8 Decision Grid -->
-                        <div id="decisionGrid" style="flex: 0 0 auto;">                        
+                        <!-- Left Side: 8x8 Decision Grid -->
+                        <div id="decisionGrid" style="flex: 0 0 auto; order: 1;">                        
                             <!-- Grid container with row headers and cells -->
                             <div style="display: flex;">
                                 <!-- Row headers (numbers 1-8) -->
@@ -1247,13 +1125,111 @@
                                     </div>
                                     
                                     <!-- 8x8 Grid with clickable rows -->
-                                    <div id="grid8x8" style="border: 2px solid #72767d; background-color: #2c2f33; width: 400px; box-sizing: border-box;">
+                                    <div id="grid8x8" style="background-color: #2c2f33; width: 400px; box-sizing: border-box;">
                                         <!-- Grid will be populated dynamically by JavaScript -->
                                     </div>
                                 </div>
                             </div>
                         </div>
                         
+                        <!-- Right Side: Lock In Section and Token Displays -->
+                        <div style="flex: 0 0 auto; min-width: 300px; max-width: 350px; align-self: flex-start; order: 2;">
+                            
+                            <!-- Token Conversion Rate Display (for narrow screens) -->
+                            <div id="tokenConversionDisplayLeft" class="token-conversion-narrow" style="display: none; margin-bottom: 15px;">
+                                <div style="background: rgba(54, 57, 63, 0.9); backdrop-filter: blur(12px); border-radius: 6px; padding: 12px; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15); border: 1px solid rgba(114, 118, 125, 0.3);">
+                                    <div style="color: #faa61a; font-size: 12px; font-weight: 600; margin-bottom: 8px; text-align: center; opacity: 0.8;">Current Token Values</div>
+                                    <div style="display: flex; align-items: center; justify-content: space-around; gap: 12px;">
+                                        <div style="display: flex; align-items: center; gap: 6px;">
+                                            <span style="font-size: 14px;">⚪</span>
+                                            <span class="whiteTokenValue" style="color: #ffffff; font-size: 13px; font-weight: 500;">$0.01</span>
+                                        </div>
+                                        <div style="display: flex; align-items: center; gap: 6px;">
+                                            <span style="font-size: 14px;">⚫</span>
+                                            <span class="blackTokenValue" style="color: #ffffff; font-size: 13px; font-weight: 500;">$0.05</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Round Results Phase (for narrow screens) -->
+                            <div id="resultsPhaseLeft" class="results-narrow" style="display: block; width: 100%;">
+                                <div style="background: rgba(64, 68, 75, 0.8); backdrop-filter: blur(12px); border-radius: 8px; padding: 16px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2); border: 1px solid rgba(114, 118, 125, 0.2); height: 480px; overflow-y: auto;">
+                                    <h4 class="roundResultsTitle" style="color: #ffffff; margin: 0 0 12px 0; font-size: 16px;">Experiment Ready</h4>
+                                    <div class="roundResults" style="color: #b9bbbe; margin-bottom: 12px; font-size: 14px;">Waiting for first round to begin...</div>
+                                    
+                                    <!-- Round Results Details Panel -->
+                                    <div class="roundResultsPanel" style="display: none;">
+                                        <div class="roundSummary" style="color: #43b581; font-size: 14px; margin-bottom: 12px; font-weight: 500;"></div>
+                                        <div class="playerResultsTable" style="margin-bottom: 16px;"></div>
+                                        <div class="conversionRateInfo" style="color: #7289da; font-size: 13px; margin-bottom: 12px;"></div>
+                                        <div class="roundTotals" style="color: #faa61a; font-size: 13px; border-top: 1px solid rgba(114, 118, 125, 0.3); padding-top: 12px;"></div>
+                                    </div>
+                                    
+                                    <div class="tokenUpdate" style="color: #43b581; font-size: 15px; margin-bottom: 8px; font-weight: 500;"></div>
+                                    <div class="roundEarnings" style="color: #43b581; font-size: 14px; margin-bottom: 10px; font-weight: 500;"></div>
+                                    <div class="culturantStatus" style="color: #7289da; font-size: 13px;"></div>
+                                    <div class="activeIncentive" style="color: #faa61a; font-size: 12px; margin-top: 8px;"></div>
+                                    <div class="baselineExitNotification" style="display: none; background: linear-gradient(135deg, #43b581, #5bc0de); color: #ffffff; font-size: 12px; font-weight: 600; margin-top: 8px; padding: 8px 12px; border-radius: 6px; cursor: pointer; box-shadow: 0 2px 8px rgba(67, 181, 129, 0.3); border: 1px solid rgba(255, 255, 255, 0.2); transition: all 0.3s ease;" onclick="this.style.display='none';" onmouseover="this.style.transform='scale(1.02)'; this.style.boxShadow='0 4px 16px rgba(67, 181, 129, 0.5)';" onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='0 2px 8px rgba(67, 181, 129, 0.3)';">
+                                        <div style="display: flex; align-items: center; gap: 8px;">
+                                            <span style="font-size: 16px;">🎯</span>
+                                            <span class="baselineExitText">Baseline condition exited on turn X</span>
+                                            <span style="font-size: 11px; opacity: 0.8; margin-left: auto;">(click to dismiss)</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                    </div>
+                    <!-- End of decisionGridContainer -->
+                    
+                    <!-- Lock In Section (below game board) -->
+                    <div id="selectionSection" style="display: none; margin-top: 5px; max-width: 120px; margin-left: calc(50% - 150px); margin-right: auto;">
+                        <div style="background: rgba(54, 57, 63, 0.8); backdrop-filter: blur(12px); border-radius: 8px; padding: 10px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2); border: 1px solid rgba(114, 118, 125, 0.2);">
+                            <div style="display: flex; align-items: center; justify-content: center; gap: 4px; margin-bottom: 8px;">
+                                <div style="width: 3px; height: 3px; background-color: #7289da; border-radius: 50%; animation: subtlePulse 2s infinite;"></div>
+                                <div id="selectedChoice" style="color: #dcddde; font-size: 11px; font-weight: 500;">No selection</div>
+                                <div style="width: 3px; height: 3px; background-color: #7289da; border-radius: 50%; animation: subtlePulse 2s infinite;"></div>
+                            </div>
+                            
+                            <button id="lockInBtn" style="
+                                background: linear-gradient(135deg, #5865f2, #4752c4);
+                                color: white;
+                                padding: 6px 12px;
+                                font-size: 11px;
+                                font-weight: 500;
+                                border: none;
+                                border-radius: 6px;
+                                cursor: pointer;
+                                position: relative;
+                                overflow: hidden;
+                                transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+                                box-shadow: 0 2px 6px rgba(88, 101, 242, 0.25);
+                                letter-spacing: 0.3px;
+                                width: 100%;
+                            " disabled onmouseover="
+                                if (!this.disabled) {
+                                    this.style.transform = 'translateY(-1px)';
+                                    this.style.boxShadow = '0 4px 12px rgba(88, 101, 242, 0.35)';
+                                }
+                            " onmouseout="
+                                if (!this.disabled) {
+                                    this.style.transform = 'translateY(0)';
+                                    this.style.boxShadow = '0 2px 6px rgba(88, 101, 242, 0.25)';
+                                }
+                            ">
+                                <span id="lockInText" style="position: relative; z-index: 1;">Lock in</span>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Moderator-Only Cumulative Earnings (below lock-in button/checkerboard) -->
+                    <div id="resultsPhaseBottom" style="display: none; margin-top: 15px; max-width: 400px; margin-left: calc(50% - 290px);">
+                        <!-- Cumulative Results Details Panel -->
+                        <div class="roundResultsPanel" style="display: none;">
+                            <div class="playerResultsTable"></div>
+                        </div>
                     </div>
                         
                         <style>
@@ -1289,24 +1265,140 @@
                                 box-shadow: inset 0 0 3px rgba(114, 137, 218, 0.3) !important;
                             }
                         </style>
+                    
+                    </div>
+                    <!-- End of decisionPhase -->
+                    
+                </div>
+                <!-- End of gameArea -->
+                
+                </div>
+                <!-- End of gameBoardSection -->
+                
+                <!-- Poker Table Section (right side on wide screens) -->
+                <div id="pokerTableSection">
+                    <!-- Poker Table Container -->
+                    <div id="pokerTable" style="position: relative; width: 100%; height: 400px; background-color: #2c2f33; border-radius: 10px; margin-bottom: 20px;">
+                        
+                        <div id="leftPlayer" class="poker-seat" style="position: absolute; left: 20px; top: 50%; transform: translateY(-50%); width: 120px; height: 80px; background-color: #36393f; border: 2px solid #7289da; border-radius: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center;">
+                            <div class="player-name" style="color: #ffffff; font-size: 16px; font-weight: bold;"></div>
+                            <div class="player-status" style="color: #b9bbbe; font-size: 14px;"></div>
+                            <div class="ai-indicator" style="color: #faa61a; font-size: 12px; display: none;">🤖 AI</div>
+                            <div class="player-wallet" style="color: #43b581; font-size: 12px; margin-top: 2px;"></div>
+                        </div>
+                        
+                        <div id="topPlayer" class="poker-seat" style="position: absolute; top: 20px; left: 50%; transform: translateX(-50%); width: 120px; height: 80px; background-color: #36393f; border: 2px solid #7289da; border-radius: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center;">
+                            <div class="player-name" style="color: #ffffff; font-size: 16px; font-weight: bold;"></div>
+                            <div class="player-status" style="color: #b9bbbe; font-size: 14px;"></div>
+                            <div class="ai-indicator" style="color: #faa61a; font-size: 12px; display: none;">🤖 AI</div>
+                            <div class="player-wallet" style="color: #43b581; font-size: 12px; margin-top: 2px;"></div>
+                        </div>
+                        
+                        <div id="rightPlayer" class="poker-seat" style="position: absolute; right: 20px; top: 50%; transform: translateY(-50%); width: 120px; height: 80px; background-color: #36393f; border: 2px solid #7289da; border-radius: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center;">
+                            <div class="player-name" style="color: #ffffff; font-size: 16px; font-weight: bold;"></div>
+                            <div class="player-status" style="color: #b9bbbe; font-size: 14px;"></div>
+                            <div class="ai-indicator" style="color: #faa61a; font-size: 12px; display: none;">🤖 AI</div>
+                            <div class="player-wallet" style="color: #43b581; font-size: 12px; margin-top: 2px;"></div>
+                        </div>
+                        
+                        <!-- Moderator Position -->
+                        <div id="moderatorPosition" class="moderator-seat" style="position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); width: 120px; height: 70px; background-color: #2c2f33; border: 2px solid #9b59b6; border-radius: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center;">
+                            <div class="moderator-name" style="color: #9b59b6; font-size: 13px; font-weight: bold;">Waiting for Moderator...</div>
+                            <div style="color: #9b59b6; font-size: 12px; font-weight: bold;">Moderator</div>
+                            <div style="color: #b9bbbe; font-size: 9px;">Game Host</div>
+                        </div>
+                        
+                        <!-- Table Center -->
+                        <div id="tableCenter" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 100px; height: 60px; background-color: #2c2f33; border: 2px solid #72767d; border-radius: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center;">
+                            <div style="color: #ffffff; font-size: 12px; font-weight: bold;">Round</div>
+                            <div id="tableRound" style="color: #7289da; font-size: 16px;">0</div>
+                        </div>
+                    </div>
+                    <!-- End of pokerTable -->
+                    
+                    <!-- Token Conversion Rate Display (below poker table on wide screens) -->
+                    <div id="tokenConversionDisplayRight" class="token-conversion-wide" style="display: none;">
+                        <div style="background: rgba(54, 57, 63, 0.9); backdrop-filter: blur(12px); border-radius: 6px; padding: 12px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15); border: 1px solid rgba(114, 118, 125, 0.3);">
+                            <div style="color: #faa61a; font-size: 12px; font-weight: 600; margin-bottom: 8px; text-align: center; opacity: 0.8;">Current Token Values</div>
+                            <div style="display: flex; align-items: center; justify-content: space-around; gap: 12px;">
+                                <div style="display: flex; align-items: center; gap: 6px;">
+                                    <span style="font-size: 14px;">⚪</span>
+                                    <span class="whiteTokenValue" style="color: #ffffff; font-size: 13px; font-weight: 500;">$0.01</span>
+                                </div>
+                                <div style="display: flex; align-items: center; gap: 6px;">
+                                    <span style="font-size: 14px;">⚫</span>
+                                    <span class="blackTokenValue" style="color: #ffffff; font-size: 13px; font-weight: 500;">$0.05</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Round Results Phase (below token conversion on wide screens) -->
+                    <div id="resultsPhaseRight" class="results-wide" style="display: block; width: 100%;">
+                        <div style="background: rgba(64, 68, 75, 0.8); backdrop-filter: blur(12px); border-radius: 8px; padding: 16px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2); border: 1px solid rgba(114, 118, 125, 0.2); max-height: 400px; overflow-y: auto;">
+                            <h4 class="roundResultsTitle" style="color: #ffffff; margin: 0 0 12px 0; font-size: 16px;">Experiment Ready</h4>
+                            <div class="roundResults" style="color: #b9bbbe; margin-bottom: 12px; font-size: 14px;">Waiting for first round to begin...</div>
+                            
+                            <!-- Round Results Details Panel -->
+                            <div class="roundResultsPanel" style="display: none;">
+                                <div class="roundSummary" style="color: #43b581; font-size: 14px; margin-bottom: 12px; font-weight: 500;"></div>
+                                <div class="playerResultsTable" style="margin-bottom: 16px;"></div>
+                                <div class="conversionRateInfo" style="color: #7289da; font-size: 13px; margin-bottom: 12px;"></div>
+                                <div class="roundTotals" style="color: #faa61a; font-size: 13px; border-top: 1px solid rgba(114, 118, 125, 0.3); padding-top: 12px;"></div>
+                            </div>
+                            
+                            <div class="tokenUpdate" style="color: #43b581; font-size: 15px; margin-bottom: 8px; font-weight: 500;"></div>
+                            <div class="roundEarnings" style="color: #43b581; font-size: 14px; margin-bottom: 10px; font-weight: 500;"></div>
+                            <div class="culturantStatus" style="color: #7289da; font-size: 13px;"></div>
+                            <div class="activeIncentive" style="color: #faa61a; font-size: 12px; margin-top: 8px;"></div>
+                            <div class="baselineExitNotification" style="display: none; background: linear-gradient(135deg, #43b581, #5bc0de); color: #ffffff; font-size: 12px; font-weight: 600; margin-top: 8px; padding: 8px 12px; border-radius: 6px; cursor: pointer; box-shadow: 0 2px 8px rgba(67, 181, 129, 0.3); border: 1px solid rgba(255, 255, 255, 0.2); transition: all 0.3s ease;" onclick="this.style.display='none';" onmouseover="this.style.transform='scale(1.02)'; this.style.boxShadow='0 4px 16px rgba(67, 181, 129, 0.5)';" onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='0 2px 8px rgba(67, 181, 129, 0.3)';">
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <span style="font-size: 16px;">🎯</span>
+                                    <span class="baselineExitText">Baseline condition exited on turn X</span>
+                                    <span style="font-size: 11px; opacity: 0.8; margin-left: auto;">(click to dismiss)</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Round Results (below poker table - shown to everyone) -->
+                    <div id="roundResultsPokerTable" style="display: none; margin-top: 20px; max-width: 480px; margin-left: auto; margin-right: auto;">
+                        <div class="conversionRateInfo"></div>
+                    </div>
+                    
+                </div>
+                <!-- End of pokerTableSection -->
+                
+            </div>
+            <!-- End of gameContentWrapper -->
                         
                         <!-- Unified Moderator Switchboard Control (only visible to moderator) -->
                         <div id="moderatorSwitchboard" style="display: none; margin: 20px auto 0 auto; padding: 0; width: 1200px; box-sizing: border-box;">
                             <!-- Switchboard Header -->
-                            <div class="switchboard-header">
+                            <div class="switchboard-header" id="switchboardHeader" style="cursor: pointer; position: relative;">
                                 <div class="header-lights">
                                     <div class="status-light power-light"></div>
                                     <div class="status-light experiment-light"></div>
                                     <div class="status-light testing-light"></div>
                                 </div>
                                 <h3 class="switchboard-title">MODERATOR CONTROL PANEL</h3>
-                                <div class="header-display">
+                                <div class="header-display" style="margin-right: 30px;">
                                     <span id="switchboardClock"></span>
                                 </div>
+                                <div class="collapse-indicator" id="collapseIndicator" style="
+                                    position: absolute;
+                                    right: 20px;
+                                    top: 50%;
+                                    transform: translateY(-50%);
+                                    font-size: 24px;
+                                    color: #00ff88;
+                                    transition: transform 0.3s ease, text-shadow 0.3s ease;
+                                    text-shadow: 0 0 10px #00ff88, 0 0 20px #00ff88;
+                                ">▼</div>
                             </div>
                             
                             <!-- Main Control Grid -->
-                            <div class="switchboard-grid">
+                            <div class="switchboard-grid" id="switchboardGrid">
                                 <!-- Left Column: Game Controls -->
                                 <div class="control-column left-column">
                                     <div class="section-header">
@@ -1680,7 +1772,90 @@
                             justify-content: space-between;
                             box-shadow: 
                                 0 0 20px rgba(0, 255, 255, 0.3),
-                                inset 0 1px 0 rgba(255, 255, 255, 0.1);
+                                inset 0 1px 0 rgba(255, 255, 255, 0.1),
+                                0 0 40px rgba(0, 255, 255, 0.2),
+                                0 0 80px rgba(0, 255, 255, 0.1);
+                            transition: all 0.3s ease;
+                            user-select: none;
+                        }
+                        
+                        .switchboard-header:hover {
+                            background: linear-gradient(135deg, #1a1a2e 0%, #3d3d54 50%, #1a1a2e 100%);
+                            box-shadow: 
+                                0 0 30px rgba(0, 255, 255, 0.5),
+                                inset 0 1px 0 rgba(255, 255, 255, 0.2),
+                                0 0 50px rgba(0, 255, 255, 0.3),
+                                0 0 100px rgba(0, 255, 255, 0.15);
+                        }
+                        
+                        .switchboard-header:hover .collapse-indicator {
+                            transform: translateY(-50%) scale(1.2);
+                            text-shadow: 0 0 15px #00ff88, 0 0 30px #00ff88, 0 0 45px #00ff88;
+                        }
+                        
+                        .switchboard-grid {
+                            max-height: 2000px;
+                            overflow: hidden;
+                            transition: max-height 0.5s cubic-bezier(0.4, 0, 0.2, 1), 
+                                        opacity 0.4s ease,
+                                        transform 0.4s ease;
+                            transform-origin: top;
+                            opacity: 1;
+                        }
+                        
+                        .switchboard-grid.collapsed {
+                            max-height: 0;
+                            opacity: 0;
+                            transform: scaleY(0.95);
+                        }
+                        
+                        @keyframes cyberScanDown {
+                            0% {
+                                clip-path: inset(0 0 100% 0);
+                                filter: brightness(1.5) hue-rotate(0deg);
+                            }
+                            50% {
+                                filter: brightness(2) hue-rotate(20deg);
+                            }
+                            100% {
+                                clip-path: inset(0 0 0 0);
+                                filter: brightness(1) hue-rotate(0deg);
+                            }
+                        }
+                        
+                        @keyframes cyberScanUp {
+                            0% {
+                                clip-path: inset(0 0 0 0);
+                                filter: brightness(1) hue-rotate(0deg);
+                            }
+                            50% {
+                                filter: brightness(2) hue-rotate(-20deg);
+                            }
+                            100% {
+                                clip-path: inset(0 0 100% 0);
+                                filter: brightness(1.5) hue-rotate(0deg);
+                            }
+                        }
+                        
+                        .switchboard-grid.expanding {
+                            animation: cyberScanDown 0.5s ease-out forwards;
+                        }
+                        
+                        .switchboard-grid.collapsing {
+                            animation: cyberScanUp 0.4s ease-in forwards;
+                        }
+                        
+                        .collapse-indicator {
+                            animation: indicatorPulse 2s ease-in-out infinite;
+                        }
+                        
+                        @keyframes indicatorPulse {
+                            0%, 100% {
+                                opacity: 0.8;
+                            }
+                            50% {
+                                opacity: 1;
+                            }
                         }
                         
                         .header-lights {
@@ -2294,26 +2469,158 @@
                     </div>
                     
                     <style>
+                        /* When gameDiv is visible (inline-block from JS), force it to block to maintain layout */
+                        #gameDiv[style*="inline-block"] {
+                            display: block !important;
+                        }
+                        
+                        /* Main layout wrapper for game board and poker table */
+                        #gameContentWrapper {
+                            display: grid;
+                            grid-template-columns: minmax(0, auto) minmax(0, auto);
+                            gap: 60px;
+                            margin: 0 auto;
+                            max-width: 1600px;
+                            padding: 0 20px;
+                            width: fit-content;
+                            justify-content: center;
+                            align-items: start;
+                        }
+                        
+                        /* Game board section (left side on wide screens) */
+                        #gameBoardSection {
+                            justify-self: center;
+                        }
+                        
+                        /* Center the gameArea within gameBoardSection */
+                        #gameArea {
+                            margin: 0 auto !important;
+                            max-width: 900px !important;
+                            background-color: transparent !important;
+                        }
+                        
+                        /* Keep decision phase centered with text-align */
+                        #decisionPhase {
+                            text-align: center !important;
+                            padding-left: 130px !important;
+                            margin-top: -40px !important;
+                        }
+                        
+                        /* Poker table section (right side on wide screens) */
+                        #pokerTableSection {
+                            width: 600px;
+                            display: flex;
+                            flex-direction: column;
+                            gap: 20px;
+                            justify-self: center;
+                        }
+                        
+                        /* Hide poker section initially, show as grid item when visible */
+                        #pokerTableSection:empty {
+                            display: none;
+                        }
+                        
+                        /* When poker table section has content, ensure grid adjusts */
+                        #pokerTableSection:not(:empty) {
+                            display: flex;
+                        }
+                        
+                        /* Make poker table wider */
+                        #pokerTable {
+                            width: 100% !important;
+                            height: 450px !important;
+                        }
+                        
+                        /* Center decision grid container - use inline-flex to keep it centered */
+                        #decisionGridContainer {
+                            display: inline-flex !important;
+                            justify-content: center !important;
+                            align-items: flex-start !important;
+                            margin: 30px auto !important;
+                            flex-wrap: wrap !important;
+                        }
+                        
                         /* Responsive design for decision grid and results */
-                        @media (max-width: 1100px) {
+                        @media (min-width: 1200px) {
+                            /* Wide screens: side-by-side layout */
                             #decisionGridContainer {
+                                flex-direction: row !important;
+                                gap: 30px !important;
+                                flex-wrap: nowrap !important;
+                            }
+                            
+                            /* Hide all old results sections - use new bottom one */
+                            .token-conversion-wide,
+                            .results-wide,
+                            .token-conversion-narrow,
+                            .results-narrow {
+                                display: none !important;
+                            }
+                            
+                            /* Show bottom results section */
+                            #resultsPhaseBottom {
+                                display: block !important;
+                            }
+                        }
+                        
+                        @media (max-width: 1199px) {
+                            /* Narrower screens (half-screen): original stacked layout */
+                            #gameContentWrapper {
                                 flex-direction: column !important;
                                 align-items: center !important;
                                 gap: 20px !important;
                             }
                             
-                            #decisionGridContainer > div:first-child {
-                                min-width: 100% !important;
-                                max-width: 600px !important;
-                                order: 2 !important;
+                            #gameBoardSection {
+                                width: 100% !important;
                             }
                             
-                            #decisionGridContainer > div:last-child {
+                            #gameArea {
+                                max-width: 100% !important;
+                            }
+                            
+                            #pokerTableSection {
+                                width: 100% !important;
+                                max-width: none !important;
+                                order: -1; /* Put poker table before game board like original */
+                            }
+                            
+                            #pokerTable {
+                                width: 100% !important;
+                                height: 400px !important;
+                                margin-bottom: 20px !important;
+                            }
+                            
+                            /* Stack decision grid normally */
+                            #decisionGridContainer {
+                                flex-direction: column !important;
+                                align-items: center !important;
+                                gap: 20px !important;
+                                flex-wrap: nowrap !important;
+                            }
+                            
+                            /* Restore original order */
+                            #decisionGridContainer > div:first-child {
+                                width: 100% !important;
+                                max-width: 350px !important;
                                 order: 1 !important;
                             }
                             
-                            #resultsPhase > div {
-                                height: 220px !important;
+                            #decisionGridContainer > div:last-child {
+                                order: 2 !important;
+                            }
+                            
+                            /* Hide all old results sections - use new bottom one */
+                            .token-conversion-narrow,
+                            .results-narrow,
+                            .token-conversion-wide,
+                            .results-wide {
+                                display: none !important;
+                            }
+                            
+                            /* Show bottom results section */
+                            #resultsPhaseBottom {
+                                display: block !important;
                             }
                         }
                         
@@ -2334,14 +2641,37 @@
                                 max-width: 100% !important;
                             }
                             
-                            #resultsPhase > div {
-                                height: 180px !important;
+                            #pokerTable {
+                                height: 350px !important;
                             }
                         }
                         
                         /* Ensure nice alignment */
                         #decisionGridContainer > div {
                             margin-bottom: 0;
+                        }
+                        
+                        /* Moderator controls always centered below everything */
+                        #moderatorSwitchboard {
+                            margin: 30px auto 0 auto !important;
+                            margin-left: calc(50% - 595px) !important;
+                            text-align: center;
+                            clear: both;
+                        }
+                        
+                        /* Fix lock in button animations */
+                        #lockInBtn {
+                            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+                        }
+                        
+                        #lockInBtn:hover:not(:disabled) {
+                            transform: translateY(-1px) !important;
+                            box-shadow: 0 4px 12px rgba(88, 101, 242, 0.35) !important;
+                        }
+                        
+                        #lockInBtn:active:not(:disabled) {
+                            transform: translateY(0) scale(0.98) !important;
+                            box-shadow: 0 2px 6px rgba(88, 101, 242, 0.25) !important;
                         }
                     </style>
                     

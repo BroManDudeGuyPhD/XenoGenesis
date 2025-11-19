@@ -4547,13 +4547,13 @@ socket.on('yourTurn', function(data) {
             console.log(`🔄 Restored locked-in UI state`);
         } else if (selectedChoice !== null) {
             lockInBtn.disabled = false;
-            lockInText.textContent = '🔒 Lock In Choice';
+            lockInText.textContent = 'Lock in';
             lockInBtn.style.background = 'linear-gradient(135deg, #faa61a, #e8941a)';
             lockInBtn.style.cursor = 'pointer';
             console.log(`🔄 Restored enabled lock-in button`);
         } else {
             lockInBtn.disabled = true;
-            lockInText.textContent = '🔒 Lock In Choice';
+            lockInText.textContent = 'Lock in';
             lockInBtn.style.background = 'linear-gradient(135deg, #5865f2, #4752c4)';
             lockInBtn.style.cursor = 'not-allowed';
         }
@@ -4617,11 +4617,17 @@ socket.on('yourTurn', function(data) {
     if (moderatorSwitchboard) {
         moderatorSwitchboard.style.display = data.isModerator ? 'block' : 'none';
         
-        // Hide tokenUpdate div for moderators
-        const tokenUpdateElement = document.getElementById('tokenUpdate');
-        if (tokenUpdateElement) {
-            tokenUpdateElement.style.display = data.isModerator ? 'none' : 'block';
+        // Show/hide moderator cumulative earnings section
+        const moderatorCumulativeEarnings = document.getElementById('moderatorCumulativeEarnings');
+        if (moderatorCumulativeEarnings) {
+            moderatorCumulativeEarnings.style.display = data.isModerator ? 'block' : 'none';
         }
+        
+        // Hide tokenUpdate div for moderators - update both left and right versions
+        const tokenUpdateElements = document.querySelectorAll('.tokenUpdate');
+        tokenUpdateElements.forEach(element => {
+            element.style.display = data.isModerator ? 'none' : 'block';
+        });
         
         // Initialize switchboard functionality for moderators
         if (data.isModerator) {
@@ -4774,16 +4780,28 @@ socket.on('newRound', function(data) {
     // Choice status is now handled by the modern selection UI
 });
 
-// Function to update token conversion display
+// Function to update token conversion display (handles both left and right versions for responsive layout)
 function updateTokenConversionDisplay(whiteValue, blackValue) {
-    const whiteTokenElement = document.getElementById('whiteTokenValue');
-    const blackTokenElement = document.getElementById('blackTokenValue');
-    const conversionDisplay = document.getElementById('tokenConversionDisplay');
+    const whiteTokenElements = document.querySelectorAll('.whiteTokenValue');
+    const blackTokenElements = document.querySelectorAll('.blackTokenValue');
+    const conversionDisplays = document.querySelectorAll('#tokenConversionDisplayLeft, #tokenConversionDisplayRight');
     
-    if (whiteTokenElement && blackTokenElement && conversionDisplay) {
-        whiteTokenElement.textContent = `$${whiteValue.toFixed(2)}`;
-        blackTokenElement.textContent = `$${blackValue.toFixed(2)}`;
-        conversionDisplay.style.display = 'block';
+    // Update all white token value elements
+    whiteTokenElements.forEach(element => {
+        element.textContent = `$${whiteValue.toFixed(2)}`;
+    });
+    
+    // Update all black token value elements
+    blackTokenElements.forEach(element => {
+        element.textContent = `$${blackValue.toFixed(2)}`;
+    });
+    
+    // Show all conversion displays
+    conversionDisplays.forEach(display => {
+        display.style.display = 'block';
+    });
+    
+    if (whiteTokenElements.length > 0 && blackTokenElements.length > 0) {
         console.log(`💰 Updated token conversion display: White=$${whiteValue.toFixed(2)}, Black=$${blackValue.toFixed(2)}`);
     }
 }
@@ -5584,10 +5602,12 @@ socket.on('roundResult', function(data) {
         }
     }, 300); // Short delay for global token pool display
     
-    // Update round results title
-    const roundResultsTitle = document.getElementById('roundResultsTitle');
-    if (roundResultsTitle && data.round) {
-        roundResultsTitle.textContent = `Round ${data.round} Results`;
+    // Update round results title (both left and right versions for responsive layout)
+    const roundResultsTitles = document.querySelectorAll('.roundResultsTitle');
+    if (roundResultsTitles.length > 0 && data.round) {
+        roundResultsTitles.forEach(title => {
+            title.textContent = `Round ${data.round} Results`;
+        });
     }
     
     // Display round results
@@ -5632,24 +5652,28 @@ socket.on('roundResult', function(data) {
     }
     
     // Check if we have restored round history that we should preserve
-    const roundResultsDiv = document.getElementById('roundResults');
-    const hasRestoredHistory = roundResultsDiv && roundResultsDiv.querySelector('#persistentRoundHistory');
+    const roundResultsDivs = document.querySelectorAll('.roundResults');
+    const hasRestoredHistory = roundResultsDivs.length > 0 && roundResultsDivs[0].querySelector('#persistentRoundHistory');
     
     if (hasRestoredHistory && data.showDetails === false) {
         // This is a historical round result sent during restoration - don't overwrite the history display
         console.log('📚 Preserving restored round history, skipping roundResults update');
     } else {
-        // This is a current round result, safe to update
-        document.getElementById('roundResults').innerHTML = resultsHTML;
+        // This is a current round result, safe to update both left and right versions
+        roundResultsDivs.forEach(div => {
+            div.innerHTML = resultsHTML;
+        });
     }
     
-    // Display token awards with earnings inline (hide for moderators)
-    const tokenUpdateElement = document.getElementById('tokenUpdate');
-    if (tokenUpdateElement) {
+    // Display token awards with earnings inline (hide for moderators) - update both left and right versions
+    const tokenUpdateElements = document.querySelectorAll('.tokenUpdate');
+    if (tokenUpdateElements.length > 0) {
         if (isModerator) {
             // Hide token update div for moderators and clear content
-            tokenUpdateElement.style.display = 'none';
-            tokenUpdateElement.innerHTML = '';
+            tokenUpdateElements.forEach(element => {
+                element.style.display = 'none';
+                element.innerHTML = '';
+            });
         } else {
             // Calculate earnings from this round's tokens
             const whiteEarnings = (data.tokensAwarded.white || 0) * (data.condition.whiteValue || 0);
@@ -5676,30 +5700,32 @@ socket.on('roundResult', function(data) {
                 tokenHTML += ` ($0.00)`;
             }
             
-            tokenUpdateElement.innerHTML = tokenHTML;
+            tokenUpdateElements.forEach(element => {
+                element.innerHTML = tokenHTML;
+            });
         }
     }
 
     // Clear the separate round earnings element since we're now showing inline
-    const roundEarningsElement = document.getElementById('roundEarnings');
-    if (roundEarningsElement) {
-        roundEarningsElement.textContent = '';
-    }
+    const roundEarningsElements = document.querySelectorAll('.roundEarnings');
+    roundEarningsElements.forEach(element => {
+        element.textContent = '';
+    });
     
-    // Display active incentive status (only for moderators)
-    const incentiveElement = document.getElementById('activeIncentive');
-    if (incentiveElement) {
+    // Display active incentive status (only for moderators) - update both left and right versions
+    const incentiveElements = document.querySelectorAll('.activeIncentive');
+    incentiveElements.forEach(element => {
         if (isModerator && data.activeIncentive) {
-            incentiveElement.textContent = `Active Incentive: ${data.activeIncentive.charAt(0).toUpperCase() + data.activeIncentive.slice(1)}`;
-            incentiveElement.style.color = '#faa61a';
+            element.textContent = `Active Incentive: ${data.activeIncentive.charAt(0).toUpperCase() + data.activeIncentive.slice(1)}`;
+            element.style.color = '#faa61a';
         } else if (isModerator && !data.activeIncentive) {
-            incentiveElement.textContent = 'No Active Incentive';
-            incentiveElement.style.color = '#72767d';
+            element.textContent = 'No Active Incentive';
+            element.style.color = '#72767d';
         } else {
             // Hide incentive info for non-moderators
-            incentiveElement.textContent = '';
+            element.textContent = '';
         }
-    }
+    });
     
     // Update culturant count from server data
     if (data.culturantsProduced !== undefined) {
@@ -5710,22 +5736,22 @@ socket.on('roundResult', function(data) {
         }
     }
     
-    // Display culturant status
+    // Display culturant status - update both left and right versions
+    const culturantStatusElements = document.querySelectorAll('.culturantStatus');
     if (data.culturantProduced) {
-        const culturantStatusElement = document.getElementById('culturantStatus');
-        
         // Only show cooperation event message to moderators
-        if (culturantStatusElement && isModerator) {
-            culturantStatusElement.textContent = '🎯 Cooperation Event! All players chose even rows.';
-            culturantStatusElement.style.color = '#43b581';
-        } else if (culturantStatusElement) {
-            culturantStatusElement.textContent = '';
-        }
+        culturantStatusElements.forEach(element => {
+            if (isModerator) {
+                element.textContent = '🎯 Cooperation Event! All players chose even rows.';
+                element.style.color = '#43b581';
+            } else {
+                element.textContent = '';
+            }
+        });
     } else {
-        const culturantStatusElement = document.getElementById('culturantStatus');
-        if (culturantStatusElement) {
-            culturantStatusElement.textContent = '';
-        }
+        culturantStatusElements.forEach(element => {
+            element.textContent = '';
+        });
     }
     
     // Note: Wallet displays are now updated with delay in playerStatusUpdate event to sync with return animation
@@ -5811,21 +5837,28 @@ function showBaselineExitNotification(turnNumber) {
     
     if (!isModerator) return;
     
-    const notification = document.getElementById('baselineExitNotification');
-    const notificationText = document.getElementById('baselineExitText');
+    const notifications = document.querySelectorAll('.baselineExitNotification');
+    const notificationTexts = document.querySelectorAll('.baselineExitText');
     
-    if (notification && notificationText) {
+    if (notifications.length > 0 && notificationTexts.length > 0) {
         // Use current round if turnNumber is 0 or invalid
         const displayTurn = turnNumber > 0 ? turnNumber : currentRoundNumber;
-        notificationText.textContent = `Baseline condition exited on turn ${displayTurn}`;
-        notification.style.display = 'block';
-        console.log('🎯 Baseline exit notification displayed for turn:', displayTurn);
         
-        // Add a subtle animation to draw attention
-        notification.style.transform = 'scale(0.95)';
-        setTimeout(() => {
-            notification.style.transform = 'scale(1)';
-        }, 100);
+        notificationTexts.forEach(element => {
+            element.textContent = `Baseline condition exited on turn ${displayTurn}`;
+        });
+        
+        notifications.forEach(element => {
+            element.style.display = 'block';
+            
+            // Add a subtle animation to draw attention
+            element.style.transform = 'scale(0.95)';
+            setTimeout(() => {
+                element.style.transform = 'scale(1)';
+            }, 100);
+        });
+        
+        console.log('🎯 Baseline exit notification displayed for turn:', displayTurn);
     }
 }
 
@@ -7328,7 +7361,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 const lockInText = document.getElementById('lockInText');
                 lockInBtn.disabled = false;
                 if (lockInText) {
-                    lockInText.textContent = '🔒 Lock In Choice';
+                    lockInText.textContent = 'Lock in';
                 }
                 lockInBtn.style.background = 'linear-gradient(135deg, #5865f2, #4752c4)';
                 lockInBtn.style.cursor = 'pointer';
@@ -8108,11 +8141,59 @@ socket.on('experimentResumed', function(data) {
 socket.on('roundResultsPanel', function(data) {
     console.log('📊 Round results panel data received:', data);
     
-    // Only show for moderators
-    const isModerator = window.currentUserIsModerator || false;
-    if (isModerator) {
+    // Show results for everyone, but different data based on role
+    const moderatorSwitchboard = document.getElementById('moderatorSwitchboard');
+    const isModerator = moderatorSwitchboard && moderatorSwitchboard.style.display === 'block';
+    console.log('📊 isModerator check:', isModerator);
+    
+    // Delay showing results until return animation triggers (2 seconds)
+    setTimeout(() => {
+        console.log('📊 Displaying round results after return animation delay');
         updateRoundResultsPanel(data);
-    }
+        
+        // Update poker table wallet displays and personal wallet with current totals
+        if (data.players && data.players.length > 0) {
+            console.log('💰 Updating all wallet displays from roundResultsPanel');
+            updateAllWalletDisplays(data.players);
+            
+            // Also update personal wallet if not moderator
+            if (!isModerator) {
+                const currentPlayer = data.players.find(p => p.username === currentUsername);
+                if (currentPlayer) {
+                    console.log(`💰 Found current player data:`, currentPlayer);
+                    document.getElementById('whiteTokens').textContent = currentPlayer.whiteTokens || 0;
+                    document.getElementById('blackTokens').textContent = currentPlayer.blackTokens || 0;
+                    document.getElementById('totalEarnings').textContent = `$${(currentPlayer.totalEarnings || 0).toFixed(2)}`;
+                    console.log(`💰 Updated personal wallet for ${currentUsername}: White=${currentPlayer.whiteTokens}, Black=${currentPlayer.blackTokens}, Total=$${currentPlayer.totalEarnings}`);
+                } else {
+                    console.log(`💰 Could not find player data for ${currentUsername} in:`, data.players.map(p => p.username));
+                }
+            }
+        }
+        
+        // Show roundResultsPokerTable for all players (round results below poker table)
+        const roundResultsPokerTable = document.getElementById('roundResultsPokerTable');
+        if (roundResultsPokerTable && data.previousRoundPlayers) {
+            roundResultsPokerTable.style.display = 'block';
+            console.log('📊 Showing roundResultsPokerTable for all players');
+        }
+        
+        // Show resultsPhaseBottom only for moderators (cumulative below checkerboard)
+        if (isModerator) {
+            const resultsPhaseBottom = document.getElementById('resultsPhaseBottom');
+            if (resultsPhaseBottom && data.players) {
+                resultsPhaseBottom.style.display = 'block';
+                console.log('📊 Showing resultsPhaseBottom for moderator only');
+            }
+        } else {
+            // Hide resultsPhaseBottom for non-moderators
+            const resultsPhaseBottom = document.getElementById('resultsPhaseBottom');
+            if (resultsPhaseBottom) {
+                resultsPhaseBottom.style.display = 'none';
+                console.log('📊 Hiding resultsPhaseBottom for non-moderator');
+            }
+        }
+    }, 2500); // Delay to sync with return animation completion
 });
 
 socket.on('roundReset', function(data) {
@@ -8296,9 +8377,8 @@ function updateTurnDisplay(turnData) {
         if (isMyTurn) {
             turnDisplay.style.cssText = `
                 position: absolute;
-                top: -60px;
-                left: 50%;
-                transform: translateX(-50%);
+                bottom: 30px;
+                right: 70px;
                 background: linear-gradient(145deg, rgba(67, 181, 129, 0.95), rgba(52, 144, 103, 0.95));
                 color: white;
                 padding: 8px 16px;
@@ -8317,9 +8397,8 @@ function updateTurnDisplay(turnData) {
         } else {
             turnDisplay.style.cssText = `
                 position: absolute;
-                top: -60px;
-                left: 50%;
-                transform: translateX(-50%);
+                bottom: 30px;
+                right: 70px;
                 background: rgba(72, 47, 247, 0.9);
                 color: white;
                 padding: 8px 16px;
@@ -8787,15 +8866,15 @@ socket.on('playerLockedIn', function(data) {
             
             if (playerSeat.id === 'leftPlayer') {
                 // Left player moves right to just outside counter boundary
-                let moveDistance = 320; // P1 needs to move farther in
+                let moveDistance = 80; // Reduced movement for new layout
                 playerSeat.style.transform = (originalStyles.transform || '') + ` scale(1.1) translateX(${moveDistance}px)`;
             } else if (playerSeat.id === 'rightPlayer') {
                 // Right player moves left to just outside counter boundary
-                let moveDistance = 320; // P3 needs to move farther in
+                let moveDistance = 80; // Reduced movement for new layout
                 playerSeat.style.transform = (originalStyles.transform || '') + ` scale(1.1) translateX(-${moveDistance}px)`;
             } else if (playerSeat.id === 'topPlayer') {
                 // Top player moves down to just outside counter boundary
-                let moveDistance = 40; // P2 moves less
+                let moveDistance = 60; // P2 moves less
                 playerSeat.style.transform = (originalStyles.transform || '') + ` scale(1.1) translateY(${moveDistance}px)`;
             } else {
                 // Fallback: just scale
@@ -10977,6 +11056,50 @@ function initializeSwitchboardFunctions() {
     updateSwitchboardClock();
     setInterval(updateSwitchboardClock, 1000);
     
+    // Collapsible header functionality
+    const switchboardHeader = document.getElementById('switchboardHeader');
+    const switchboardGrid = document.getElementById('switchboardGrid');
+    const collapseIndicator = document.getElementById('collapseIndicator');
+    
+    if (switchboardHeader && switchboardGrid && collapseIndicator) {
+        // Check if already initialized to prevent re-initialization
+        if (switchboardHeader.dataset.initialized === 'true') {
+            return; // Already initialized, skip
+        }
+        switchboardHeader.dataset.initialized = 'true';
+        
+        let isCollapsed = true; // Start collapsed on first load
+        
+        // Set initial collapsed state only on first initialization
+        switchboardGrid.classList.add('collapsed');
+        collapseIndicator.style.transform = 'translateY(-50%) rotate(180deg)';
+        
+        switchboardHeader.addEventListener('click', function() {
+            isCollapsed = !isCollapsed;
+            
+            if (isCollapsed) {
+                // Collapsing
+                switchboardGrid.classList.remove('expanding');
+                switchboardGrid.classList.add('collapsing');
+                collapseIndicator.style.transform = 'translateY(-50%) rotate(180deg)';
+                
+                setTimeout(() => {
+                    switchboardGrid.classList.add('collapsed');
+                    switchboardGrid.classList.remove('collapsing');
+                }, 400);
+            } else {
+                // Expanding
+                switchboardGrid.classList.remove('collapsed', 'collapsing');
+                switchboardGrid.classList.add('expanding');
+                collapseIndicator.style.transform = 'translateY(-50%) rotate(0deg)';
+                
+                setTimeout(() => {
+                    switchboardGrid.classList.remove('expanding');
+                }, 500);
+            }
+        });
+    }
+    
     // Auto column toggle functionality
     const autoToggle = document.getElementById('autoColumnToggleSwitch');
     const manualGrid = document.getElementById('manualColumnGrid');
@@ -11320,30 +11443,118 @@ function hideIncentiveBanner() {
 function updateRoundResultsPanel(roundData) {
     console.log('🔍 Updating round results panel:', roundData);
     
-    const roundResultsTitle = document.getElementById('roundResultsTitle');
-    const roundResults = document.getElementById('roundResults');
-    const roundResultsPanel = document.getElementById('roundResultsPanel');
-    const roundSummary = document.getElementById('roundSummary');
-    const playerResultsTable = document.getElementById('playerResultsTable');
-    const conversionRateInfo = document.getElementById('conversionRateInfo');
-    const roundTotals = document.getElementById('roundTotals');
+    const roundResultsTitles = document.querySelectorAll('.roundResultsTitle');
+    const roundResults = document.querySelectorAll('.roundResults');
+    const roundResultsPanels = document.querySelectorAll('.roundResultsPanel');
+    const roundSummaries = document.querySelectorAll('.roundSummary');
+    const playerResultsTables = document.querySelectorAll('.playerResultsTable');
+    const conversionRateInfos = document.querySelectorAll('.conversionRateInfo');
+    const roundTotals = document.querySelectorAll('.roundTotals');
     
-    if (!roundResultsTitle || !roundResultsPanel) {
+    // Check if current user is moderator
+    const moderatorSwitchboard = document.getElementById('moderatorSwitchboard');
+    const isModerator = moderatorSwitchboard && moderatorSwitchboard.style.display === 'block';
+    
+    if (roundResultsTitles.length === 0 || roundResultsPanels.length === 0) {
         console.warn('⚠️ Round results panel elements not found');
         return;
     }
     
-    // Hide waiting message and show panel
-    if (roundResults) roundResults.style.display = 'none';
-    if (roundResultsTitle) roundResultsTitle.style.display = 'none';
-    roundResultsPanel.style.display = 'block';
+    // Hide waiting message and show panel for all versions
+    roundResults.forEach(element => element.style.display = 'none');
+    roundResultsTitles.forEach(element => element.style.display = 'none');
     
-    // 1. SWAPPED: Show Previous Round first, then Totals
-    if (conversionRateInfo && roundData.previousRoundPlayers) {
+    // Only show panel if there's actual data to display
+    const hasData = (conversionRateInfos.length > 0 && roundData.previousRoundPlayers) || 
+                    (playerResultsTables.length > 0 && roundData.players && isModerator);
+    
+    if (hasData) {
+        // Only show roundResultsPanels that contain data for this user's role
+        if (isModerator && playerResultsTables.length > 0 && roundData.players) {
+            // Show panel containing cumulative data for moderators
+            roundResultsPanels.forEach(element => {
+                if (element.querySelector('.playerResultsTable')) {
+                    element.style.display = 'block';
+                }
+            });
+        }
+        if (conversionRateInfos.length > 0 && roundData.previousRoundPlayers) {
+            // Show panel containing round results for everyone
+            roundResultsPanels.forEach(element => {
+                if (element.querySelector('.conversionRateInfo')) {
+                    element.style.display = 'block';
+                }
+            });
+        }
+    }
+    
+    // 1. Show Cumulative Totals first - MODERATOR ONLY
+    if (playerResultsTables.length > 0 && roundData.players && isModerator) {
+        const totalWhite = roundData.players.reduce((sum, p) => sum + (p.whiteTokens || 0), 0);
+        const totalBlack = roundData.players.reduce((sum, p) => sum + (p.blackTokens || 0), 0);
+        const totalEarnings = roundData.players.reduce((sum, p) => sum + (p.totalEarnings || 0), 0);
+        
+        // Sort players by their seat position (left-to-right: left, top, right)
+        const seatOrder = { 'left': 1, 'top': 2, 'right': 3 };
+        const sortedPlayers = [...roundData.players].sort((a, b) => {
+            const seatA = seatOrder[a.seatPosition] || 999;
+            const seatB = seatOrder[b.seatPosition] || 999;
+            return seatA - seatB;
+        });
+        
+        let tableHTML = `
+            <div style="background: rgba(64, 68, 75, 0.8); backdrop-filter: blur(12px); border-radius: 8px; padding: 12px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2); border: 1px solid rgba(114, 118, 125, 0.2); max-height: 280px; overflow-y: auto;">
+                <div style="background: rgba(40, 43, 48, 0.6); border-radius: 6px; padding: 12px; margin-bottom: 8px;">
+                    <div style="color: #ffffff; font-weight: 600; font-size: 13px; margin-bottom: 8px;">Cumulative Player Earnings</div>
+                    <div style="display: grid; grid-template-columns: 1fr auto auto auto; gap: 8px; font-size: 12px;">
+                        <div style="color: #b9bbbe; font-weight: 500;">Player</div>
+                        <div style="color: #b9bbbe; font-weight: 500; text-align: right;">⚪</div>
+                        <div style="color: #b9bbbe; font-weight: 500; text-align: right;">⚫</div>
+                        <div style="color: #b9bbbe; font-weight: 500; text-align: right;">Total $</div>
+        `;
+        
+        // Add individual player rows in correct order
+        sortedPlayers.forEach(player => {
+            const whiteTokens = player.whiteTokens || 0;
+            const blackTokens = player.blackTokens || 0;
+            const totalEarnings = player.totalEarnings || 0;
+            const isAI = player.isAI ? ' (AI)' : '';
+            
+            tableHTML += `
+                <div style="color: #ffffff;">${player.username}${isAI}</div>
+                <div style="color: #43b581; text-align: right;">${whiteTokens}</div>
+                <div style="color: #e74c3c; text-align: right;">${blackTokens}</div>
+                <div style="color: #faa61a; text-align: right; font-weight: 500;">$${totalEarnings.toFixed(2)}</div>
+            `;
+        });
+        
+        // Add separator line and totals row
+        tableHTML += `
+                    <div style="grid-column: 1 / -1; height: 1px; background: rgba(255, 255, 255, 0.1); margin: 8px 0;"></div>
+                    <div style="color: #ffffff; font-weight: 600;">EXPERIMENT TOTALS</div>
+                    <div style="color: #43b581; text-align: right; font-weight: 600;">${totalWhite}</div>
+                    <div style="color: #e74c3c; text-align: right; font-weight: 600;">${totalBlack}</div>
+                    <div style="color: #faa61a; text-align: right; font-weight: 600;">$${totalEarnings.toFixed(2)}</div>
+                </div>
+            </div>
+            </div>
+        `;
+        
+        console.log('📊 Populating cumulative earnings table for moderator');
+        playerResultsTables.forEach(element => {
+            element.innerHTML = tableHTML;
+        });
+    } else {
+        console.log('📊 Skipping cumulative earnings table - not moderator or no data');
+    }
+    
+    // 2. Show Previous Round second - update all versions
+    if (conversionRateInfos.length > 0 && roundData.previousRoundPlayers) {
         const previousRoundNumber = roundData.round;
         let previousDistributionHTML = `
-            <div style="background: rgba(40, 43, 48, 0.6); border-radius: 6px; padding: 12px; margin-bottom: 8px;">
-                <div style="color: #ffffff; font-weight: 600; font-size: 13px; margin-bottom: 8px;">Round <span style="color: #43b581;">${previousRoundNumber}</span> Results</div>`;
+            <div style="background: rgba(64, 68, 75, 0.8); backdrop-filter: blur(12px); border-radius: 8px; padding: 12px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2); border: 1px solid rgba(114, 118, 125, 0.2); max-height: 280px; overflow-y: auto; max-width: 400px;">
+                <div style="background: rgba(40, 43, 48, 0.6); border-radius: 6px; padding: 12px; margin-bottom: 8px;">
+                    <div style="color: #ffffff; font-weight: 600; font-size: 13px; margin-bottom: 8px;">Round <span style="color: #43b581;">${previousRoundNumber}</span> Results</div>`;
         
         // Add token values subheader if available
         if (roundData.tokenValues) {
@@ -11405,13 +11616,16 @@ function updateRoundResultsPanel(roundData) {
                 <div style="color: #faa61a; text-align: right; font-weight: 600;">$${prevTotalRoundEarnings.toFixed(2)}</div>
             </div>
         </div>
+        </div>
         `;
         
-        conversionRateInfo.innerHTML = previousDistributionHTML;
+        conversionRateInfos.forEach(element => {
+            element.innerHTML = previousDistributionHTML;
+        });
     }
     
-    // 2. SWAPPED: Show Cumulative Totals second
-    if (playerResultsTable && roundData.players) {
+    // 2. SWAPPED: Show Cumulative Totals second - update all versions
+    if (playerResultsTables.length > 0 && roundData.players) {
         const totalWhite = roundData.players.reduce((sum, p) => sum + (p.whiteTokens || 0), 0);
         const totalBlack = roundData.players.reduce((sum, p) => sum + (p.blackTokens || 0), 0);
         const totalEarnings = roundData.players.reduce((sum, p) => sum + (p.totalEarnings || 0), 0);
@@ -11425,13 +11639,14 @@ function updateRoundResultsPanel(roundData) {
         });
         
         let tableHTML = `
-            <div style="background: rgba(40, 43, 48, 0.6); border-radius: 6px; padding: 12px; margin-bottom: 8px;">
-                <div style="color: #ffffff; font-weight: 600; font-size: 13px; margin-bottom: 8px;">Cumulative Player Earnings</div>
-                <div style="display: grid; grid-template-columns: 1fr auto auto auto; gap: 8px; font-size: 12px;">
-                    <div style="color: #b9bbbe; font-weight: 500;">Player</div>
-                    <div style="color: #b9bbbe; font-weight: 500; text-align: right;">⚪</div>
-                    <div style="color: #b9bbbe; font-weight: 500; text-align: right;">⚫</div>
-                    <div style="color: #b9bbbe; font-weight: 500; text-align: right;">Total $</div>
+            <div style="background: rgba(64, 68, 75, 0.8); backdrop-filter: blur(12px); border-radius: 8px; padding: 12px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2); border: 1px solid rgba(114, 118, 125, 0.2); max-height: 280px; overflow-y: auto;">
+                <div style="background: rgba(40, 43, 48, 0.6); border-radius: 6px; padding: 12px; margin-bottom: 8px;">
+                    <div style="color: #ffffff; font-weight: 600; font-size: 13px; margin-bottom: 8px;">Cumulative Player Earnings</div>
+                    <div style="display: grid; grid-template-columns: 1fr auto auto auto; gap: 8px; font-size: 12px;">
+                        <div style="color: #b9bbbe; font-weight: 500;">Player</div>
+                        <div style="color: #b9bbbe; font-weight: 500; text-align: right;">⚪</div>
+                        <div style="color: #b9bbbe; font-weight: 500; text-align: right;">⚫</div>
+                        <div style="color: #b9bbbe; font-weight: 500; text-align: right;">Total $</div>
         `;
         
         // Add individual player rows in correct order
@@ -11458,13 +11673,16 @@ function updateRoundResultsPanel(roundData) {
                     <div style="color: #faa61a; text-align: right; font-weight: 600;">$${totalEarnings.toFixed(2)}</div>
                 </div>
             </div>
+            </div>
         `;
         
-        playerResultsTable.innerHTML = tableHTML;
+        playerResultsTables.forEach(element => {
+            element.innerHTML = tableHTML;
+        });
     }
     
-    // Hide the separate round totals section since it's now integrated
-    if (roundTotals) {
-        roundTotals.style.display = 'none';
-    }
+    // Hide the separate round totals section since it's now integrated - update all versions
+    roundTotals.forEach(element => {
+        element.style.display = 'none';
+    });
 }
