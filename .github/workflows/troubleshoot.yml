@@ -5,6 +5,7 @@ run-name: |
     inputs.action == 'check' && '🔍 System Health Check' ||
     inputs.action == 'restart_down_services' && '🔄 Smart Service Restart' ||
     inputs.action == 'hard_reset' && '💥 Hard System Reset' ||
+    inputs.action == 'reboot_system' && '🔄 System Reboot' ||
     '🛠️ Service Troubleshooting'
   }}
 
@@ -20,8 +21,9 @@ on:
         - check
         - restart_down_services
         - hard_reset
+        - reboot_system
       password:
-        description: 'Password (required for hard reset) HINT: What is your name?'
+        description: 'Password (required for hard reset/reboot) HINT: What is your name?'
         required: false
         type: string
 
@@ -31,13 +33,13 @@ jobs:
     
     steps:
     - name: Validate Hard Reset Password
-      if: inputs.action == 'hard_reset'
+      if: inputs.action == 'hard_reset' || inputs.action == 'reboot_system'
       run: |
         if [ "${{ inputs.password }}" != "${{ secrets.HARD_RESET_PASSWORD }}" ]; then
-          echo "❌ Invalid password for hard reset operation"
+          echo "❌ Invalid password for ${{ inputs.action }} operation"
           exit 1
         fi
-        echo "✅ Password validated for hard reset"
+        echo "✅ Password validated for ${{ inputs.action }}"
       
     - name: System Information
       run: |
@@ -69,6 +71,39 @@ jobs:
             echo "❌ Port $port is not listening"
           fi
         done
+        echo ""
+        
+    - name: Check SSH Service
+      id: check_ssh
+      run: |
+        echo "🔐 SSH Service Status:"
+        if systemctl is-active --quiet ssh 2>/dev/null || systemctl is-active --quiet sshd 2>/dev/null; then
+          echo "✅ SSH service is running"
+          echo "ssh_status=running" >> $GITHUB_OUTPUT
+          
+          # Check SSH port (custom port 2222)
+          if netstat -tln 2>/dev/null | grep ":2222 " > /dev/null; then
+            echo "✅ SSH port 2222 is listening"
+            echo "ssh_port_status=listening" >> $GITHUB_OUTPUT
+          else
+            echo "⚠️ SSH port 2222 is not listening"
+            echo "ssh_port_status=not_listening" >> $GITHUB_OUTPUT
+          fi
+          
+          if [ "${{ inputs.action }}" = "check" ]; then
+            echo "Active SSH connections:"
+            who | grep -v "^$" || echo "No active SSH sessions"
+          fi
+        else
+          echo "❌ SSH service is not running"
+          echo "ssh_status=stopped" >> $GITHUB_OUTPUT
+          echo "ssh_port_status=not_listening" >> $GITHUB_OUTPUT
+          
+          if [ "${{ inputs.action }}" = "check" ]; then
+            echo "Service status:"
+            systemctl status ssh --no-pager -l 2>/dev/null || systemctl status sshd --no-pager -l 2>/dev/null || echo "SSH service not found"
+          fi
+        fi
         echo ""
         
     - name: Check XenoGenesis Service
@@ -298,6 +333,40 @@ jobs:
         echo "Fresh startup logs:"
         journalctl -u xenogenesis --no-pager -n 3 --since "1 minute ago" 2>/dev/null || echo "No fresh logs available"
         
+    - name: Reboot System
+      if: inputs.action == 'reboot_system'
+      run: |
+        echo "🔄 PERFORMING SYSTEM REBOOT..."
+        echo "⚠️ WARNING: This will reboot the entire system!"
+        echo "Current uptime: $(uptime -p 2>/dev/null || uptime)"
+        echo ""
+        
+        # Save pre-reboot status
+        echo "Pre-reboot service status:"
+        systemctl is-active nginx 2>/dev/null && echo "  nginx: running" || echo "  nginx: stopped"
+        systemctl is-active xenogenesis 2>/dev/null && echo "  xenogenesis: running" || echo "  xenogenesis: stopped"
+        systemctl is-active ssh 2>/dev/null || systemctl is-active sshd 2>/dev/null && echo "  SSH: running" || echo "  SSH: stopped"
+        echo ""
+        
+        echo "📝 Note: Services configured with systemd should automatically restart after reboot"
+        echo "🔍 Check the next workflow run to verify services came back up"
+        echo ""
+        
+        # Attempt reboot with sudo
+        echo "Initiating system reboot in 5 seconds..."
+        sleep 5
+        
+        if sudo -n reboot 2>/dev/null; then
+          echo "✅ Reboot command sent successfully"
+        else
+          echo "❌ Cannot execute reboot command - insufficient privileges"
+          echo "💡 Tip: Ensure the runner user has sudo privileges for reboot"
+          exit 1
+        fi
+        
+        # This message may not display as system is rebooting
+        echo "🔄 System is rebooting now..."
+        
     - name: Test Production App Connectivity
       if: inputs.action == 'restart_down_services' || inputs.action == 'hard_reset'
       run: |
@@ -340,6 +409,7 @@ jobs:
         echo ""
         
     - name: Final Summary and GitHub Summary  
+      if: inputs.action != 'reboot_system'
       run: |
         echo ""
         echo "📊 TROUBLESHOOT SUMMARY"
@@ -351,6 +421,7 @@ jobs:
         # Collect service status for GitHub summary
         nginx_status="down"
         xenogenesis_status="down"
+        ssh_status="down"
         echo ""
         echo "Final service status:"
         
@@ -366,6 +437,13 @@ jobs:
           echo "  ✅ xenogenesis: running"
         else
           echo "  ❌ xenogenesis: down"
+        fi
+        
+        if systemctl is-active --quiet ssh 2>/dev/null || systemctl is-active --quiet sshd 2>/dev/null; then
+          ssh_status="running"
+          echo "  ✅ SSH: running"
+        else
+          echo "  ❌ SSH: down"
         fi
         
         echo ""
@@ -427,6 +505,13 @@ jobs:
         - ✅ Performed complete cleanup of temporary files and logs
         - ✅ Restarted all services with fresh configuration
         EOF
+        elif [ "${{ inputs.action }}" = "reboot_system" ]; then
+          cat >> $GITHUB_STEP_SUMMARY << 'EOF'
+        **System Reboot Initiated**
+        - ⚠️ Full system reboot with password authentication
+        - 🔄 System was rebooted - services should restart automatically
+        - ✅ Run a health check after system comes back online
+        EOF
         fi
         
         cat >> $GITHUB_STEP_SUMMARY << 'EOF'
@@ -449,6 +534,12 @@ jobs:
           xenogenesis_icon="❌"
         fi
         
+        if [ "$ssh_status" = "running" ]; then
+          ssh_icon="✅"
+        else
+          ssh_icon="❌"
+        fi
+        
         if [ "$port_80_status" = "listening" ]; then
           port80_icon="✅"
         else
@@ -463,6 +554,7 @@ jobs:
         
         echo "| Nginx Web Server | $nginx_icon $nginx_status | 80 | $port80_icon $port_80_status |" >> $GITHUB_STEP_SUMMARY
         echo "| XenoGenesis App | $xenogenesis_icon $xenogenesis_status | 2000 | $port2000_icon $port_2000_status |" >> $GITHUB_STEP_SUMMARY
+        echo "| SSH Service | $ssh_icon $ssh_status | 2222 | - |" >> $GITHUB_STEP_SUMMARY
         
         cat >> $GITHUB_STEP_SUMMARY << 'EOF'
         
@@ -497,11 +589,11 @@ jobs:
         EOF
         
         # Overall health determination
-        if [ "$nginx_status" = "running" ] && [ "$xenogenesis_status" = "running" ] && [ "$port_80_status" = "listening" ] && [ "$port_2000_status" = "listening" ]; then
+        if [ "$nginx_status" = "running" ] && [ "$xenogenesis_status" = "running" ] && [ "$ssh_status" = "running" ] && [ "$port_80_status" = "listening" ] && [ "$port_2000_status" = "listening" ]; then
           cat >> $GITHUB_STEP_SUMMARY << 'EOF'
         ### ✅ SYSTEM FULLY OPERATIONAL
         🎉 All services are running normally and responding on expected ports.
-        The XenoGenesis platform is ready for users.
+        The XenoGenesis platform is ready for users. SSH access is available.
         EOF
         elif [ "$nginx_status" = "running" ] || [ "$xenogenesis_status" = "running" ]; then
           cat >> $GITHUB_STEP_SUMMARY << 'EOF'
@@ -518,7 +610,7 @@ jobs:
         fi
         
         # Add specific recommendations if services are down
-        if [ "$nginx_status" != "running" ] || [ "$xenogenesis_status" != "running" ]; then
+        if [ "$nginx_status" != "running" ] || [ "$xenogenesis_status" != "running" ] || [ "$ssh_status" != "running" ]; then
           cat >> $GITHUB_STEP_SUMMARY << 'EOF'
         
         ## 🔧 Recommended Next Steps
@@ -532,11 +624,16 @@ jobs:
             echo "- **XenoGenesis Issues**: Application server is down - check logs and dependencies" >> $GITHUB_STEP_SUMMARY
           fi
           
+          if [ "$ssh_status" != "running" ]; then
+            echo "- **SSH Issues**: SSH service is down - remote access may be compromised" >> $GITHUB_STEP_SUMMARY
+          fi
+          
           cat >> $GITHUB_STEP_SUMMARY << 'EOF'
         
         ### Quick Actions Available:
         - 🔄 **Smart Restart**: Run workflow with `restart_down_services` to restart only failed services
         - 💥 **Complete Reset**: Run workflow with `hard_reset` (requires password) for full system cleanup
+        - 🔄 **System Reboot**: Run workflow with `reboot_system` (requires password) to reboot the entire system
         - 📋 **Detailed Logs**: Check individual step outputs above for specific error messages
         EOF
         fi
