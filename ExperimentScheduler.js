@@ -1,15 +1,10 @@
 /**
  * Experimental Round Scheduler for XenoGenesis
- * Handles scheduling for both Baseline and Conditions experiment modes
+ * Handles scheduling for Conditions experiment mode
  * 
- * Experiment 1 (Baseline): 
- * - 100 white tokens shared pool
- * - Max 500 rounds
- * - Fixed payout rules
- * 
- * Experiment 2 (Conditions):
- * - 2500 white tokens shared pool  
- * - 441 rounds across 7 blocks of 63 rounds each
+ * Experiment (Conditions):
+ * - 1250 white tokens shared pool  
+ * - 189 rounds across 3 blocks of 63 rounds each
  * - 3 conditions: High Culturant, High Operant, Equal Culturant-Operant
  * - 3 incentive types: No Incentive, Self Control Incentive, Impulse Incentive
  * - Balanced distribution and counterbalancing
@@ -94,17 +89,17 @@ class ExperimentScheduler {
 
     /**
      * Generate a complete experimental schedule for Conditions mode
-     * 441 rounds across 7 blocks of 63 rounds each
+     * 189 rounds across 3 blocks of 63 rounds each
      * 
-     * @returns {Array} Array of 441 round objects with round numbers
+     * @returns {Array} Array of 189 round objects with round numbers
      */
     generateConditionsSchedule() {
         const fullSchedule = [];
         let roundNumber = 1;
         
-        // Generate 7 blocks of 63 rounds each
-        for (let block = 1; block <= 7; block++) {
-            console.log(`📋 Generating block ${block}/7...`);
+        // Generate 3 blocks of 63 rounds each
+        for (let block = 1; block <= 3; block++) {
+            console.log(`📋 Generating block ${block}/3...`);
             const blockRounds = this.generateBlock();
             
             // Assign round numbers to each round in this block
@@ -116,7 +111,7 @@ class ExperimentScheduler {
             });
         }
         
-        console.log(`✅ Generated complete conditions schedule: ${fullSchedule.length} rounds across 7 blocks`);
+        console.log(`✅ Generated complete conditions schedule: ${fullSchedule.length} rounds across 3 blocks`);
         this.validateSchedule(fullSchedule);
         return fullSchedule;
     }
@@ -195,28 +190,28 @@ class ExperimentScheduler {
         });
 
         // Validate expected totals
-        if (validation.totalRounds !== 441) {
-            validation.errors.push(`Expected 441 rounds, got ${validation.totalRounds}`);
+        if (validation.totalRounds !== 189) {
+            validation.errors.push(`Expected 189 rounds, got ${validation.totalRounds}`);
         }
 
-        // Each condition should appear 147 times (21 rounds × 7 blocks)
+        // Each condition should appear 63 times (21 rounds × 3 blocks)
         Object.entries(validation.conditionCounts).forEach(([condition, count]) => {
-            if (count !== 147) {
-                validation.errors.push(`Condition "${condition}" appears ${count} times, expected 147`);
+            if (count !== 63) {
+                validation.errors.push(`Condition "${condition}" appears ${count} times, expected 63`);
             }
         });
 
-        // Each incentive should appear 147 times 
+        // Each incentive should appear 63 times 
         Object.entries(validation.incentiveCounts).forEach(([incentive, count]) => {
-            if (count !== 147) {
-                validation.errors.push(`Incentive "${incentive}" appears ${count} times, expected 147`);
+            if (count !== 63) {
+                validation.errors.push(`Incentive "${incentive}" appears ${count} times, expected 63`);
             }
         });
 
-        // Each player should appear 147 times
+        // Each player should appear 63 times
         Object.entries(validation.playerCounts).forEach(([player, count]) => {
-            if (count !== 147) {
-                validation.errors.push(`Player "${player}" appears ${count} times, expected 147`);
+            if (count !== 63) {
+                validation.errors.push(`Player "${player}" appears ${count} times, expected 63`);
             }
         });
 
@@ -258,23 +253,16 @@ class ExperimentScheduler {
     /**
      * Check if experiment should end based on mode and conditions
      * 
-     * @param {string} mode - 'baseline' or 'conditions'
+     * @param {string} mode - 'conditions' mode
      * @param {number} currentRound - Current round number
      * @param {number} whiteTokensRemaining - White tokens left in pool
      * @param {number} maxRounds - Maximum rounds for mode
      * @returns {Object} End game status and reason
      */
     shouldEndExperiment(mode, currentRound, whiteTokensRemaining, maxRounds) {
-        if (mode === 'baseline') {
-            if (whiteTokensRemaining <= 0) {
-                return { shouldEnd: true, reason: 'White token pool exhausted' };
-            }
-            if (currentRound >= maxRounds) {
-                return { shouldEnd: true, reason: 'Maximum rounds reached (500)' };
-            }
-        } else if (mode === 'conditions') {
-            if (currentRound >= 441) {
-                return { shouldEnd: true, reason: 'All 441 experimental rounds completed' };
+        if (mode === 'conditions') {
+            if (currentRound >= 189) {
+                return { shouldEnd: true, reason: 'All 189 experimental rounds completed' };
             }
             if (whiteTokensRemaining <= 0) {
                 return { shouldEnd: true, reason: 'White token pool exhausted (early termination)' };
@@ -318,8 +306,7 @@ class ExperimentScheduler {
     exportExperimentResultsToCSV(dataLog, options = {}) {
         const headers = [
             'Round',
-            'Condition', 
-            'Phase',
+            'Condition',
             'Block_Number',
             'Incentive_Type',
             'Incentive_Recipient',
@@ -381,16 +368,6 @@ class ExperimentScheduler {
             // Determine condition display
             const condition = logEntry.condition || 'Baseline';
             
-            // For Lightning test, use the phase field directly; otherwise use legacy logic
-            let phase;
-            if (logEntry.experimentMode === 'lightning_test' && logEntry.phase) {
-                phase = logEntry.phase;
-            } else {
-                phase = logEntry.experimentMode === 'unified' ? 
-                    (condition === 'Baseline' ? 'baseline' : 'conditions') :
-                    (logEntry.experimentMode === 'baseline' ? 'baseline' : 'conditions');
-            }
-            
             // Calculate total payouts using correct condition token values
             const calculatePayout = (player) => {
                 if (!player) return 0;
@@ -446,7 +423,6 @@ class ExperimentScheduler {
             const row = [
                 logEntry.round,
                 condition,
-                phase,
                 logEntry.blockNumber || '',
                 (logEntry.incentive && logEntry.incentive !== 'No Incentive') ? logEntry.incentive : 'None',
                 (logEntry.incentive && logEntry.incentive !== 'No Incentive') ? (logEntry.player || 'None') : 'None',
@@ -518,7 +494,7 @@ class ExperimentScheduler {
         // Test 1: Generate multiple schedules and verify basic structure
         try {
             const schedule = this.generateConditionsSchedule();
-            addTest('Schedule Generation', schedule.length === 441, `Generated ${schedule.length} rounds, expected 441`);
+            addTest('Schedule Generation', schedule.length === 189, `Generated ${schedule.length} rounds, expected 189`);
             
             // Test 2: Verify condition distribution
             const conditionCounts = {};
@@ -526,7 +502,7 @@ class ExperimentScheduler {
                 conditionCounts[round.condition] = (conditionCounts[round.condition] || 0) + 1;
             });
             
-            const expectedConditionCount = 147; // 21 rounds × 7 blocks
+            const expectedConditionCount = 63; // 21 rounds × 3 blocks
             let conditionDistributionPassed = true;
             Object.entries(conditionCounts).forEach(([condition, count]) => {
                 if (count !== expectedConditionCount) {
@@ -542,7 +518,7 @@ class ExperimentScheduler {
                 playerCounts[round.player] = (playerCounts[round.player] || 0) + 1;
             });
             
-            const expectedPlayerCount = 147; // 441 rounds ÷ 3 players
+            const expectedPlayerCount = 63; // 189 rounds ÷ 3 players
             let playerDistributionPassed = true;
             Object.entries(playerCounts).forEach(([player, count]) => {
                 if (count !== expectedPlayerCount) {
@@ -558,7 +534,7 @@ class ExperimentScheduler {
                 incentiveCounts[round.incentive] = (incentiveCounts[round.incentive] || 0) + 1;
             });
             
-            const expectedIncentiveCount = 147; // Equal distribution
+            const expectedIncentiveCount = 63; // Equal distribution
             let incentiveDistributionPassed = true;
             Object.entries(incentiveCounts).forEach(([incentive, count]) => {
                 if (count !== expectedIncentiveCount) {
@@ -576,7 +552,7 @@ class ExperimentScheduler {
             
             const expectedBlockCount = 63; // 63 rounds per block
             let blockStructurePassed = true;
-            for (let block = 1; block <= 7; block++) {
+            for (let block = 1; block <= 3; block++) {
                 if (blockCounts[block] !== expectedBlockCount) {
                     blockStructurePassed = false;
                 }

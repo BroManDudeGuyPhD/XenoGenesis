@@ -11,9 +11,9 @@ const path = require('path');
 
 // Token Pool Configuration Constants
 const TOKEN_CONFIG = {
-    BASELINE_TOKENS: 100,
-    CONDITIONS_TOKENS: 2500,
-    MAX_TOKENS: 2500  // Maximum for validation and UI limits
+    BASELINE_TOKENS: 100, // Legacy - no longer used
+    CONDITIONS_TOKENS: 1250, // Updated from 2500
+    MAX_TOKENS: 1250  // Maximum for validation and UI limits (updated from 2500)
 };
 
 const {
@@ -62,91 +62,21 @@ var ExperimentManager = {
     scheduler: new ExperimentScheduler(),
     
     // Initialize experiment for a room
-    initializeExperiment: function(roomName, mode = 'baseline') {
-        console.log(`🧪 Initializing ${mode} experiment for room: ${roomName}`);
+    initializeExperiment: function(roomName, mode = 'conditions') {
+        console.log(`🧪 Initializing conditions experiment for room: ${roomName}`);
         
-        if (mode === 'baseline') {
-            // Baseline is now a unified experiment that flows into conditions
-            const conditionsSchedule = this.scheduler.generateConditionsSchedule();
-            return {
-                mode: 'unified', // Changed from 'baseline' to indicate this flows into conditions
-                phase: 'baseline', // Current phase: 'baseline' or 'conditions'
-                schedule: conditionsSchedule, // Use the conditions schedule for the full experiment
-                currentRound: 0,
-                baselineRounds: 0, // Track baseline rounds separately
-                whiteTokenPool: TOKEN_CONFIG.BASELINE_TOKENS, // Start with baseline pool
-                totalWhiteTokenPool: TOKEN_CONFIG.CONDITIONS_TOKENS, // Will switch to this after baseline
-                maxBaselineRounds: 500, // Max rounds before forced transition
-                maxRounds: 441 // Total experimental rounds after baseline
-            };
-        } else if (mode === 'conditions') {
-            // Direct conditions mode (skip baseline)
-            return {
-                mode: 'conditions', 
-                phase: 'conditions',
-                schedule: this.scheduler.generateConditionsSchedule(),
-                currentRound: 0,
-                whiteTokenPool: TOKEN_CONFIG.CONDITIONS_TOKENS,
-                maxRounds: 441
-            };
-        }
-        
-        throw new Error(`Unknown experiment mode: ${mode}`);
+        // Direct conditions mode - no baseline phase
+        return {
+            mode: 'conditions', 
+            schedule: this.scheduler.generateConditionsSchedule(),
+            whiteTokenPool: TOKEN_CONFIG.CONDITIONS_TOKENS, // Start with 1250 tokens
+            maxRounds: 189 // Total experimental rounds (3 blocks × 63 rounds)
+        };
     },
     
     // Get current experimental condition and incentive for a round
     getCurrentConditionInfo: function(experiment, roundNumber) {
-        console.log(`🔍 Getting condition info for experiment:`, {
-            mode: experiment.mode,
-            phase: experiment.phase,
-            currentRound: experiment.currentRound,
-            baselineRounds: experiment.baselineRounds,
-            roundNumber: roundNumber
-        });
-        
-        // Handle unified experiment (baseline flowing into conditions)
-        if (experiment.mode === 'unified') {
-            if (experiment.phase === 'baseline') {
-                return {
-                    condition: Conditions.BASELINE,
-                    conditionName: 'Baseline',
-                    incentive: 'No Incentive',
-                    player: null, // No player assignment in baseline
-                    phase: 'baseline'
-                };
-            } else {
-                // In conditions phase - use the schedule
-                const currentRound = this.scheduler.getCurrentRound(experiment.schedule, experiment.currentRound);
-                if (!currentRound) {
-                    console.log(`⚠️ No schedule data found for round ${experiment.currentRound}`);
-                    return null;
-                }
-                
-                // Map condition name to condition object
-                let condition = this.mapConditionNameToObject(currentRound.condition);
-                
-                return {
-                    condition: condition,
-                    conditionName: currentRound.condition,
-                    incentive: currentRound.incentive,
-                    player: currentRound.player,
-                    blockNumber: currentRound.blockNumber,
-                    phase: 'conditions'
-                };
-            }
-        }
-        
-        // Handle legacy baseline mode
-        if (experiment.mode === 'baseline') {
-            return {
-                condition: Conditions.BASELINE,
-                conditionName: 'Baseline',
-                incentive: 'No Incentive',
-                player: null // No player assignment in baseline
-            };
-        }
-        
-        // Handle direct conditions mode
+        // Get schedule data for the round
         const currentRound = this.scheduler.getCurrentRound(experiment.schedule, roundNumber);
         if (!currentRound) {
             console.log(`⚠️ No schedule data found for round ${roundNumber}`);
@@ -155,6 +85,13 @@ var ExperimentManager = {
         
         // Map condition name to condition object
         let condition = this.mapConditionNameToObject(currentRound.condition);
+        
+        console.log(`🔍 Scheduler data for round ${roundNumber}:`, {
+            condition: currentRound.condition,
+            incentive: currentRound.incentive,
+            player: currentRound.player,
+            blockNumber: currentRound.blockNumber
+        });
         
         return {
             condition: condition,
@@ -191,42 +128,20 @@ var ExperimentManager = {
     }
 };
 
-// Token pool - now dynamically managed per experiment mode and phase
+// Token pool - dynamically managed based on experiment
 var GlobalTokenPool = {
-    whiteTokens: 100, // Will be set dynamically based on experiment
+    whiteTokens: TOKEN_CONFIG.CONDITIONS_TOKENS, // Start with conditions tokens (1250)
     blackTokens: Infinity, // Unlimited black tokens
     
-    // Initialize token pool based on experiment mode and phase
+    // Initialize token pool based on experiment
     initialize: function(experiment) {
-        if (experiment.mode === 'unified') {
-            if (experiment.phase === 'baseline') {
-                this.whiteTokens = experiment.whiteTokenPool; // 100 for baseline
-                console.log(`🪙 Token pool initialized for baseline phase: ${this.whiteTokens} white tokens`);
-            } else {
-                this.whiteTokens = experiment.whiteTokenPool; // CONDITIONS_TOKENS for conditions
-                console.log(`🪙 Token pool initialized for conditions phase: ${this.whiteTokens} white tokens`);
-            }
-        } else if (experiment.mode === 'conditions') {
-            this.whiteTokens = experiment.whiteTokenPool; // CONDITIONS_TOKENS
-            console.log(`🪙 Token pool initialized for conditions mode: ${this.whiteTokens} white tokens`);
-        } else if (experiment.mode === 'baseline') {
-            this.whiteTokens = experiment.whiteTokenPool; // 100
-            console.log(`🪙 Token pool initialized for baseline mode: ${this.whiteTokens} white tokens`);
-        }
-    },
-    
-    // Transition from baseline to conditions phase
-    transitionToConditions: function(experiment) {
-        if (experiment.mode === 'unified') {
-            // Always reset to full conditions pool when transitioning
-            this.whiteTokens = experiment.totalWhiteTokenPool; // CONDITIONS_TOKENS
-            console.log(`🔄 Token pool transitioned to conditions phase: ${this.whiteTokens} white tokens`);
-        }
+        this.whiteTokens = experiment.whiteTokenPool; // CONDITIONS_TOKENS (1250)
+        console.log(`🪙 Token pool initialized for conditions mode: ${this.whiteTokens} white tokens`);
     },
     
     // Reset token pool to default state for new experiments
     reset: function() {
-        this.whiteTokens = 100; // Default baseline tokens
+        this.whiteTokens = TOKEN_CONFIG.CONDITIONS_TOKENS; // Start with conditions tokens (1250)
         this.blackTokens = Infinity; // Always unlimited
         console.log(`🧹 GlobalTokenPool reset to defaults: ${this.whiteTokens} white tokens, ∞ black tokens`);
     }
@@ -816,22 +731,26 @@ roomList.push(newRoom);
 
 // Game Session Management Functions
 GameSession = {
-    create: function(roomName, experimentMode = 'baseline') {
+    create: function(roomName, experimentMode = 'conditions') {
         if (GameSessions[roomName]) {
             return GameSessions[roomName];
         }
         
-        // Initialize experiment
-        const experiment = ExperimentManager.initializeExperiment(roomName, experimentMode);
+        // Initialize experiment (always conditions mode now)
+        const experiment = ExperimentManager.initializeExperiment(roomName, 'conditions');
+        
+        // Get the first condition from the schedule
+        const firstConditionInfo = ExperimentManager.getCurrentConditionInfo(experiment, 1);
+        const initialCondition = firstConditionInfo ? firstConditionInfo.condition : Conditions.HIGH_CULTURANT;
         
         GameSessions[roomName] = {
             roomName: roomName,
             currentRound: 0,
             maxRounds: experiment.maxRounds,
-            currentCondition: Conditions.BASELINE,
-            currentIncentive: 'No Incentive',
-            currentPlayer: null,
-            currentBlockNumber: null,
+            currentCondition: initialCondition,
+            currentIncentive: firstConditionInfo ? firstConditionInfo.incentive : 'No Incentive',
+            currentPlayer: firstConditionInfo ? firstConditionInfo.player : null,
+            currentBlockNumber: firstConditionInfo ? firstConditionInfo.blockNumber : 1,
             activePlayerIndex: 0, // Which player's turn (0, 1, 2)
             roundChoices: [], // Store choices for current round
             gameState: 'lobby', // 'lobby', 'playing', 'finished'
@@ -1138,18 +1057,19 @@ GameSession = {
         const conditionInfo = ExperimentManager.getCurrentConditionInfo(session.experiment, roundNumber);
         if (!conditionInfo) return;
         
-        // Skip condition updates during baseline - tracking only starts after baseline
-        if (conditionInfo.phase === 'baseline' || conditionInfo.conditionName === 'Baseline') {
-            console.log(`🔍 Skipping condition update for baseline round ${roundNumber}`);
-            return;
-        }
-        
         // Update session with new condition information
         session.currentCondition = conditionInfo.condition;
         session.currentConditionName = conditionInfo.conditionName;  // Store condition name separately
         session.currentIncentive = conditionInfo.incentive;
         session.currentPlayer = conditionInfo.player;
         session.currentBlockNumber = conditionInfo.blockNumber;
+        
+        console.log(`🔄 Updated condition for round ${roundNumber}:`, {
+            condition: conditionInfo.conditionName,
+            incentive: conditionInfo.incentive,
+            player: conditionInfo.player,
+            block: conditionInfo.blockNumber
+        });
         
         // Helper function to map scheduler player letters (A, B, C) to actual player names
         const currentRoom = roomList.find(r => r.name === roomName);
@@ -1183,6 +1103,10 @@ GameSession = {
         
         // Always assign a player name for LED tracking - incentive type shouldn't affect player assignment
         const actualPlayerName = mapSchedulerPlayerToName(conditionInfo.player, playersInRoom);
+        
+        // IMPORTANT: Update session.currentPlayer to the actual player name (not scheduler letter)
+        // This ensures yourTurn events and other places reading from session get the correct name
+        session.currentPlayer = actualPlayerName;
         
         console.log(`🔍 Player mapping debug:`);
         console.log(`   conditionInfo.player: "${conditionInfo.player}" (type: ${typeof conditionInfo.player})`);
@@ -1991,7 +1915,7 @@ Player.onConnect = function(socket,username,admin,io){
     });
     
     // Helper function to start game for existing players
-    function startGameForExistingPlayers(room, initiatingSocket, experimentMode = 'baseline') {
+    function startGameForExistingPlayers(room, initiatingSocket, experimentMode = 'conditions') {
         try {
             console.log('🎮 Starting game for existing players in room:', room);
             console.log('🧪 Using experiment mode:', experimentMode);
@@ -2095,6 +2019,11 @@ Player.onConnect = function(socket,username,admin,io){
                 
                 console.log(`🧪 Starting behavioral experiment Round ${gameSession.currentRound} in ${room}`);
                 
+                // IMPORTANT: Call updateConditionForRound for round 1 to convert scheduler player letter (A/B/C) 
+                // to actual player name BEFORE sending yourTurn events
+                GameSession.updateConditionForRound(room, gameSession.currentRound);
+                console.log(`✅ Updated condition for round 1: player=${gameSession.currentPlayer}, incentive=${gameSession.currentIncentive}`);
+                
                 // Clear any previous choices
                 roomPlayers.forEach(p => p.currentChoice = null);
                 
@@ -2107,6 +2036,10 @@ Player.onConnect = function(socket,username,admin,io){
                         // In behavioral experiments, all non-moderator players can vote simultaneously
                         const canVote = !isModerator && !player.isAI; // Human participants can vote
                         
+                        // Get incentive display name
+                        const incentiveDisplayName = IncentiveBonuses[gameSession.currentIncentive] ? 
+                            IncentiveBonuses[gameSession.currentIncentive].displayName : gameSession.currentIncentive;
+                        
                         player.socket.emit('yourTurn', {
                             isYourTurn: canVote, // All participants can vote, not turn-based
                             isModerator: isModerator,
@@ -2118,11 +2051,16 @@ Player.onConnect = function(socket,username,admin,io){
                                 whiteValue: gameSession.currentCondition.whiteTokenValue,
                                 blackValue: gameSession.currentCondition.blackTokenValue
                             },
+                            // Send incentive info for round 1
+                            incentive: gameSession.currentIncentive,
+                            incentiveDisplay: incentiveDisplayName,
+                            player: gameSession.currentPlayer,
+                            blockNumber: gameSession.currentBlockNumber,
                             grid: gameSession.grid,
                             playerPosition: player.triadPosition,
                             totalPlayers: roomPlayers.length
                         });
-                        console.log(`🎯 Sent yourTurn to ${player.username} (canVote: ${canVote}, moderator: ${isModerator})`);
+                        console.log(`🎯 Sent yourTurn to ${player.username} (canVote: ${canVote}, moderator: ${isModerator}, incentive: ${gameSession.currentIncentive}, player: ${gameSession.currentPlayer})`);
                     }
                 });
                 
@@ -2531,11 +2469,8 @@ Player.onConnect = function(socket,username,admin,io){
                     startTime: Date.now(),
                     culturantCount: 0, // Track culturant occurrences
                     culturantRounds: [], // Track which rounds had culturants
-                    whiteTokenPool: TOKEN_CONFIG.BASELINE_TOKENS, // Start with baseline pool (100)
-                    baselineTokenPool: TOKEN_CONFIG.BASELINE_TOKENS, // Baseline token pool (100)
-                    conditionsTokenPool: TOKEN_CONFIG.CONDITIONS_TOKENS, // Conditions token pool (2500) 
-                    currentPhase: 'baseline', // Track current phase
-                    baselineRoundsCompleted: 0, // Track baseline completion
+                    whiteTokenPool: TOKEN_CONFIG.CONDITIONS_TOKENS, // Start with 1250 tokens
+                    currentPhase: 'conditions', // Only conditions phase now
                     exchangeRates: {
                         'High Operant': 0.15, // $0.15 per token
                         'High Culturant': 0.10, // $0.10 per token  
@@ -2555,16 +2490,11 @@ Player.onConnect = function(socket,username,admin,io){
                 if (!gameSession.conditionsSchedule) {
                     const scheduler = new ExperimentScheduler();
                     
-                    // Generate baseline configuration and conditions schedule separately
-                    gameSession.baselineConfig = scheduler.generateBaselineSchedule(100); // Max 100 baseline rounds
-                    gameSession.conditionsSchedule = scheduler.generateConditionsSchedule(); // 441 conditions rounds
+                    // Generate conditions schedule (189 rounds)
+                    gameSession.conditionsSchedule = scheduler.generateConditionsSchedule();
+                    gameSession.conditionsRoundIndex = 0; // Track conditions round
                     
-                    // Set current experiment phase
-                    gameSession.currentExperimentPhase = 'baseline';
-                    gameSession.baselineRoundsRemaining = gameSession.baselineConfig.maxRounds;
-                    gameSession.conditionsRoundIndex = 0; // Track conditions round separately
-                    
-                    console.log(`⚡ Lightning test initialized: ${gameSession.baselineConfig.maxRounds} max baseline rounds + ${gameSession.conditionsSchedule.length} conditions rounds`);
+                    console.log(`⚡ Lightning test initialized: ${gameSession.conditionsSchedule.length} conditions rounds`);
                 }
                 
                 // Send start notification
@@ -3472,67 +3402,6 @@ Player.onGameStart = function(socket,username, progress, io, room, admin){
         });
     });
     
-    // Force phase transition from baseline to conditions (moderator only)
-    socket.on('forcePhaseTransition', function() {
-        const player = Player.list[socket.id];
-        if (!player) return;
-        
-        // Check if player is moderator
-        const currentRoom = roomList.find(r => r.name === player.room);
-        const isModerator = currentRoom && player.username === currentRoom.creator;
-        
-        if (!isModerator) {
-            console.log(`🚫 Non-moderator ${player.username} tried to force phase transition`);
-            return;
-        }
-        
-        const gameSession = GameSession.get(player.room);
-        if (!gameSession || !gameSession.experiment) {
-            console.log(`🚫 No active experiment to modify`);
-            return;
-        }
-        
-        if (gameSession.experiment.mode !== 'unified' || gameSession.experiment.phase !== 'baseline') {
-            console.log(`🚫 Cannot force transition - not in unified baseline phase`);
-            return;
-        }
-        
-        console.log(`⚡ Moderator ${player.username} forcing baseline to conditions transition`);
-        
-        // Force the transition
-        gameSession.experiment.phase = 'conditions';
-        gameSession.experiment.currentRound = 0;
-        gameSession.experiment.whiteTokenPool = gameSession.experiment.totalWhiteTokenPool;
-        
-        // Update global token pool
-        GlobalTokenPool.transitionToConditions(gameSession.experiment);
-        
-        // Update game session token pool to match global pool
-        gameSession.whiteTokenPool = GlobalTokenPool.whiteTokens;
-        
-        // Notify all players about the transition
-        const roomPlayers = Object.values(Player.list).filter(p => p.room === player.room);
-        roomPlayers.forEach(p => {
-            if (p.socket) {
-                p.socket.emit('phaseTransition', {
-                    from: 'baseline',
-                    to: 'conditions',
-                    newTokenPool: gameSession.experiment.whiteTokenPool,
-                    message: `Moderator advanced to experimental conditions phase with ${gameSession.experiment.whiteTokenPool} tokens.`
-                });
-                
-                // Send status update to moderator
-                if (p.username === currentRoom.creator) {
-                    p.socket.emit('experimentStatusUpdate', {
-                        phase: 'conditions',
-                        tokens: gameSession.experiment.whiteTokenPool,
-                        round: gameSession.currentRound
-                    });
-                }
-            }
-        });
-    });
-    
     // Force end experiment (moderator only)
     socket.on('forceEndExperiment', function() {
         const player = Player.list[socket.id];
@@ -4192,6 +4061,10 @@ function startNewRound(roomName, gameSession) {
             const canVote = !isModerator && !player.isAI; // Human participants can vote
             const isPlayerTurn = gameSession.turnBased ? GameSession.isPlayerTurn(roomName, player.username) : canVote;
             
+            // Get incentive display name
+            const incentiveDisplayName = IncentiveBonuses[gameSession.currentIncentive] ? 
+                IncentiveBonuses[gameSession.currentIncentive].displayName : gameSession.currentIncentive;
+            
             player.socket.emit('yourTurn', {
                 isYourTurn: isPlayerTurn,
                 isModerator: isModerator,
@@ -4205,18 +4078,20 @@ function startNewRound(roomName, gameSession) {
                     whiteValue: gameSession.currentCondition.whiteTokenValue,
                     blackValue: gameSession.currentCondition.blackTokenValue
                 },
+                incentive: gameSession.currentIncentive,
+                incentiveDisplay: incentiveDisplayName,
+                player: gameSession.currentPlayer,
+                blockNumber: gameSession.currentBlockNumber,
                 grid: gameSession.grid,
                 playerPosition: player.triadPosition,
                 totalPlayers: roomPlayers.length,
                 whiteTokensRemaining: GlobalTokenPool.whiteTokens, // Add token pool data
-                initialWhiteTokens: gameSession.experiment ? (
-                    gameSession.experiment.phase === 'baseline' ? 
+                initialWhiteTokens: gameSession.experiment ? 
                     gameSession.experiment.whiteTokenPool : 
-                    gameSession.experiment.totalWhiteTokenPool
-                ) : gameSession.initialWhiteTokens,
+                    gameSession.initialWhiteTokens,
                 culturantsProduced: gameSession.culturantsProduced // Add culturant count
             });
-            console.log(`🎯 Sent yourTurn for round ${gameSession.currentRound} to ${player.username} (canVote: ${canVote}, moderator: ${isModerator})`);
+            console.log(`🎯 Sent yourTurn for round ${gameSession.currentRound} to ${player.username} (canVote: ${canVote}, moderator: ${isModerator}, incentive: ${gameSession.currentIncentive}, player: ${gameSession.currentPlayer})`);
         }
     });
     
@@ -4247,20 +4122,28 @@ function startNewRound(roomName, gameSession) {
 
 // Calculate incentive bonus tokens for a player based on their active incentive
 function calculateIncentiveBonus(player, chosenRow, gameSession) {
-    if (!player.activeIncentive) return 0;
+    console.log(`🔍 calculateIncentiveBonus called for ${player.username}: activeIncentive="${player.activeIncentive}", chosenRow=${chosenRow}`);
+    
+    if (!player.activeIncentive) {
+        console.log(`⚠️ ${player.username} has no activeIncentive, returning 0`);
+        return 0;
+    }
     
     let bonusTokens = 0;
     const rowType = chosenRow % 2 === 1 ? 'odd' : 'even';
+    console.log(`🔍 ${player.username}: rowType=${rowType} (row ${chosenRow})`);
     
     switch (player.activeIncentive) {
         case 'Impulse Incentive':
             // Impulse incentive: +1 black token for choosing odd rows (high performance choice)
+            console.log(`🔍 ${player.username}: Checking Impulse Incentive - needs odd row, got ${rowType}`);
             if (rowType === 'odd') {
                 bonusTokens = 1;
             }
             break;
         case 'Self Control Incentive':
             // Self Control incentive: +1 black token for choosing even rows (cooperative choice)
+            console.log(`🔍 ${player.username}: Checking Self Control Incentive - needs even row, got ${rowType}`);
             if (rowType === 'even') {
                 bonusTokens = 1;
             }
@@ -4312,7 +4195,33 @@ function processRound(roomName, gameSession) {
     
     gameSession.roundProcessing = true;
     const roomPlayers = Object.values(Player.list).filter(p => p.room === roomName);
+    const currentRoom = roomList.find(r => r.name === roomName);
     console.log(`⚙️ Processing round ${gameSession.currentRound} in room ${roomName}`);
+    
+    // Determine current incentive info once and reuse (use round-scoped names to avoid collisions)
+    const roundCurrentIncentive = gameSession.currentIncentive || 'No Incentive';
+    const roundIncentiveInfo = IncentiveBonuses[roundCurrentIncentive];
+
+    // Set activeIncentive for the player who has the incentive this round
+    // This must happen BEFORE token calculation
+    const currentPlayerName = gameSession.currentPlayer; // Now contains actual player name (after updateConditionForRound)
+    
+    // Clear all players' incentives first, then set the active one
+    roomPlayers.forEach(p => {
+        p.activeIncentive = null;
+    });
+    
+    // Find the target player by name and set their activeIncentive
+    if (currentPlayerName && currentPlayerName !== 'None' && 
+        roundCurrentIncentive && roundCurrentIncentive !== 'No Incentive') {
+        const targetPlayer = roomPlayers.find(p => p.username === currentPlayerName);
+        if (targetPlayer) {
+            targetPlayer.activeIncentive = roundCurrentIncentive;
+            console.log(`🎯 Set ${targetPlayer.username}.activeIncentive = ${roundCurrentIncentive} for round ${gameSession.currentRound}`);
+        } else {
+            console.log(`⚠️ Could not find player "${currentPlayerName}" to set activeIncentive`);
+        }
+    }
     
     // Sort players by turn order for consistent token distribution
     // Token distribution should follow the same order as the round that just ended
@@ -4320,53 +4229,8 @@ function processRound(roomName, gameSession) {
         gameSession.turnOrder.map(username => roomPlayers.find(p => p.username === username)).filter(p => p) :
         roomPlayers;
     
-    console.log(`🎯 DEBUG: Token distribution will use player order: ${orderedRoomPlayers.map(p => p.username).join(' → ')}`);
-    
-    // Update experimental condition for this round
-    if (gameSession.experiment && (
-        gameSession.experiment.mode === 'conditions' || 
-        (gameSession.experiment.mode === 'unified' && gameSession.experiment.phase === 'conditions')
-    )) {
-        GameSession.updateConditionForRound(roomName, gameSession.experiment.currentRound);
-    } else if (gameSession.experiment && gameSession.experiment.mode === 'unified' && gameSession.experiment.phase === 'baseline') {
-        // For baseline phase in unified experiments, send basic condition info
-        const playersInRoom = Object.values(Player.list).filter(p => p.room === roomName);
-        playersInRoom.forEach(p => {
-            if (p.socket) {
-                const currentRoom = roomList.find(room => room.name === roomName);
-                const isModerator = currentRoom && p.username === currentRoom.creator;
-                
-                // Prepare baseline conditionUpdate data
-                const baselineUpdateData = {
-                    round: gameSession.experiment.baselineRounds + 1,
-                    condition: 'Baseline',
-                    incentive: 'No Incentive',
-                    incentiveDisplay: 'No Incentive',
-                    player: null,
-                    blockNumber: null,
-                    phase: 'baseline',
-                    tokenValues: {
-                        white: Conditions.BASELINE.whiteTokenValue,
-                        black: Conditions.BASELINE.blackTokenValue
-                    }
-                };
-                
-                // For moderators, add players array for LED tracker
-                if (isModerator) {
-                    const roomPlayers = Object.values(Player.list).filter(player => player.room === roomName);
-                    baselineUpdateData.players = roomPlayers.map(player => ({
-                        name: player.username,
-                        id: player.id,
-                        isAI: player.id.startsWith('AI_')
-                    }));
-                    console.log(`📡 LED TRACKER (Baseline): Added ${baselineUpdateData.players.length} players for moderator ${p.username}`);
-                }
-                
-                p.socket.emit('conditionUpdate', baselineUpdateData);
-            }
-        });
-    }
-    
+    console.log(`🎯 DEBUG: Token distribution will use player order: ${orderedRoomPlayers.map(p => p.username).join(' → ')}`)
+
     // Select column for this round (experimenter/system picks)
     const selectedColumn = GameSession.selectColumnForRound(gameSession);
     gameSession.selectedColumn = selectedColumn;
@@ -4406,7 +4270,6 @@ function processRound(roomName, gameSession) {
     console.log(`🎯 DEBUG: Available token pool before distribution: ${availableTokens}`);
     
     // Check if all voting players (excluding moderator) chose even rows (self-control) = culturant
-    const currentRoom = roomList.find(r => r.name === roomName);
     const votingPlayers = roomPlayers.filter(p => {
         return !(currentRoom && p.username === currentRoom.creator); // Exclude moderator
     });
@@ -4463,8 +4326,7 @@ function processRound(roomName, gameSession) {
         }
         
         const chosenRow = parseInt(player.currentChoice); // Player chose row 1-8
-        const condition = gameSession.currentCondition;
-        const currentIncentive = gameSession.currentIncentive || 'No Incentive';
+    const condition = gameSession.currentCondition;
         
         // Base token calculation from experimental condition
         const whiteTokensDesired = condition.getWhiteTokens(chosenRow);
@@ -4482,14 +4344,13 @@ function processRound(roomName, gameSession) {
         }
         tokenDistributionLog.push(`${player.username}: ${whiteTokensEarned}/${whiteTokensDesired} white tokens`);
         
-        // Calculate incentive bonus
+        // Calculate incentive bonus (reuse roundIncentiveInfo from outer scope)
         let incentiveBonus = 0;
-        const incentiveInfo = IncentiveBonuses[currentIncentive];
-        if (incentiveInfo && incentiveInfo.bonus > 0) {
-            if (incentiveInfo.appliesWhen === 'always') {
-                incentiveBonus = incentiveInfo.bonus;
-            } else if (incentiveInfo.appliesWhen === 'allChoseEven' && allChooseEvenRows) {
-                incentiveBonus = incentiveInfo.bonus;
+        if (roundIncentiveInfo && roundIncentiveInfo.bonus > 0) {
+            if (roundIncentiveInfo.appliesWhen === 'always') {
+                incentiveBonus = roundIncentiveInfo.bonus;
+            } else if (roundIncentiveInfo.appliesWhen === 'allChoseEven' && allChooseEvenRows) {
+                incentiveBonus = roundIncentiveInfo.bonus;
             }
         }
         
@@ -4526,7 +4387,7 @@ function processRound(roomName, gameSession) {
         console.log(`   White tokens: ${whiteTokensEarned} ($${whiteEarnings.toFixed(2)})`);
         console.log(`   Black tokens: ${blackTokensEarned} ($${blackEarnings.toFixed(2)})`);
         if (incentiveBonus > 0) {
-            console.log(`   Incentive bonus: $${incentiveBonus.toFixed(2)} (${currentIncentive})`);
+            console.log(`   Incentive bonus: $${incentiveBonus.toFixed(2)} (${roundCurrentIncentive})`);
         }
         console.log(`   Total earnings: $${totalEarnings.toFixed(2)}`);
     });
@@ -4577,7 +4438,32 @@ function processRound(roomName, gameSession) {
         whiteTokensRemaining: gameSession.whiteTokenPool || GlobalTokenPool.whiteTokens
     });
     
-    // Store round result for reconnection restoration
+    // Build per-player token info (including incentive bonuses) once and reuse for emissions & history
+    const allPlayerTokens = orderedRoomPlayers.map(p => {
+        const pChosenRow = parseInt(p.currentChoice);
+
+        // Individual player incentive bonus (set by scheduler / activeIncentive)
+        // This returns a TOKEN COUNT (0 or 1), not a dollar value
+        const pPlayerIncentiveBonus = calculateIncentiveBonus(p, pChosenRow, gameSession);
+
+        return {
+            username: p.username,
+            isAI: p.isAI || false,
+            isModerator: currentRoom && p.username === currentRoom.creator,
+            seatPosition: p.seatPosition || 'unknown',
+            tokensAwarded: {
+                white: gameSession.currentCondition.getWhiteTokens(pChosenRow),
+                black: gameSession.currentCondition.getBlackTokens(allChooseEvenRows),
+                incentiveBonus: pPlayerIncentiveBonus // Token count (0 or 1)
+            },
+            totalTokens: {
+                white: p.whiteTokens,
+                black: p.blackTokens
+            }
+        };
+    });
+
+    // Store round result for reconnection restoration (use computed `allPlayerTokens`)
     const roundResult = {
         round: gameSession.currentRound,
         selectedColumn: selectedColumn,
@@ -4587,7 +4473,8 @@ function processRound(roomName, gameSession) {
             blackValue: gameSession.currentCondition.blackTokenValue,
             maxPayout: gameSession.currentCondition.maxPayout
         },
-        incentive: gameSession.currentIncentive || 'No Incentive',
+    incentive: roundCurrentIncentive,
+    incentiveDisplay: (IncentiveBonuses[roundCurrentIncentive] && IncentiveBonuses[roundCurrentIncentive].displayName) || roundCurrentIncentive,
         choices: orderedRoomPlayers.map(p => {
             const pRow = parseInt(p.currentChoice);
             return {
@@ -4597,24 +4484,13 @@ function processRound(roomName, gameSession) {
                 isAI: p.isAI || false
             };
         }),
-        players: orderedRoomPlayers.map(p => {
-            const pChosenRow = parseInt(p.currentChoice);
-            const pIncentiveBonusEarned = 0; // Add bonus calculation if needed
-            return {
-                username: p.username,
-                isAI: p.isAI || false,
-                seatPosition: p.seatPosition || 'unknown',
-                tokensAwarded: {
-                    white: gameSession.currentCondition.getWhiteTokens(pChosenRow),
-                    black: gameSession.currentCondition.getBlackTokens(allChooseEvenRows),
-                    incentiveBonus: pIncentiveBonusEarned
-                },
-                totalTokens: {
-                    white: p.whiteTokens,
-                    black: p.blackTokens
-                }
-            };
-        }),
+        players: allPlayerTokens.map(p => ({
+            username: p.username,
+            isAI: p.isAI,
+            seatPosition: p.seatPosition,
+            tokensAwarded: p.tokensAwarded,
+            totalTokens: p.totalTokens
+        })),
         culturantProduced: culturantProduced,
         whiteTokensRemaining: gameSession.whiteTokenPool || GlobalTokenPool.whiteTokens,
         timestamp: new Date().toISOString()
@@ -4630,66 +4506,19 @@ function processRound(roomName, gameSession) {
             const whiteTokensEarned = condition.getWhiteTokens(chosenRow);
             const blackTokensEarned = condition.getBlackTokens(allChooseEvenRows);
             
-            // Calculate incentive bonus for this player
-            let incentiveBonusEarned = 0;
-            const currentIncentive = gameSession.currentIncentive || 'No Incentive';
-            const incentiveInfo = IncentiveBonuses[currentIncentive];
-            if (incentiveInfo && incentiveInfo.bonus > 0) {
-                if (incentiveInfo.appliesWhen === 'always') {
-                    incentiveBonusEarned = incentiveInfo.bonus;
-                } else if (incentiveInfo.appliesWhen === 'allChoseEven' && allChooseEvenRows) {
-                    incentiveBonusEarned = incentiveInfo.bonus;
-                }
-            }
-            
-            // Add player incentive bonus (set by moderator)
+            // Calculate incentive bonus for this player (returns token count: 0 or 1)
             const playerIncentiveBonus = calculateIncentiveBonus(player, chosenRow, gameSession);
-            incentiveBonusEarned += playerIncentiveBonus;
             
-            // Prepare all player token data for moderators
-            const allPlayerTokens = orderedRoomPlayers.map(p => {
-                // Calculate incentive bonus for each player individually
-                const pChosenRow = parseInt(p.currentChoice);
-                let pIncentiveBonusEarned = 0;
-                
-                // Global incentive bonus (applies to all players)
-                if (incentiveInfo && incentiveInfo.bonus > 0) {
-                    if (incentiveInfo.appliesWhen === 'always') {
-                        pIncentiveBonusEarned = incentiveInfo.bonus;
-                    } else if (incentiveInfo.appliesWhen === 'allChoseEven' && allChooseEvenRows) {
-                        pIncentiveBonusEarned = incentiveInfo.bonus;
-                    }
-                }
-                
-                // Individual player incentive bonus (set by moderator)
-                const pPlayerIncentiveBonus = calculateIncentiveBonus(p, pChosenRow, gameSession);
-                pIncentiveBonusEarned += pPlayerIncentiveBonus;
-                
-                return {
-                    username: p.username,
-                    isAI: p.isAI || false,
-                    isModerator: currentRoom && p.username === currentRoom.creator,
-                    tokensAwarded: {
-                        white: condition.getWhiteTokens(pChosenRow),
-                        black: condition.getBlackTokens(allChooseEvenRows),
-                        incentiveBonus: pIncentiveBonusEarned // Now correctly calculated per player
-                    },
-                    totalTokens: {
-                        white: p.whiteTokens,
-                        black: p.blackTokens
-                    }
-                };
-            });
+            // Reuse precomputed `allPlayerTokens` for moderator display
+            // (computed above and stored in round history)
             
             player.socket.emit('roundResult', {
                 round: gameSession.currentRound,
-                condition: {
-                    name: condition.name,
-                    whiteValue: condition.whiteTokenValue,
-                    blackValue: condition.blackTokenValue,
-                    maxPayout: condition.maxPayout
-                },
-                incentive: currentIncentive,
+                condition: condition.name,
+                incentive: roundCurrentIncentive,
+                incentiveDisplay: roundCurrentIncentive,
+                player: gameSession.currentPlayer,
+                blockNumber: gameSession.currentBlockNumber,
                 playerChoice: {
                     row: chosenRow,
                     rowType: chosenRow % 2 === 1 ? 'odd' : 'even'
@@ -4707,7 +4536,7 @@ function processRound(roomName, gameSession) {
                 tokensAwarded: {
                     white: whiteTokensEarned,
                     black: blackTokensEarned,
-                    incentiveBonus: incentiveBonusEarned
+                    incentiveBonus: playerIncentiveBonus
                 },
                 totalTokens: {
                     white: player.whiteTokens,
@@ -4717,12 +4546,10 @@ function processRound(roomName, gameSession) {
                 culturantProduced: culturantProduced,
                 culturantsProduced: gameSession.culturantsProduced,
                 whiteTokensRemaining: gameSession.whiteTokenPool || GlobalTokenPool.whiteTokens,
-                initialWhiteTokens: gameSession.experiment ? (
-                    gameSession.experiment.phase === 'baseline' ? 
+                initialWhiteTokens: gameSession.experiment ? 
                     gameSession.experiment.whiteTokenPool : 
-                    gameSession.experiment.totalWhiteTokenPool
-                ) : gameSession.initialWhiteTokens,
-                activeIncentive: currentIncentive,
+                    gameSession.initialWhiteTokens,
+                activeIncentive: roundCurrentIncentive,
                 allPlayerTokens: allPlayerTokens,
                 players: orderedRoomPlayers.map(p => ({
                     username: p.username,
@@ -4750,30 +4577,31 @@ function processRound(roomName, gameSession) {
         let previousRoundTokenValues = { white: 0, black: 0 };
         if (gameSession.roundHistory && gameSession.roundHistory.length > 0) {
             const previousRound = gameSession.roundHistory[gameSession.roundHistory.length - 1];
-            if (previousRound && previousRound.players) {
-                previousRoundPlayers = previousRound.players.map(player => {
-                    // Calculate round earnings for this specific round
-                    const whiteEarnings = (player.tokensAwarded?.white || 0) * (previousRoundTokenValues.white || previousRound.condition?.whiteValue || 0);
-                    const blackEarnings = (player.tokensAwarded?.black || 0) * (previousRoundTokenValues.black || previousRound.condition?.blackValue || 0);
-                    const incentiveEarnings = player.tokensAwarded?.incentiveBonus || 0;
-                    const roundEarnings = whiteEarnings + blackEarnings + incentiveEarnings;
-                    
-                    return {
-                        username: player.username,
-                        whiteTokens: player.tokensAwarded?.white || 0,
-                        blackTokens: player.tokensAwarded?.black || 0,
-                        incentiveBonus: player.tokensAwarded?.incentiveBonus || 0,
-                        roundEarnings: roundEarnings,
-                        seatPosition: player.seatPosition || 'unknown',
-                        isAI: player.isAI || false
-                    };
-                });
-            }
             if (previousRound && previousRound.condition) {
-                previousRoundTokenValues = {
-                    white: previousRound.condition.whiteValue || 0,
-                    black: previousRound.condition.blackValue || 0
-                };
+                    previousRoundTokenValues = {
+                        white: previousRound.condition.whiteValue || 0,
+                        black: previousRound.condition.blackValue || 0
+                    };
+            }
+            if (previousRound && previousRound.players) {
+                    previousRoundPlayers = previousRound.players.map(player => {
+                        // Calculate round earnings for this specific round
+                        const whiteEarnings = (player.tokensAwarded?.white || 0) * (previousRoundTokenValues.white || previousRound.condition?.whiteValue || 0);
+                        const blackEarnings = (player.tokensAwarded?.black || 0) * (previousRoundTokenValues.black || previousRound.condition?.blackValue || 0);
+                        // Incentive bonus tokens are black tokens, so multiply by black token value
+                        const incentiveEarnings = (player.tokensAwarded?.incentiveBonus || 0) * (previousRoundTokenValues.black || previousRound.condition?.blackValue || 0);
+                        const roundEarnings = whiteEarnings + blackEarnings + incentiveEarnings;
+                    
+                        return {
+                            username: player.username,
+                            whiteTokens: player.tokensAwarded?.white || 0,
+                            blackTokens: player.tokensAwarded?.black || 0,
+                            incentiveBonus: player.tokensAwarded?.incentiveBonus || 0,
+                            roundEarnings: roundEarnings,
+                            seatPosition: player.seatPosition || 'unknown',
+                            isAI: player.isAI || false
+                        };
+                    });
             }
         }
         
@@ -4824,123 +4652,13 @@ function processRound(roomName, gameSession) {
         }
     }
 
-    // Handle transition from baseline to conditions in unified experiments BEFORE starting next round
-    if (gameSession.experiment && gameSession.experiment.mode === 'unified' && gameSession.experiment.phase === 'baseline') {
-        // Check if we should transition from baseline to conditions
-        const currentTokenPool = gameSession.experiment ? gameSession.whiteTokenPool : GlobalTokenPool.whiteTokens;
-        
-        console.log(`🔍 DEBUG: Baseline transition check after round ${gameSession.currentRound}:`);
-        console.log(`   Using token pool: ${gameSession.experiment ? 'gameSession.whiteTokenPool' : 'GlobalTokenPool.whiteTokens'} = ${currentTokenPool}`);
-        console.log(`   Baseline rounds completed: ${gameSession.experiment.baselineRounds}/${gameSession.experiment.maxBaselineRounds}`);
-        
-        const shouldTransition = (
-            currentTokenPool <= 0 || // Token pool depleted
-            gameSession.experiment.baselineRounds >= gameSession.experiment.maxBaselineRounds // Hit max baseline rounds
-        );
-        
-        console.log(`🔍 DEBUG: Should transition? ${shouldTransition} (pool depleted: ${currentTokenPool <= 0}, max rounds: ${gameSession.experiment.baselineRounds >= gameSession.experiment.maxBaselineRounds})`);
-        
-        if (shouldTransition) {
-            console.log(`🔄 Transitioning from baseline to conditions phase after ${gameSession.experiment.baselineRounds} baseline rounds (token pool: ${currentTokenPool})`);
-            
-            // Update experiment phase
-            gameSession.experiment.phase = 'conditions';
-            gameSession.experiment.currentRound = 1; // Start with round 1 (schedule starts from 1, not 0)
-            gameSession.experiment.whiteTokenPool = gameSession.experiment.totalWhiteTokenPool; // Switch to CONDITIONS_TOKENS tokens
-            
-            // Update global token pool
-            GlobalTokenPool.transitionToConditions(gameSession.experiment);
-            
-            // Update game session token pool to match global pool
-            gameSession.whiteTokenPool = GlobalTokenPool.whiteTokens;
-            
-            // Update condition information for the first conditions round (round 1)
-            console.log(`🧪 Setting up first conditions round (experiment round ${gameSession.experiment.currentRound})`);
-            GameSession.updateConditionForRound(roomName, gameSession.experiment.currentRound);
-            
-            // Notify all players about the transition
-            const roomPlayers = Object.values(Player.list).filter(p => p.room === roomName);
-            const currentRoom = roomList.find(r => r.name === roomName);
-            
-            // Helper function to map scheduler player letters (A, B, C) to actual player names
-            const mapSchedulerPlayerToName = (schedulerPlayer, roomPlayersList) => {
-                // Include both human and AI players, but exclude moderator
-                const eligiblePlayers = roomPlayersList.filter(p => !(currentRoom && p.username === currentRoom.creator));
-                const playerIndex = schedulerPlayer === 'A' ? 0 : schedulerPlayer === 'B' ? 1 : 2;
-                const selectedPlayer = eligiblePlayers[playerIndex];
-                
-                if (selectedPlayer) {
-                    // Handle AI players that might have null usernames
-                    return selectedPlayer.username || `AI_Player_${schedulerPlayer}`;
-                }
-                
-                return `Player ${schedulerPlayer}`;
-            };
-            
-            roomPlayers.forEach(player => {
-                if (!player.isAI) {
-                    const isModerator = currentRoom && player.username === currentRoom.creator;
-                    
-                    // Get the current condition info for the first conditions round
-                    const conditionInfo = ExperimentManager.getCurrentConditionInfo(gameSession.experiment, gameSession.experiment.currentRound);
-                    
-                    const transitionMessage = {
-                        from: 'baseline',
-                        to: 'conditions',
-                        newTokenPool: gameSession.experiment.whiteTokenPool,
-                        initialWhiteTokens: gameSession.experiment.totalWhiteTokenPool,
-                        message: `Baseline phase complete! Starting experimental conditions with ${gameSession.experiment.whiteTokenPool} tokens.`
-                    };
-                    
-                    // Add moderator-specific information
-                    if (isModerator && conditionInfo) {
-                        const incentiveDisplayName = IncentiveBonuses[conditionInfo.incentive] ? 
-                            IncentiveBonuses[conditionInfo.incentive].displayName : conditionInfo.incentive;
-                        
-                        // Only assign a player name if there's an actual incentive (not "No Incentive")
-                        const actualPlayerName = (conditionInfo.incentive && conditionInfo.incentive !== 'No Incentive') 
-                            ? mapSchedulerPlayerToName(conditionInfo.player, roomPlayers)
-                            : null;
-                            
-                        transitionMessage.moderatorInfo = {
-                            currentCondition: conditionInfo.conditionName,
-                            currentIncentive: conditionInfo.incentive,
-                            incentiveDisplay: incentiveDisplayName,
-                            incentivePlayer: actualPlayerName, // Use actual player name instead of A/B/C
-                            blockNumber: conditionInfo.blockNumber,
-                            message: `🧪 MODERATOR: First conditions round starts with condition "${conditionInfo.conditionName}", incentive "${incentiveDisplayName}" for player "${actualPlayerName}"`
-                        };
-                        
-                        console.log(`🧪 MODERATOR INFO for ${player.username}:`);
-                        console.log(`   Condition: ${conditionInfo.conditionName}`);
-                        console.log(`   Incentive: ${incentiveDisplayName} for player ${actualPlayerName} (scheduler: ${conditionInfo.player})`);
-                        console.log(`   Block: ${conditionInfo.blockNumber || 'N/A'}`);
-                    }
-                    
-                    player.socket.emit('phaseTransition', transitionMessage);
-                }
-            });
-            
-            // Skip normal round increment and start next round directly since we're transitioning
-            setTimeout(() => startNewRound(roomName, gameSession), 3000); // 3 second delay
-            return;
-        } else {
-            // Still in baseline phase, increment baseline round counter
-            gameSession.experiment.baselineRounds++;
-        }
-    }
-    
     // Start next round after delay
     gameSession.currentRound++;
+    console.log(`🔄 Advanced to round ${gameSession.currentRound}`);
     
-    // For conditions phase in unified experiments, also increment experiment round counter
-    if (gameSession.experiment && gameSession.experiment.mode === 'unified' && gameSession.experiment.phase === 'conditions') {
-        gameSession.experiment.currentRound++;
-        console.log(`🧪 Advanced to experiment round ${gameSession.experiment.currentRound} for conditions phase`);
-        
-        // Update condition for the next round
-        console.log(`🔄 Updating condition for next experiment round ${gameSession.experiment.currentRound}`);
-        GameSession.updateConditionForRound(roomName, gameSession.experiment.currentRound);
+    // Update condition for the new round based on scheduler
+    if (gameSession.experiment && gameSession.experiment.mode === 'conditions') {
+        GameSession.updateConditionForRound(roomName, gameSession.currentRound);
     }
     
     setTimeout(() => startNewRound(roomName, gameSession), 3000); // 3 second delay
@@ -5230,7 +4948,7 @@ Player.sendCompleteGameState = function(player, roomName) {
                 whiteTokens: gameSession.experiment ? gameSession.whiteTokenPool : GlobalTokenPool.whiteTokens,
                 blackTokens: GlobalTokenPool.blackTokens,
                 initialWhiteTokens: gameSession.experiment ? gameSession.experiment.whiteTokenPool : GlobalTokenPool.whiteTokens,
-                totalWhiteTokens: gameSession.experiment ? gameSession.experiment.totalWhiteTokenPool || gameSession.experiment.whiteTokenPool : TOKEN_CONFIG.CONDITIONS_TOKENS
+                totalWhiteTokens: gameSession.experiment ? gameSession.experiment.whiteTokenPool : TOKEN_CONFIG.CONDITIONS_TOKENS
             },
             
             // All players wallet data
@@ -5644,8 +5362,8 @@ function startLightningTestRound(room, gameSession, io) {
         
         console.log(`📊 [Round ${gameSession.currentRound}] Added round data to dataLog for CSV export`);
         
-        // Calculate total rounds for progress (baseline + conditions)
-        const totalRounds = gameSession.baselineConfig.maxRounds + gameSession.conditionsSchedule.length;
+        // Calculate total rounds for lightning test (conditions only - 189 rounds)
+        const totalRounds = gameSession.conditionsSchedule.length;
         
         // Send progress update to client (every round for smooth progress bar)
         io.to(room).emit('lightningTestProgress', {
@@ -5653,11 +5371,10 @@ function startLightningTestRound(room, gameSession, io) {
             totalRounds: totalRounds,
             condition: roundInfo.condition,
             incentive: roundInfo.incentive,
-            targetPlayer: targetPlayer ? targetPlayer.username : 'None (Baseline)',
+            targetPlayer: targetPlayer ? targetPlayer.username : 'None',
             progress: (gameSession.currentRound / totalRounds) * 100,
             playerWallets: gameSession.lightningStats.playerWallets,
-            playerEarnings: gameSession.lightningStats.playerEarnings,
-            phase: gameSession.currentExperimentPhase
+            playerEarnings: gameSession.lightningStats.playerEarnings
         });
         
         // Determine next round based on phase and completion status
@@ -5781,11 +5498,11 @@ function startSpeedTestRound(room, gameSession, io) {
     try {
         const roundInfo = gameSession.conditionsSchedule[gameSession.currentRound - 1];
         if (!roundInfo) {
-            console.log(`⚡ Speed test completed! All 441 rounds finished in ${room}`);
+            console.log(`⚡ Speed test completed! All 189 rounds finished in ${room}`);
             
             // Send completion message
             io.to(room).emit('systemMessage', { 
-                message: `⚡ SPEED TEST COMPLETED: All 441 rounds finished! Check LED matrix for distribution results.` 
+                message: `⚡ SPEED TEST COMPLETED: All 189 rounds finished! Check LED matrix for distribution results.` 
             });
             
             // Optionally reset the session or leave it for analysis
@@ -5793,7 +5510,7 @@ function startSpeedTestRound(room, gameSession, io) {
             return;
         }
         
-        console.log(`⚡ Speed test round ${gameSession.currentRound}/441 in ${room}: ${roundInfo.condition}, ${roundInfo.incentive}, Player ${roundInfo.player}`);
+        console.log(`⚡ Speed test round ${gameSession.currentRound}/189 in ${room}: ${roundInfo.condition}, ${roundInfo.incentive}, Player ${roundInfo.player}`);
         
         // Map scheduler player to actual player name
         const playersInRoom = Object.values(Player.list).filter(p => p.room === room && !p.isAI);

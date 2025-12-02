@@ -20,7 +20,7 @@ block.slice(0, 5).forEach((round, index) => {
 });
 
 // Test 2: Generate full conditions schedule
-console.log('\n📋 Test 2: Generating full conditions schedule (441 rounds)...');
+console.log('\n📋 Test 2: Generating full conditions schedule (189 rounds)...');
 const conditionsSchedule = scheduler.generateConditionsSchedule();
 console.log(`Generated ${conditionsSchedule.length} rounds across 7 blocks`);
 
@@ -73,7 +73,7 @@ console.log(csv);
 
 console.log('\n✅ All tests completed!');
 console.log('\nTo verify the full schedule matches the sample:');
-console.log('1. Check that all 441 rounds are present');
+console.log('1. Check that all 189 rounds are present');
 console.log('2. Verify balanced distribution across conditions, incentives, and players');
 console.log('3. Confirm proper block structure (7 blocks of 63 rounds each)');
 console.log('4. Validate counterbalancing within each block');

@@ -1170,13 +1170,6 @@
                                     <div class="roundEarnings" style="color: #43b581; font-size: 14px; margin-bottom: 10px; font-weight: 500;"></div>
                                     <div class="culturantStatus" style="color: #7289da; font-size: 13px;"></div>
                                     <div class="activeIncentive" style="color: #faa61a; font-size: 12px; margin-top: 8px;"></div>
-                                    <div class="baselineExitNotification" style="display: none; background: linear-gradient(135deg, #43b581, #5bc0de); color: #ffffff; font-size: 12px; font-weight: 600; margin-top: 8px; padding: 8px 12px; border-radius: 6px; cursor: pointer; box-shadow: 0 2px 8px rgba(67, 181, 129, 0.3); border: 1px solid rgba(255, 255, 255, 0.2); transition: all 0.3s ease;" onclick="this.style.display='none';" onmouseover="this.style.transform='scale(1.02)'; this.style.boxShadow='0 4px 16px rgba(67, 181, 129, 0.5)';" onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='0 2px 8px rgba(67, 181, 129, 0.3)';">
-                                        <div style="display: flex; align-items: center; gap: 8px;">
-                                            <span style="font-size: 16px;">🎯</span>
-                                            <span class="baselineExitText">Baseline condition exited on turn X</span>
-                                            <span style="font-size: 11px; opacity: 0.8; margin-left: auto;">(click to dismiss)</span>
-                                        </div>
-                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -1221,6 +1214,24 @@
                             ">
                                 <span id="lockInText" style="position: relative; z-index: 1;">Lock in</span>
                             </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Current Token Value Display (centered below lock-in button) -->
+                    <div id="currentTokenValueDisplay" style="display: none; margin-top: 10px; max-width: 280px; margin-left: calc(50% - 230px); margin-right: auto;">
+                        <div style="background: rgba(54, 57, 63, 0.8); backdrop-filter: blur(12px); border-radius: 8px; padding: 10px 16px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2); border: 1px solid rgba(114, 118, 125, 0.2);">
+                            <div style="color: #b9bbbe; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; text-align: center;">Current Token Value</div>
+                            <div style="display: flex; align-items: center; justify-content: center; gap: 20px;">
+                                <div style="display: flex; align-items: center; gap: 6px;">
+                                    <span style="font-size: 14px;">⚪</span>
+                                    <span id="currentWhiteTokenValue" style="color: #43b581; font-size: 13px; font-weight: 600;">$0.10</span>
+                                </div>
+                                <div style="width: 1px; height: 16px; background: rgba(255, 255, 255, 0.1);"></div>
+                                <div style="display: flex; align-items: center; gap: 6px;">
+                                    <span style="font-size: 14px;">⚫</span>
+                                    <span id="currentBlackTokenValue" style="color: #e74c3c; font-size: 13px; font-weight: 600;">$0.02</span>
+                                </div>
+                            </div>
                         </div>
                     </div>
                     
@@ -1476,24 +1487,20 @@
                                         <span class="section-title">EXPERIMENT CONTROLS</span>
                                     </div>
                                     
-                                    <!-- Current Experiment Status - Fixed Phase Info Panel -->
+                                    <!-- Current Experiment Status - Fixed Info Panel -->
                                     <div class="control-group">
                                         <div class="control-label">
                                             Current Experiment Status 
-                                            <button class="info-btn mini" data-info="experiment-status" title="Current phase, condition, and round information">i</button>
+                                            <button class="info-btn mini" data-info="experiment-status" title="Current condition and round information">i</button>
                                         </div>
                                         <div id="experimentStatusDisplay" class="status-display-panel">
                                             <div class="status-row">
-                                                <span class="status-label">Phase:</span>
-                                                <span id="currentPhaseDisplay" class="status-value">Baseline</span>
-                                            </div>
-                                            <div class="status-row">
                                                 <span class="status-label">Condition:</span>
-                                                <span id="currentConditionDisplay" class="status-value">Baseline</span>
+                                                <span id="currentConditionDisplay" class="status-value">Not Started</span>
                                             </div>
                                             <div class="status-row">
                                                 <span class="status-label">Round:</span>
-                                                <span id="currentRoundDisplay" class="status-value">0/21</span>
+                                                <span id="currentRoundDisplay" class="status-value">0/63</span>
                                             </div>
                                             <div class="status-row">
                                                 <span class="status-label">Incentive Player:</span>
@@ -1501,7 +1508,7 @@
                                             </div>
                                             <div class="status-row">
                                                 <span class="status-label">Block:</span>
-                                                <span id="currentBlockDisplay" class="status-value">N/A</span>
+                                                <span id="currentBlockDisplay" class="status-value">0/3</span>
                                             </div>
                                         </div>
                                     </div>

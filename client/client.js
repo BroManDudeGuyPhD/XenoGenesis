@@ -1,8 +1,8 @@
 // Token Pool Configuration Constants (must match server-side)
 const TOKEN_CONFIG = {
-    BASELINE_TOKENS: 100,
-    CONDITIONS_TOKENS: 2500,
-    MAX_TOKENS: 2500  // Maximum for validation and UI limits
+    BASELINE_TOKENS: 100, // Legacy - no longer used
+    CONDITIONS_TOKENS: 1250, // Updated from 2500
+    MAX_TOKENS: 1250  // Maximum for validation and UI limits (updated from 2500)
 };
 
 // Store user admin status globally so we can use it for invite visibility
@@ -4510,6 +4510,21 @@ socket.on('yourTurn', function(data) {
     
     // Show selection section and token conversion display
     if (selectionSectionElement) selectionSectionElement.style.display = 'block';
+    
+    // Show and update current token value display (below checkerboard)
+    const currentTokenValueDisplay = document.getElementById('currentTokenValueDisplay');
+    if (currentTokenValueDisplay) {
+        currentTokenValueDisplay.style.display = 'block';
+        // Update token values from server data if available
+        if (data.condition && typeof data.condition === 'object' && 
+            data.condition.whiteValue && data.condition.blackValue) {
+            const whiteValueEl = document.getElementById('currentWhiteTokenValue');
+            const blackValueEl = document.getElementById('currentBlackTokenValue');
+            if (whiteValueEl) whiteValueEl.textContent = `$${data.condition.whiteValue.toFixed(2)}`;
+            if (blackValueEl) blackValueEl.textContent = `$${data.condition.blackValue.toFixed(2)}`;
+        }
+    }
+    
     if (tokenConversionDisplay) {
         tokenConversionDisplay.style.display = 'block';
         // Update token values from server data if available
@@ -4636,6 +4651,38 @@ socket.on('yourTurn', function(data) {
                 addColumnHoverEffects();
                 initializeSwitchboardFunctions();
             }, 100);
+            
+            // Update moderator status panel with current round info
+            const conditionStatusDisplay = document.getElementById('currentConditionDisplay');
+            if (conditionStatusDisplay && data.condition && data.condition.name) {
+                conditionStatusDisplay.textContent = data.condition.name;
+            }
+            
+            const roundDisplay = document.getElementById('currentRoundDisplay');
+            if (roundDisplay && data.round) {
+                // Calculate round within current block (1-63)
+                const roundInBlock = ((data.round - 1) % 63) + 1;
+                roundDisplay.textContent = `${roundInBlock}/63`;
+            }
+            
+            // Update incentive player display
+            const incentivePlayerDisplay = document.getElementById('currentIncentivePlayerDisplay');
+            if (incentivePlayerDisplay) {
+                if (data.player && data.incentive && data.incentive !== 'No Incentive') {
+                    // Use incentiveDisplay for user-friendly text, fallback to raw incentive
+                    incentivePlayerDisplay.textContent = `${data.player} (${data.incentiveDisplay || data.incentive})`;
+                } else {
+                    incentivePlayerDisplay.textContent = 'None';
+                }
+            }
+            
+            // Block display will be updated by roundResult, but initialize if we have data
+            const blockStatusDisplay = document.getElementById('currentBlockDisplay');
+            if (blockStatusDisplay && data.blockNumber) {
+                blockStatusDisplay.textContent = `${data.blockNumber}/3`;
+            } else if (blockStatusDisplay) {
+                blockStatusDisplay.textContent = '1/3';
+            }
         }
     }
     
@@ -5351,24 +5398,16 @@ function updateExperimentalHUD(data) {
     
     // MODERATOR STATUS UPDATES - Update fixed status panel in control board
     
-    // Update current phase display
-    const phaseDisplay = document.getElementById('currentPhaseDisplay');
-    if (phaseDisplay && data.phase) {
-        phaseDisplay.textContent = data.phase.charAt(0).toUpperCase() + data.phase.slice(1);
-    }
-    
     // Update current condition display
     const conditionStatusDisplay = document.getElementById('currentConditionDisplay');
     if (conditionStatusDisplay) {
         conditionStatusDisplay.textContent = data.condition;
     }
     
-    // Update current round display with round count in phase (x/21 format)
+    // Update current round display with round count in block (x/63 format)
     const roundDisplay = document.getElementById('currentRoundDisplay');
     if (roundDisplay) {
-        if (data.phase === 'baseline') {
-            roundDisplay.textContent = `Baseline Round ${data.round || 0}`;
-        } else if (data.blockNumber) {
+        if (data.blockNumber) {
             // Calculate round within current block (1-63)
             const roundInBlock = ((data.round - 1) % 63) + 1;
             roundDisplay.textContent = `${roundInBlock}/63`;
@@ -5390,8 +5429,8 @@ function updateExperimentalHUD(data) {
     // Update block display
     const blockStatusDisplay = document.getElementById('currentBlockDisplay');
     if (blockStatusDisplay) {
-        if (data.blockNumber && data.phase !== 'baseline') {
-            blockStatusDisplay.textContent = `${data.blockNumber}/7`;
+        if (data.blockNumber) {
+            blockStatusDisplay.textContent = `${data.blockNumber}/3`;
         } else {
             blockStatusDisplay.textContent = 'N/A';
         }
@@ -5830,61 +5869,10 @@ socket.on('columnModeChanged', function(data) {
 });
 
 // Function to show baseline exit notification to moderators
-function showBaselineExitNotification(turnNumber) {
-    // Check if user is moderator
-    const moderatorSwitchboard = document.getElementById('moderatorSwitchboard');
-    const isModerator = moderatorSwitchboard && moderatorSwitchboard.style.display === 'block';
-    
-    if (!isModerator) return;
-    
-    const notifications = document.querySelectorAll('.baselineExitNotification');
-    const notificationTexts = document.querySelectorAll('.baselineExitText');
-    
-    if (notifications.length > 0 && notificationTexts.length > 0) {
-        // Use current round if turnNumber is 0 or invalid
-        const displayTurn = turnNumber > 0 ? turnNumber : currentRoundNumber;
-        
-        notificationTexts.forEach(element => {
-            element.textContent = `Baseline condition exited on turn ${displayTurn}`;
-        });
-        
-        notifications.forEach(element => {
-            element.style.display = 'block';
-            
-            // Add a subtle animation to draw attention
-            element.style.transform = 'scale(0.95)';
-            setTimeout(() => {
-                element.style.transform = 'scale(1)';
-            }, 100);
-        });
-        
-        console.log('🎯 Baseline exit notification displayed for turn:', displayTurn);
-    }
-}
-
 // Experimental condition changed
 socket.on('conditionChanged', function(data) {
     console.log('🔄 conditionChanged event received:', data);
     console.log(`💰 Experimental condition changed: ${data.condition.name}`);
-    console.log('🔍 Previous condition:', previousCondition);
-    console.log('🔍 Current round number:', currentRoundNumber);
-    
-    // Check for baseline exit (case insensitive)
-    const currentConditionName = data.condition.name.toLowerCase();
-    const wasBaseline = previousCondition && previousCondition.toLowerCase().includes('baseline');
-    const isBaseline = currentConditionName.includes('baseline');
-    
-    console.log('🔍 Baseline exit check:', {
-        wasBaseline: wasBaseline,
-        isBaseline: isBaseline,
-        currentConditionName: currentConditionName,
-        willTrigger: wasBaseline && !isBaseline
-    });
-    
-    if (wasBaseline && !isBaseline) {
-        console.log('🎯 Detected baseline exit from:', previousCondition, 'to:', data.condition.name);
-        showBaselineExitNotification(currentRoundNumber);
-    }
     
     // Update previous condition tracking
     previousCondition = data.condition.name;
@@ -6056,6 +6044,12 @@ socket.on('conditionUpdate', function(data) {
     // Update token conversion display for all players
     updateTokenConversionDisplay(data.tokenValues.white, data.tokenValues.black);
     
+    // Update current token value display (below checkerboard)
+    const currentWhiteValueEl = document.getElementById('currentWhiteTokenValue');
+    const currentBlackValueEl = document.getElementById('currentBlackTokenValue');
+    if (currentWhiteValueEl) currentWhiteValueEl.textContent = `$${data.tokenValues.white.toFixed(2)}`;
+    if (currentBlackValueEl) currentBlackValueEl.textContent = `$${data.tokenValues.black.toFixed(2)}`;
+    
     // Update HUD with experimental information
     updateExperimentalHUD(data);
     
@@ -6084,85 +6078,6 @@ socket.on('conditionUpdate', function(data) {
     } catch (error) {
         console.error('❌ LED TRACKER: Error processing conditionUpdate:', error);
     }
-});
-
-// Handle baseline to conditions phase transition
-socket.on('phaseTransition', function(data) {
-    console.log('🔄 Phase transition event received:', data);
-    
-    // Update token pool display
-    if (data.newTokenPool !== undefined) {
-        // For phase transitions, use CONDITIONS_TOKENS as max since we're transitioning to conditions phase
-        const maxTokens = TOKEN_CONFIG.CONDITIONS_TOKENS;
-        updateTokenPoolDisplay(data.newTokenPool, maxTokens);
-        console.log(`🪙 Token pool updated for phase transition: ${data.newTokenPool}/${maxTokens}`);
-    }
-    
-    // Update token pool bar with new total
-    const tokenPoolBar = document.getElementById('tokenPoolBar');
-    if (tokenPoolBar && data.initialWhiteTokens) {
-        const percentage = Math.max(0, (data.newTokenPool / data.initialWhiteTokens) * 100);
-        tokenPoolBar.style.width = `${percentage}%`;
-        console.log(`🎯 Token pool bar updated for transition: ${percentage}% (${data.newTokenPool}/${data.initialWhiteTokens})`);
-    }
-    
-    // Show phase transition notification
-    showSystemNotification('Phase Transition', data.message, 'info');
-    
-    // Update moderator status panel if user is moderator
-    const isModerator = window.currentUserIsModerator || false;
-    if (isModerator) {
-        // Update phase display in status panel
-        const phaseDisplay = document.getElementById('currentPhaseDisplay');
-        if (phaseDisplay) {
-            phaseDisplay.textContent = data.to.charAt(0).toUpperCase() + data.to.slice(1);
-        }
-        
-        // If we have moderator info from the transition, update all status displays
-        if (data.moderatorInfo) {
-            const conditionDisplay = document.getElementById('currentConditionDisplay');
-            const roundDisplay = document.getElementById('currentRoundDisplay');
-            const incentivePlayerDisplay = document.getElementById('currentIncentivePlayerDisplay');
-            const blockDisplay = document.getElementById('currentBlockDisplay');
-            
-            if (conditionDisplay) {
-                conditionDisplay.textContent = data.moderatorInfo.currentCondition;
-            }
-            
-            if (roundDisplay) {
-                roundDisplay.textContent = '1/21'; // First round of conditions phase
-            }
-            
-            if (incentivePlayerDisplay) {
-                if (data.moderatorInfo.incentivePlayer && data.moderatorInfo.currentIncentive !== 'No Incentive') {
-                    incentivePlayerDisplay.textContent = `${data.moderatorInfo.incentivePlayer} (${data.moderatorInfo.incentiveDisplay})`;
-                } else {
-                    incentivePlayerDisplay.textContent = 'None';
-                }
-            }
-            
-            if (blockDisplay) {
-                if (data.moderatorInfo.blockNumber) {
-                    blockDisplay.textContent = `${data.moderatorInfo.blockNumber}/7`;
-                } else {
-                    blockDisplay.textContent = 'N/A';
-                }
-            }
-        }
-    }
-    
-    // Update experimental HUD if it exists (legacy support)
-    const expPanel = document.getElementById('experimentalInfo');
-    if (expPanel) {
-        const phaseDisplay = expPanel.querySelector('.phase-display') || document.createElement('div');
-        if (!expPanel.querySelector('.phase-display')) {
-            phaseDisplay.className = 'phase-display';
-            expPanel.appendChild(phaseDisplay);
-        }
-        phaseDisplay.innerHTML = `<strong>Phase:</strong> ${data.to.charAt(0).toUpperCase() + data.to.slice(1)}`;
-    }
-    
-    console.log(`🎯 Transitioned from ${data.from} to ${data.to} phase with ${data.newTokenPool} tokens`);
 });
 
 // Column selected notification
@@ -11591,18 +11506,21 @@ function updateRoundResultsPanel(roundData) {
         sortedPreviousPlayers.forEach(player => {
             const whiteTokens = player.whiteTokens || 0;
             const blackTokens = player.blackTokens || 0;
+            const incentiveBonus = player.incentiveBonus || 0;
+            // Total black tokens includes cooperative black tokens + incentive bonus
+            const totalBlackTokens = blackTokens + incentiveBonus;
             // Use roundEarnings instead of totalEarnings for previous round values
             const roundEarnings = player.roundEarnings || 0;
             const isAI = player.isAI ? ' (AI)' : '';
             
             prevTotalWhite += whiteTokens;
-            prevTotalBlack += blackTokens;
+            prevTotalBlack += totalBlackTokens;
             prevTotalRoundEarnings += roundEarnings;
             
             previousDistributionHTML += `
                 <div style="color: #ffffff;">${player.username}${isAI}</div>
                 <div style="color: #43b581; text-align: right;">${whiteTokens}</div>
-                <div style="color: #e74c3c; text-align: right;">${blackTokens}</div>
+                <div style="color: #e74c3c; text-align: right;">${totalBlackTokens}</div>
                 <div style="color: #faa61a; text-align: right; font-weight: 500;">$${roundEarnings.toFixed(2)}</div>
             `;
         });
