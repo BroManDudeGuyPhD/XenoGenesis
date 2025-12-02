@@ -1,6 +1,6 @@
 var initPack = {player:[]};
 var removePack = {player:[]};
-const { uniqueNamesGenerator, colors, animals } = require('unique-names-generator');
+const { uniqueNamesGenerator } = require('unique-names-generator');
 var _ = require('lodash');
 require('./client/Inventory');
 let Commands = require('./Commands')
@@ -8,6 +8,20 @@ let Room = require('./Room')
 const formatMessage = require("./utils/messages");
 const fs = require('fs');
 const path = require('path');
+
+// Custom dictionaries for room name generation (simpler, shorter names)
+const simpleColors = [
+    'red', 'blue', 'green', 'yellow', 'orange', 'purple', 'pink', 'black', 
+    'white', 'gray', 'brown', 'gold', 'silver', 'teal', 'navy', 'coral',
+    'lime', 'cyan', 'mint', 'peach', 'ruby', 'jade', 'amber', 'ivory'
+];
+
+const simpleAnimals = [
+    'fox', 'owl', 'cat', 'dog', 'bear', 'wolf', 'lion', 'hawk', 'deer',
+    'duck', 'frog', 'fish', 'crab', 'seal', 'crow', 'dove', 'swan', 'goat',
+    'hare', 'lynx', 'mole', 'newt', 'orca', 'puma', 'ram', 'bat', 'elk',
+    'eel', 'ant', 'bee', 'jay', 'ape', 'ox', 'yak', 'moth', 'wasp'
+];
 
 // Token Pool Configuration Constants
 const TOKEN_CONFIG = {
@@ -1589,7 +1603,7 @@ Player.onConnect = function(socket,username,admin,io){
 
     socket.on('createRoom', function(){
         const shortName = uniqueNamesGenerator({
-            dictionaries: [colors,animals], 
+            dictionaries: [simpleColors, simpleAnimals], 
             separator: ' ',
             length: 2
         });
