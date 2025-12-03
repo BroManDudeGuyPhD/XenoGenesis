@@ -233,7 +233,30 @@ Database.cleanupUsedInviteCodes = function(cb) {
     );
 }
 
-Database.generateInviteCode = function(adminUsername, cb) {
+// Get invite code details including target room
+Database.getInviteCodeDetails = function(code, cb) {
+    if (!USE_DB) return cb(null);
+    
+    db.invites.findOne({code: code}, function(err, invite) {
+        if (err || !invite) {
+            return cb(null);
+        }
+        cb({
+            code: invite.code,
+            targetRoom: invite.targetRoom || null,
+            isPermanent: invite.isPermanent || false,
+            used: invite.used || false
+        });
+    });
+}
+
+Database.generateInviteCode = function(adminUsername, targetRoom, cb) {
+    // Handle old signature (adminUsername, cb) for backwards compatibility
+    if (typeof targetRoom === 'function') {
+        cb = targetRoom;
+        targetRoom = null;
+    }
+    
     if (!USE_DB) return cb(null);
     
     // Generate unique 8-character alphanumeric code
@@ -252,7 +275,7 @@ Database.generateInviteCode = function(adminUsername, cb) {
     db.invites.findOne({code: inviteCode}, function(err, existing) {
         if (existing) {
             // If code exists, generate a new one (recursive)
-            return Database.generateInviteCode(adminUsername, cb);
+            return Database.generateInviteCode(adminUsername, targetRoom, cb);
         }
         
         // Store the invite code (regular, not permanent)
@@ -263,7 +286,8 @@ Database.generateInviteCode = function(adminUsername, cb) {
             used: false,
             usedBy: null,
             usedAt: null,
-            isPermanent: false
+            isPermanent: false,
+            targetRoom: targetRoom || null  // Room to auto-join after signup
         };
         
         db.invites.insertOne(inviteData, function(err) {
@@ -271,8 +295,8 @@ Database.generateInviteCode = function(adminUsername, cb) {
                 console.log('❌ Error creating invite code:', err);
                 return cb(null);
             }
-            console.log(`✅ Random invite code ${inviteCode} created by ${adminUsername}`);
-            cb(inviteCode);
+            console.log(`✅ Random invite code ${inviteCode} created by ${adminUsername}${targetRoom ? ` for room "${targetRoom}"` : ''}`);
+            cb(inviteCode, targetRoom);
         });
     });
 }

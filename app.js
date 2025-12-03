@@ -248,6 +248,66 @@ app.get('/about', function(req, res) {
     res.render('about');
 });
 
+// Invite link route - redirects to login with invite code pre-filled
+app.get('/invite', function(req, res) {
+    const inviteCode = req.query.code;
+    
+    if (!inviteCode) {
+        console.log('⚠️ Invite link accessed without code parameter');
+        return res.redirect('/');
+    }
+    
+    // Sanitize the invite code
+    const sanitizedCode = inviteCode.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+    
+    if (sanitizedCode.length < 3) {
+        console.log('⚠️ Invalid invite code in link:', inviteCode);
+        return res.redirect('/');
+    }
+    
+    console.log(`🔗 Invite link accessed with code: ${sanitizedCode}`);
+    
+    // Look up invite code details to get target room
+    Database.getInviteCodeDetails(sanitizedCode, function(inviteDetails) {
+        // Get session data same as main route
+        let validatedRoom = req.session.room || 'Global';
+        
+        if (req.session.room && typeof roomList !== 'undefined') {
+            const roomIndex = roomList.findIndex(room => 
+                room.name.toLowerCase() === req.session.room.toLowerCase()
+            );
+            if (roomIndex === -1) {
+                validatedRoom = 'Global';
+            }
+        }
+        
+        const sessionData = {
+            isLoggedIn: !!req.session.username,
+            username: req.session.username || null,
+            room: validatedRoom,
+            inviteCode: sanitizedCode,  // Pass the invite code to pre-fill
+            targetRoom: inviteDetails ? inviteDetails.targetRoom : null  // Room to auto-join after signup
+        };
+        
+        if (inviteDetails && inviteDetails.targetRoom) {
+            console.log(`🔗 Invite code ${sanitizedCode} has target room: ${inviteDetails.targetRoom}`);
+        }
+        
+        // Check for active game
+        if (req.session.username && validatedRoom && validatedRoom !== 'Global') {
+            const Entity = require('./Entity.js');
+            const hasActiveGame = Entity.hasActiveGameSession && Entity.hasActiveGameSession(validatedRoom);
+            sessionData.hasActiveGame = hasActiveGame;
+        } else {
+            sessionData.hasActiveGame = false;
+        }
+        
+        res.render('login', { 
+            sessionData: JSON.stringify(sessionData)
+        });
+    });
+});
+
 // Remove game route - game interface should be embedded in main page
 
 app.get('/globalChat', function(req, res) {
@@ -670,7 +730,11 @@ io.on('connection', (socket) => {
                 });
             } else {
                 // Generate random single-use code
-                Database.generateInviteCode(username, function(inviteCode) {
+                // Check if mod is in an active room (not Global)
+                const currentRoom = socket.handshake.session.room;
+                const targetRoom = (currentRoom && currentRoom !== 'Global') ? currentRoom : null;
+                
+                Database.generateInviteCode(username, targetRoom, function(inviteCode, room) {
                     if (!inviteCode) {
                         console.log('❌ Failed to generate invite code for admin:', username);
                         return socket.emit('inviteCodeResponse', { 
@@ -679,12 +743,13 @@ io.on('connection', (socket) => {
                         });
                     }
                     
-                    console.log('✅ Admin generated random invite code:', { admin: username, code: inviteCode });
+                    console.log('✅ Admin generated random invite code:', { admin: username, code: inviteCode, targetRoom: room });
                     socket.emit('inviteCodeResponse', { 
                         success: true, 
                         inviteCode: inviteCode,
                         isPermanent: false,
-                        message: 'Random invite code generated successfully!' 
+                        targetRoom: room,
+                        message: room ? `Invite code generated for room "${room}"!` : 'Random invite code generated successfully!'
                     });
                 });
             }

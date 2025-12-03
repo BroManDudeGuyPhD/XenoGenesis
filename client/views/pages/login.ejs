@@ -131,35 +131,6 @@
     </style>
     <% } %>
     
-    <!-- Ultra-early login button hiding script -->
-    <script>
-        // This script runs immediately when parsed, before DOM ready
-        <% if (isLoggedIn) { %>
-        console.log('🚫 ULTRA-EARLY: Hiding login button before DOM ready');
-        
-        // Create a style element to force-hide login button
-        const earlyStyle = document.createElement('style');
-        earlyStyle.textContent = `
-            #loginNav { 
-                display: none !important; 
-                visibility: hidden !important; 
-                opacity: 0 !important; 
-                position: absolute !important;
-                left: -9999px !important;
-            }
-        `;
-        document.head.appendChild(earlyStyle);
-        
-        // Also try to hide it if it already exists
-        const existingLoginButton = document.getElementById('loginNav');
-        if (existingLoginButton) {
-            existingLoginButton.style.setProperty('display', 'none', 'important');
-            existingLoginButton.hidden = true;
-            console.log('🚫 ULTRA-EARLY: Found and hid existing login button');
-        }
-        <% } %>
-    </script>
-    
     <title>MetaMatching</title>
     <link rel="icon" type="image/x-icon" href="../client/img/favicon.png">
 </head>
@@ -168,17 +139,6 @@
 
     <!-- Loading overlay to prevent FOUC -->
     <div id="pageLoadOverlay"></div>
-
-
-
-
-    <!-- Old login buttons - REMOVED to prevent duplicates
-    <div id="signDiv" class="signIn">
-        Username: <input id="signDiv-username" type="text"></input><br>
-        Password: <input id="signDiv-password" type="password"></input><br>
-        <button id="signDiv-signIn">Sign In</button>
-        <button id="signDiv-signUp">Sign Up</button>
-    </div> -->
 
     <header class="header">
         <nav class="navbar">
@@ -2986,6 +2946,452 @@
         if (window.sessionData) {
             console.log('🚀 IMMEDIATE: isLoggedIn =', window.sessionData.isLoggedIn);
             console.log('🚀 IMMEDIATE: username =', window.sessionData.username);
+            
+            // Check if user arrived via invite link
+            if (window.sessionData.inviteCode) {
+                console.log('🔗 IMMEDIATE: Invite code from link:', window.sessionData.inviteCode);
+            }
+        }
+        
+        // Pre-fill invite code if user arrived via invite link
+        function prefillInviteCode() {
+            if (window.sessionData && window.sessionData.inviteCode && !window.sessionData.isLoggedIn) {
+                const inviteCodeInput = document.getElementById('signupInviteCode');
+                if (inviteCodeInput) {
+                    inviteCodeInput.value = window.sessionData.inviteCode;
+                    console.log('🔗 Pre-filled invite code:', window.sessionData.inviteCode);
+                    
+                    // Store target room for auto-join after signup
+                    if (window.sessionData.targetRoom) {
+                        window.inviteTargetRoom = window.sessionData.targetRoom;
+                        console.log('🔗 Target room for auto-join:', window.sessionData.targetRoom);
+                    }
+                    
+                    // Show welcome animation, then open signup modal
+                    showInviteWelcomeAnimation(window.sessionData.inviteCode, window.sessionData.targetRoom);
+                }
+            }
+        }
+        
+        // Welcome animation for invite links - Retro-Future Neon Design
+        function showInviteWelcomeAnimation(inviteCode, targetRoom) {
+            console.log('🎉 Showing welcome animation for invite link', targetRoom ? `(room: ${targetRoom})` : '');
+            
+            // Determine what to show in the code area
+            const showRoom = targetRoom && targetRoom !== 'Global';
+            const codeLabel = showRoom ? 'JOINING ROOM' : 'ACCESS CODE';
+            const codeValue = showRoom ? targetRoom : inviteCode;
+            const subtitle = showRoom ? '// ROOM INVITE RECEIVED //' : '// TRANSMISSION RECEIVED //';
+            const statusText = showRoom ? 'PREPARING ROOM ENTRY' : 'INITIALIZING PORTAL';
+            
+            // Create welcome overlay
+            const welcomeOverlay = document.createElement('div');
+            welcomeOverlay.id = 'inviteWelcomeOverlay';
+            welcomeOverlay.innerHTML = `
+                <div class="neon-grid"></div>
+                <div class="scanlines"></div>
+                <div class="welcome-content">
+                    <div class="neon-border-top"></div>
+                    <div class="welcome-icon">
+                        <i class="fas ${showRoom ? 'fa-door-open' : 'fa-satellite-dish'}"></i>
+                    </div>
+                    <div class="title-container">
+                        <h1 class="welcome-title">WELCOME</h1>
+                        <h1 class="welcome-title-glitch welcome-title-glitch-1">WELCOME</h1>
+                        <h1 class="welcome-title-glitch welcome-title-glitch-2">WELCOME</h1>
+                    </div>
+                    <p class="welcome-subtitle">${subtitle}</p>
+                    <div class="welcome-code">
+                        <div class="code-bracket left">[</div>
+                        <div class="code-inner">
+                            <span class="code-label">${codeLabel}</span>
+                            <span class="code-value">${codeValue}</span>
+                        </div>
+                        <div class="code-bracket right">]</div>
+                    </div>
+                    <div class="status-line">
+                        <span class="status-dot"></span>
+                        <span class="status-text">${statusText}</span>
+                    </div>
+                    <div class="neon-border-bottom"></div>
+                </div>
+            `;
+            
+            // Add styles for the retro-future neon animation
+            const style = document.createElement('style');
+            style.textContent = `
+                #inviteWelcomeOverlay {
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    width: 100%;
+                    height: 100%;
+                    background: rgba(5, 5, 15, 0.7);
+                    display: flex;
+                    justify-content: center;
+                    align-items: center;
+                    z-index: 100000;
+                    opacity: 0;
+                    animation: welcomeFadeIn 0.5s ease forwards;
+                    overflow: hidden;
+                }
+                
+                #inviteWelcomeOverlay * {
+                    box-sizing: border-box;
+                }
+                
+                /* Animated grid background */
+                .neon-grid {
+                    position: absolute;
+                    top: 0;
+                    left: 0;
+                    width: 100%;
+                    height: 100%;
+                    background-image: 
+                        linear-gradient(rgba(0, 255, 255, 0.05) 1px, transparent 1px),
+                        linear-gradient(90deg, rgba(0, 255, 255, 0.05) 1px, transparent 1px);
+                    background-size: 50px 50px;
+                    animation: gridMove 20s linear infinite;
+                }
+                
+                @keyframes gridMove {
+                    0% { background-position: 0 0; }
+                    100% { background-position: 50px 50px; }
+                }
+                
+                /* Scanlines effect */
+                .scanlines {
+                    position: absolute;
+                    top: 0;
+                    left: 0;
+                    width: 100%;
+                    height: 100%;
+                    background: repeating-linear-gradient(
+                        0deg,
+                        rgba(0, 0, 0, 0.15) 0px,
+                        rgba(0, 0, 0, 0.15) 1px,
+                        transparent 1px,
+                        transparent 3px
+                    );
+                    pointer-events: none;
+                }
+                
+                @keyframes welcomeFadeIn {
+                    to { opacity: 1; }
+                }
+                
+                @keyframes welcomeFadeOut {
+                    to { opacity: 0; }
+                }
+                
+                .welcome-content {
+                    text-align: center;
+                    animation: welcomeSlideUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.2s both;
+                    position: relative;
+                    padding: 40px 30px;
+                    max-width: 90vw;
+                }
+                
+                @keyframes welcomeSlideUp {
+                    from {
+                        opacity: 0;
+                        transform: translateY(40px) scale(0.9);
+                    }
+                    to {
+                        opacity: 1;
+                        transform: translateY(0) scale(1);
+                    }
+                }
+                
+                /* Neon borders */
+                .neon-border-top, .neon-border-bottom {
+                    position: absolute;
+                    left: 50%;
+                    transform: translateX(-50%);
+                    width: 80%;
+                    max-width: 500px;
+                    height: 2px;
+                    background: linear-gradient(90deg, 
+                        transparent, 
+                        #ff00ff, 
+                        #00ffff, 
+                        #ff00ff, 
+                        transparent);
+                    box-shadow: 
+                        0 0 10px #ff00ff,
+                        0 0 20px #00ffff,
+                        0 0 40px #ff00ff;
+                    animation: borderGlow 2s ease infinite;
+                }
+                
+                .neon-border-top { top: 0; }
+                .neon-border-bottom { bottom: 0; }
+                
+                @keyframes borderGlow {
+                    0%, 100% { opacity: 0.8; filter: hue-rotate(0deg); }
+                    50% { opacity: 1; filter: hue-rotate(30deg); }
+                }
+                
+                .welcome-icon {
+                    font-size: clamp(48px, 10vw, 72px);
+                    margin-bottom: 20px;
+                    animation: iconGlow 1.5s ease infinite, iconFloat 3s ease-in-out infinite;
+                    color: #00ffff;
+                    text-shadow: 
+                        0 0 10px #00ffff,
+                        0 0 20px #00ffff,
+                        0 0 40px #00ffff,
+                        0 0 80px #0088ff;
+                }
+                
+                @keyframes iconGlow {
+                    0%, 100% { 
+                        color: #00ffff;
+                        text-shadow: 
+                            0 0 10px #00ffff,
+                            0 0 20px #00ffff,
+                            0 0 40px #00ffff,
+                            0 0 80px #0088ff;
+                    }
+                    50% { 
+                        color: #ff00ff;
+                        text-shadow: 
+                            0 0 20px #ff00ff,
+                            0 0 40px #ff00ff,
+                            0 0 60px #ff00ff,
+                            0 0 100px #ff0088;
+                    }
+                }
+                
+                @keyframes iconFloat {
+                    0%, 100% { transform: translateY(0); }
+                    50% { transform: translateY(-10px); }
+                }
+                
+                /* Title with glitch effect using separate elements */
+                .title-container {
+                    position: relative;
+                    display: inline-block;
+                    margin-bottom: 10px;
+                }
+                
+                .welcome-title,
+                .welcome-title-glitch {
+                    font-size: clamp(36px, 12vw, 72px);
+                    font-weight: 900;
+                    font-family: 'Arial Black', Arial, sans-serif;
+                    color: #fff;
+                    margin: 0;
+                    letter-spacing: clamp(5px, 2vw, 15px);
+                    text-transform: uppercase;
+                    text-shadow: 
+                        0 0 10px #fff,
+                        0 0 20px #ff00ff,
+                        0 0 40px #ff00ff,
+                        0 0 80px #ff00ff;
+                }
+                
+                .welcome-title-glitch {
+                    position: absolute;
+                    top: 0;
+                    left: 0;
+                    width: 100%;
+                    opacity: 0.8;
+                }
+                
+                .welcome-title-glitch-1 {
+                    color: #00ffff;
+                    text-shadow: none;
+                    animation: glitch1 3s infinite;
+                    clip-path: polygon(0 0, 100% 0, 100% 45%, 0 45%);
+                }
+                
+                .welcome-title-glitch-2 {
+                    color: #ff00ff;
+                    text-shadow: none;
+                    animation: glitch2 3s infinite;
+                    clip-path: polygon(0 55%, 100% 55%, 100% 100%, 0 100%);
+                }
+                
+                @keyframes glitch1 {
+                    0%, 90%, 100% { transform: translate(0); opacity: 0; }
+                    91% { transform: translate(-4px, -2px); opacity: 0.8; }
+                    92% { transform: translate(4px, 2px); opacity: 0.8; }
+                    93% { transform: translate(-2px, 1px); opacity: 0.8; }
+                    94% { transform: translate(0); opacity: 0; }
+                }
+                
+                @keyframes glitch2 {
+                    0%, 90%, 100% { transform: translate(0); opacity: 0; }
+                    91% { transform: translate(4px, 2px); opacity: 0.8; }
+                    92% { transform: translate(-4px, -2px); opacity: 0.8; }
+                    93% { transform: translate(2px, -1px); opacity: 0.8; }
+                    94% { transform: translate(0); opacity: 0; }
+                }
+                
+                .welcome-subtitle {
+                    font-size: clamp(12px, 3vw, 16px);
+                    font-family: 'Courier New', monospace;
+                    color: #00ffff;
+                    margin: 0 0 40px 0;
+                    letter-spacing: clamp(2px, 0.5vw, 4px);
+                    text-shadow: 0 0 10px #00ffff;
+                    animation: subtitlePulse 2s ease infinite;
+                }
+                
+                @keyframes subtitlePulse {
+                    0%, 100% { opacity: 0.7; }
+                    50% { opacity: 1; }
+                }
+                
+                .welcome-code {
+                    display: inline-flex;
+                    align-items: center;
+                    gap: clamp(8px, 2vw, 15px);
+                    margin-bottom: 30px;
+                    flex-wrap: nowrap;
+                }
+                
+                .code-bracket {
+                    font-size: clamp(40px, 10vw, 80px);
+                    font-family: 'Courier New', monospace;
+                    color: #ff00ff;
+                    text-shadow: 
+                        0 0 10px #ff00ff,
+                        0 0 20px #ff00ff;
+                    animation: bracketPulse 1s ease infinite;
+                    line-height: 1;
+                }
+                
+                .code-bracket.left { animation-delay: 0s; }
+                .code-bracket.right { animation-delay: 0.5s; }
+                
+                @keyframes bracketPulse {
+                    0%, 100% { opacity: 0.6; transform: scale(1); }
+                    50% { opacity: 1; transform: scale(1.05); }
+                }
+                
+                .code-inner {
+                    display: flex;
+                    flex-direction: column;
+                    background: rgba(0, 255, 255, 0.05);
+                    border: 1px solid rgba(0, 255, 255, 0.3);
+                    border-radius: 4px;
+                    padding: clamp(10px, 2vw, 15px) clamp(15px, 4vw, 30px);
+                    position: relative;
+                    overflow: hidden;
+                }
+                
+                .code-inner::before {
+                    content: '';
+                    position: absolute;
+                    top: 0;
+                    left: -100%;
+                    width: 100%;
+                    height: 100%;
+                    background: linear-gradient(90deg, transparent, rgba(0, 255, 255, 0.2), transparent);
+                    animation: codeSweep 2s ease infinite;
+                }
+                
+                @keyframes codeSweep {
+                    0% { left: -100%; }
+                    100% { left: 100%; }
+                }
+                
+                .code-label {
+                    font-size: clamp(8px, 1.5vw, 10px);
+                    font-family: 'Courier New', monospace;
+                    color: #ff00ff;
+                    text-transform: uppercase;
+                    letter-spacing: clamp(1px, 0.5vw, 3px);
+                    margin-bottom: 5px;
+                    text-shadow: 0 0 5px #ff00ff;
+                }
+                
+                .code-value {
+                    font-family: 'Courier New', monospace;
+                    font-size: clamp(20px, 5vw, 36px);
+                    font-weight: bold;
+                    color: #00ffff;
+                    letter-spacing: clamp(3px, 1vw, 6px);
+                    text-shadow: 
+                        0 0 10px #00ffff,
+                        0 0 20px #00ffff,
+                        0 0 40px #0088ff;
+                    animation: codeFlicker 4s infinite;
+                }
+                
+                @keyframes codeFlicker {
+                    0%, 19.999%, 22%, 62.999%, 64%, 64.999%, 70%, 100% {
+                        opacity: 1;
+                    }
+                    20%, 21.999%, 63%, 63.999%, 65%, 69.999% {
+                        opacity: 0.7;
+                    }
+                }
+                
+                .status-line {
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    gap: 10px;
+                }
+                
+                .status-dot {
+                    width: 8px;
+                    height: 8px;
+                    background: #00ff00;
+                    border-radius: 50%;
+                    box-shadow: 0 0 10px #00ff00, 0 0 20px #00ff00;
+                    animation: statusBlink 1s ease infinite;
+                    flex-shrink: 0;
+                }
+                
+                @keyframes statusBlink {
+                    0%, 50%, 100% { opacity: 1; }
+                    25%, 75% { opacity: 0.3; }
+                }
+                
+                .status-text {
+                    font-family: 'Courier New', monospace;
+                    font-size: clamp(10px, 2vw, 12px);
+                    color: #00ff00;
+                    letter-spacing: clamp(1px, 0.5vw, 3px);
+                    text-shadow: 0 0 5px #00ff00;
+                }
+            `;
+            document.head.appendChild(style);
+            document.body.appendChild(welcomeOverlay);
+            
+            // After animation, fade out and open signup modal
+            setTimeout(() => {
+                welcomeOverlay.style.animation = 'welcomeFadeOut 0.5s ease forwards';
+                
+                setTimeout(() => {
+                    welcomeOverlay.remove();
+                    style.remove();
+                    
+                    // Open signup modal
+                    const signupModal = document.getElementById('signupModal');
+                    if (signupModal) {
+                        signupModal.style.display = 'block';
+                        console.log('🔗 Opened signup modal after welcome animation');
+                        
+                        // Focus on username field
+                        setTimeout(() => {
+                            const usernameInput = document.getElementById('signupUsername');
+                            if (usernameInput) usernameInput.focus();
+                        }, 100);
+                    }
+                }, 500);
+            }, 4000); // Show welcome for 4 seconds
+        }
+        
+        // Run prefill when DOM is ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', prefillInviteCode);
+        } else {
+            prefillInviteCode();
         }
         
         // Remove loading overlay once page is ready
@@ -3290,7 +3696,7 @@
                         document.getElementById('signupConfirmPassword').value = '';
                         document.getElementById('signupInviteCode').value = '';
                         
-                        showGlassmorphismAlert('Creating Account...', 'Please wait while we validate your invite code and create your account.', 'info');
+                        // Note: Neon welcome/room-join alert will be shown on successful response
                     } else {
                         showGlassmorphismAlert('Connection Error', 'Unable to connect to server. Please refresh and try again.', 'error');
                     }
