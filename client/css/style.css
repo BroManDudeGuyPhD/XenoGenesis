@@ -1593,22 +1593,18 @@ a {
 	position: relative;
 }
 
-/* HIDE ALL DUPLICATE LOGIN ELEMENTS - KEEP ONLY FINAL PINK RECTANGLE */
-#emergencyLoginButton,
-.nav-item:nth-child(1) #loginNav,
-.nav-menu li:nth-child(1) button {
+/* HIDE emergency login button duplicate only */
+#emergencyLoginButton {
 	display: none !important;
 	visibility: hidden !important;
 }
 
-/* Ensure FINAL login button is visible when logged out */
-#loginNav:last-of-type,
-.nav-item:last-child #loginNav {
+/* Ensure login button is visible when logged out */
+#loginNav {
 	visibility: visible !important;
 	opacity: 1 !important;
 	z-index: 200 !important;
 	position: relative !important;
-	display: block !important;
 }
 
 .nav-link {
@@ -1827,12 +1823,6 @@ body:not(.login-page) .nav-logo:hover::before {
 
 	.nav-item {
 		margin-left: 1rem; /* Reduced margin for mobile */
-	}
-
-	/* HIDE DUPLICATE LOGIN BUTTONS - Only keep the final pink rectangle */
-	#loginNav:nth-child(1),
-	#loginNav:nth-of-type(1) {
-		display: none !important;
 	}
 	
 	/* Mobile login button - final pink rectangle version */

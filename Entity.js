@@ -211,13 +211,13 @@ var IncentiveBonuses = {
     'Self Control Incentive': {
         bonus: 0.02, // $0.02 bonus for culturant behavior (choosing even rows when all do)
         description: 'Bonus for cooperative behavior (all choose even rows)',
-        displayName: 'Bonus: Choose Even Rows (2, 4, 6, 8)',
+        displayName: 'Choose Even Rows (2, 4, 6, 8)',
         appliesWhen: 'allChoseEven'
     },
     'Impulse Incentive': {
         bonus: 0.02, // $0.02 bonus for individual choice
         description: 'Bonus for individual impulse choice',
-        displayName: 'Bonus: Choose Odd Rows (1, 3, 5, 7)',
+        displayName: 'Choose Odd Rows (1, 3, 5, 7)',
         appliesWhen: 'always'
     }
 };
@@ -807,8 +807,16 @@ GameSession = {
         const rows = [1, 2, 3, 4, 5, 6, 7, 8];
         const grid = [];
         
-        // Create all 64 cells
+        // Create all 64 cells - each row has exactly 4 '+' and 4 '-'
         for (let row = 1; row <= 8; row++) {
+            // Create array of 4 '+' and 4 '-' symbols
+            const symbols = ['+', '+', '+', '+', '-', '-', '-', '-'];
+            // Shuffle the symbols array (Fisher-Yates shuffle)
+            for (let i = symbols.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [symbols[i], symbols[j]] = [symbols[j], symbols[i]];
+            }
+            
             for (let col = 0; col < 8; col++) {
                 const columnLetter = columns[col];
                 const rowType = row % 2 === 0 ? 'self-control' : 'impulsive'; // Even rows = self-control, Odd rows = impulsive
@@ -817,7 +825,7 @@ GameSession = {
                     row: row,
                     column: columnLetter,
                     rowType: rowType,
-                    symbol: Math.random() < 0.5 ? '+' : '-', // Random + or - distribution
+                    symbol: symbols[col], // Use shuffled symbol (4 of each per row)
                     cellId: `${columnLetter}${row}` // e.g., "A1", "B2", etc.
                 });
             }
@@ -3134,6 +3142,27 @@ Player.onGameStart = function(socket,username, progress, io, room, admin){
             player.currentChoice = data.choice; // Row number 1-8
             player.isLockedIn = true;
             console.log(`🔒 ${player.username} locked in choice: ${data.choice} - AFTER SETTING: currentChoice=${player.currentChoice}, isLockedIn=${player.isLockedIn}`);
+            
+            // Check for IMMEDIATE incentive bonus (Impulse or Self Control incentive)
+            // This triggers the incentive token animation right away, not at end of round
+            if (player.activeIncentive && !player.isAI) {
+                const chosenRow = parseInt(data.choice);
+                const rowType = chosenRow % 2 === 1 ? 'odd' : 'even';
+                let immediateBonus = 0;
+                
+                if (player.activeIncentive === 'Impulse Incentive' && rowType === 'odd') {
+                    immediateBonus = 1;
+                } else if (player.activeIncentive === 'Self Control Incentive' && rowType === 'even') {
+                    immediateBonus = 1;
+                }
+                
+                if (immediateBonus > 0 && player.socket) {
+                    console.log(`🎁 ${player.username} earned immediate incentive bonus: ${immediateBonus} black token(s)`);
+                    player.socket.emit('incentiveBonusNotification', {
+                        bonusTokens: immediateBonus
+                    });
+                }
+            }
             
             // Check if all non-moderator players have locked in their choices BEFORE advancing turn
             const currentRoomPlayers = Object.values(Player.list).filter(p => p.room === room);

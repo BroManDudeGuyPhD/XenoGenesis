@@ -5402,6 +5402,11 @@ socket.on('newRound', function(data) {
     // Close the triad formation popup when game starts
     closeTriadFormationPopup();
     
+    // Initialize round results panel on first round
+    if (data.round === 1) {
+        initializeRoundResultsPanel();
+    }
+    
     // Update current round tracking
     currentRoundNumber = data.round;
     
@@ -7082,7 +7087,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     if (loginButton) {
-        console.log('🔑 Primary login button found - adding mobile support');
+        console.log('🔑 Primary login button found - adding click and touch support');
         
         let touchStartedOnLogin = false;
         
@@ -7091,7 +7096,6 @@ document.addEventListener('DOMContentLoaded', function() {
             console.log('📱 Touch started on primary login button');
             touchStartedOnLogin = true;
             // Visual feedback
-            this.style.background = 'linear-gradient(135deg, #16a34a 0%, #22c55e 100%)';
             this.style.transform = 'scale(0.95)';
         }, { passive: false });
         
@@ -7102,13 +7106,16 @@ document.addEventListener('DOMContentLoaded', function() {
                 e.stopPropagation();
                 
                 // Reset visual feedback
-                this.style.background = 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)';
                 this.style.transform = 'scale(1)';
                 
                 // Open modal
                 console.log('📱 Opening login modal from mobile touch');
-                if (modal) modal.style.display='block';
-                if (signDivUsername) signDivUsername.focus();
+                const loginModal = document.getElementById('id01');
+                if (loginModal) {
+                    loginModal.style.display = 'block';
+                    const usernameInput = document.getElementById('username');
+                    if (usernameInput) usernameInput.focus();
+                }
                 
                 touchStartedOnLogin = false;
             }
@@ -7118,22 +7125,24 @@ document.addEventListener('DOMContentLoaded', function() {
         loginButton.addEventListener('touchcancel', function(e) {
             console.log('📱 Touch cancelled on primary login button');
             if (touchStartedOnLogin) {
-                // Reset visual feedback
-                this.style.background = 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)';
                 this.style.transform = 'scale(1)';
                 touchStartedOnLogin = false;
             }
         });
         
-        // Original click handler for desktop
-        loginButton.onclick = function(event) {
+        // Click handler for desktop (works alongside touchend for mobile)
+        loginButton.addEventListener('click', function(event) {
             console.log('🖱️ Click on primary login button');
-            // Only handle if not a touch event
-            if (!touchStartedOnLogin) {
-                if (modal) modal.style.display='block';
-                if (signDivUsername) signDivUsername.focus();
+            event.preventDefault();
+            const loginModal = document.getElementById('id01');
+            if (loginModal) {
+                loginModal.style.display = 'block';
+                const usernameInput = document.getElementById('username');
+                if (usernameInput) usernameInput.focus();
+            } else {
+                console.error('❌ Login modal (id01) not found!');
             }
-        }
+        });
     }
 
     // Set up logout button (legacy - now in profile menu)
@@ -7891,7 +7900,7 @@ document.addEventListener('DOMContentLoaded', function() {
             selectedChoice = rowNumber;
             console.log('🎯 selectedChoice updated to:', selectedChoice);
             
-            // Clear previous selections
+            // Clear previous selections and reset row headers
             document.querySelectorAll('.clickable-row').forEach(r => {
                 r.style.opacity = '0.7';
                 r.style.transform = 'scale(1)';
@@ -7899,11 +7908,30 @@ document.addEventListener('DOMContentLoaded', function() {
                 r.style.backgroundColor = 'transparent';
             });
             
+            // Reset all row headers to default
+            document.querySelectorAll('.row-header').forEach(header => {
+                const headerRow = parseInt(header.getAttribute('data-row'));
+                const isOddRow = headerRow % 2 === 1;
+                header.style.color = isOddRow ? '#ffffff' : '#000000';
+                header.style.textShadow = 'none';
+                header.style.transform = 'scale(1)';
+                header.style.backgroundColor = 'transparent';
+            });
+            
             // Highlight selected row
             row.style.opacity = '1';
             row.style.transform = 'scale(1.02)';
             row.style.boxShadow = '0 0 15px rgba(255, 215, 0, 0.5)';
             row.style.backgroundColor = '#40444b';
+            
+            // Highlight the corresponding row header
+            const rowHeader = document.querySelector(`.row-header[data-row="${rowNumber}"]`);
+            if (rowHeader) {
+                rowHeader.style.color = '#ffd700';
+                rowHeader.style.textShadow = '0 0 10px rgba(255, 215, 0, 0.8)';
+                rowHeader.style.transform = 'scale(1.15)';
+                rowHeader.style.backgroundColor = 'rgba(255, 215, 0, 0.2)';
+            }
             
             // Show selection status and enable lock-in button
             const selectedChoiceDiv = document.getElementById('selectedChoice');
@@ -8667,16 +8695,38 @@ socket.on('incentiveChanged', function(data) {
     }
 });
 
-// Handle incentive bonus notifications
+// Handle incentive bonus notifications - turn banner to neon green success state and spawn token
 socket.on('incentiveBonusNotification', function(data) {
     console.log('🎁 Incentive bonus earned:', data);
     
-    // Show prominent success notification
-    showSystemNotification('Bonus Earned!', data.message, 'success');
+    // Turn the incentive banner to neon green success state
+    const incentiveBanner = document.getElementById('incentiveBanner');
+    if (incentiveBanner) {
+        // Add success class for neon green styling
+        incentiveBanner.classList.add('incentive-success');
+        
+        // Get the content container
+        const content = incentiveBanner.querySelector('.incentive-content');
+        if (content) {
+            // Replace content with checkmark and success message in neon style
+            content.innerHTML = `
+                <h3 class="incentive-title" style="color: #00ff00 !important; text-shadow: 0 0 10px #00ff00, 0 0 20px #00ff00, 0 0 30px #00ff00 !important;">
+                    ✓ BONUS EARNED ✓
+                </h3>
+                <p class="incentive-description" style="color: #00ffff; font-size: 16px;">
+                    +${data.bonusTokens} Black Token${data.bonusTokens > 1 ? 's' : ''}
+                </p>
+            `;
+        }
+    }
     
-    // Could add special effects here (confetti, sound, etc.)
-    // playBonusSound();
-    // showBonusAnimation();
+    // Trigger immediate incentive token animation
+    if (data.bonusTokens && data.bonusTokens > 0) {
+        // Small delay to let the color change register
+        setTimeout(() => {
+            showIncentiveTokenAnimation(data.bonusTokens);
+        }, 200);
+    }
 });
 
 socket.on('experimentPaused', function(data) {
@@ -8704,6 +8754,22 @@ socket.on('roundResultsPanel', function(data) {
     const moderatorSwitchboard = document.getElementById('moderatorSwitchboard');
     const isModerator = moderatorSwitchboard && moderatorSwitchboard.style.display === 'block';
     console.log('📊 isModerator check:', isModerator);
+    
+    // Show token animation for non-moderators (players)
+    // NOTE: Only animate white tokens and cooperative black tokens here
+    // Incentive bonus tokens are animated IMMEDIATELY when earned (in incentiveBonusNotification handler)
+    if (!isModerator && data.previousRoundPlayers) {
+        const currentPlayerRound = data.previousRoundPlayers.find(p => p.username === currentUsername);
+        if (currentPlayerRound) {
+            const whiteEarned = currentPlayerRound.whiteTokens || 0;
+            // Only include cooperative black tokens (when all chose even), NOT incentive bonuses
+            const cooperativeBlackEarned = currentPlayerRound.blackTokens || 0;
+            // Show animation with slight delay for dramatic effect
+            setTimeout(() => {
+                showTokenAnimation(whiteEarned, cooperativeBlackEarned);
+            }, 500);
+        }
+    }
     
     // Delay showing results until return animation triggers (2 seconds)
     setTimeout(() => {
@@ -10096,16 +10162,21 @@ function switchToLoggedInUI(username) {
         console.log('🔍 Main header ensured visible during login');
     }
     
+    // Hide login button with !important to override any CSS
     if (loginButton) {
-        loginButton.style.display = 'none';
-        console.log('👤 ✅ Login button hidden');
+        loginButton.style.setProperty('display', 'none', 'important');
+        loginButton.style.setProperty('visibility', 'hidden', 'important');
+        console.log('👤 ✅ Login button hidden with !important');
     } else {
         console.log('👤 ❌ Login button not found');
     }
     
+    // Show profile menu container with !important
     if (profileMenuContainer) {
-        profileMenuContainer.style.display = 'block';
-        console.log('👤 ✅ Profile menu shown');
+        profileMenuContainer.style.setProperty('display', 'flex', 'important');
+        profileMenuContainer.style.setProperty('visibility', 'visible', 'important');
+        profileMenuContainer.style.setProperty('opacity', '1', 'important');
+        console.log('👤 ✅ Profile menu shown with !important');
     } else {
         console.log('👤 ❌ Profile menu container not found');
     }
@@ -11927,14 +11998,14 @@ function getNotificationArea() {
     return notificationArea;
 }
 
-// Show prominent incentive banner for players anchored to poker table
+// Show prominent incentive banner for players - anchored to poker table with CRT flourish
 function showIncentiveBanner(incentiveText) {
     // Remove existing banner
     hideIncentiveBanner();
     
-    // Get or create notification area
-    const notificationArea = getNotificationArea();
-    if (!notificationArea) {
+    // Get poker table for positioning
+    const pokerTable = document.getElementById('pokerTable');
+    if (!pokerTable) {
         console.error('🎁 Cannot show incentive banner: poker table not found');
         return;
     }
@@ -11942,14 +12013,18 @@ function showIncentiveBanner(incentiveText) {
     // Create incentive banner
     const banner = document.createElement('div');
     banner.id = 'incentiveBanner';
-    banner.className = 'incentive-banner';
+    banner.className = 'incentive-banner incentive-flourish';
+    
+    // Create scanline overlay for CRT effect
+    const scanlines = document.createElement('div');
+    scanlines.className = 'incentive-scanlines';
     
     // Create content
     const content = document.createElement('div');
     content.className = 'incentive-content';
     
     const title = document.createElement('h3');
-    title.textContent = '🎁 BONUS OPPORTUNITY';
+    title.textContent = '⚡ BONUS OPPORTUNITY';
     title.className = 'incentive-title';
     
     const description = document.createElement('p');
@@ -11958,65 +12033,265 @@ function showIncentiveBanner(incentiveText) {
     
     content.appendChild(title);
     content.appendChild(description);
+    banner.appendChild(scanlines);
     banner.appendChild(content);
     
-    // Style the banner to fit in notification area
-    banner.style.cssText = `
-        position: relative;
-        width: 100%;
-        background: linear-gradient(135deg, #ff6b6b, #ffd93d);
-        color: #333;
-        padding: 12px 16px;
-        border-radius: 8px;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-        font-family: Arial, sans-serif;
-        text-align: center;
-        border: 2px solid #ff6b6b;
-        animation: slideInRight 0.5s ease-out;
-        margin-bottom: 10px;
-        pointer-events: auto;
-        cursor: pointer;
-    `;
-    
-    title.style.cssText = `
-        margin: 0 0 6px 0;
-        font-size: 14px;
-        font-weight: bold;
-        text-shadow: 1px 1px 2px rgba(0,0,0,0.1);
-    `;
-    
-    description.style.cssText = `
-        margin: 0;
-        font-size: 12px;
-        line-height: 1.3;
-        font-weight: 500;
-    `;
-    
-    // Add click to close functionality
-    banner.onclick = function() {
-        hideIncentiveBanner();
-    };
-    
-    // Add animation styles
-    const style = document.createElement('style');
-    style.textContent = `
-        @keyframes slideInRight {
-            0% { transform: translateX(100%); opacity: 0; }
-            100% { transform: translateX(0); opacity: 1; }
-        }
-        @keyframes slideOutRight {
-            0% { transform: translateX(0); opacity: 1; }
-            100% { transform: translateX(100%); opacity: 0; }
-        }
-    `;
-    if (!document.querySelector('#notificationAreaStyles')) {
-        style.id = 'notificationAreaStyles';
+    // Add CRT neon styles
+    const styleId = 'incentiveBannerCRTStyles';
+    if (!document.getElementById(styleId)) {
+        const style = document.createElement('style');
+        style.id = styleId;
+        style.textContent = `
+            #incentiveBanner {
+                position: absolute;
+                top: 10px;
+                left: 10px;
+                z-index: 1000;
+                min-width: 280px;
+                max-width: 320px;
+                background: linear-gradient(180deg, 
+                    rgba(10, 10, 20, 0.92) 0%, 
+                    rgba(15, 12, 25, 0.95) 100%);
+                border: 2px solid #ff00ff;
+                border-radius: 4px;
+                padding: 0;
+                font-family: 'Courier New', monospace;
+                text-align: left;
+                box-shadow: 
+                    0 0 15px rgba(255, 0, 255, 0.4),
+                    0 0 30px rgba(255, 0, 255, 0.2),
+                    inset 0 0 20px rgba(255, 0, 255, 0.05);
+                cursor: pointer;
+                overflow: hidden;
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            
+            /* Initial flourish state - intense CRT effect */
+            #incentiveBanner.incentive-flourish {
+                animation: incentiveSlideIn 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards,
+                           incentiveCRTFlourish 0.8s ease-out forwards;
+            }
+            
+            /* Settled state - reduced effects, more legible */
+            #incentiveBanner.incentive-settled {
+                animation: none;
+                transform: translateX(0);
+                opacity: 1;
+                border-color: #cc00cc;
+                box-shadow: 
+                    0 0 10px rgba(255, 0, 255, 0.3),
+                    0 0 20px rgba(255, 0, 255, 0.15),
+                    inset 0 0 15px rgba(255, 0, 255, 0.03);
+            }
+            
+            #incentiveBanner.incentive-settled .incentive-scanlines {
+                opacity: 0.3;
+                animation: none;
+            }
+            
+            #incentiveBanner.incentive-settled .incentive-title {
+                animation: none;
+                text-shadow: 
+                    0 0 8px rgba(255, 0, 255, 0.6),
+                    0 0 15px rgba(255, 0, 255, 0.3);
+            }
+            
+            #incentiveBanner.incentive-settled .incentive-description {
+                text-shadow: 
+                    0 0 5px rgba(0, 255, 255, 0.4);
+            }
+            
+            .incentive-scanlines {
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: repeating-linear-gradient(
+                    0deg,
+                    rgba(0, 0, 0, 0.1) 0px,
+                    rgba(0, 0, 0, 0.1) 1px,
+                    transparent 1px,
+                    transparent 3px
+                );
+                pointer-events: none;
+                z-index: 10;
+                opacity: 0.6;
+            }
+            
+            .incentive-content {
+                position: relative;
+                z-index: 5;
+                padding: 12px 16px;
+            }
+            
+            #incentiveBanner .incentive-title {
+                margin: 0 0 6px 0;
+                font-size: 15px;
+                font-weight: bold;
+                color: #ff00ff;
+                letter-spacing: 2px;
+                text-transform: uppercase;
+                text-shadow: 
+                    0 0 10px #ff00ff,
+                    0 0 20px #ff00ff,
+                    0 0 30px #ff00ff;
+            }
+            
+            #incentiveBanner .incentive-description {
+                margin: 0;
+                font-size: 13px;
+                line-height: 1.4;
+                font-weight: 500;
+                color: #00ffff;
+                text-shadow: 
+                    0 0 5px #00ffff,
+                    0 0 10px rgba(0, 255, 255, 0.5);
+                letter-spacing: 0.5px;
+            }
+            
+            @keyframes incentiveSlideIn {
+                0% { 
+                    transform: translateX(120%); 
+                    opacity: 0; 
+                }
+                100% { 
+                    transform: translateX(0); 
+                    opacity: 1; 
+                }
+            }
+            
+            @keyframes incentiveCRTFlourish {
+                0% {
+                    filter: brightness(2) saturate(1.5);
+                    box-shadow: 
+                        0 0 30px rgba(255, 0, 255, 0.8),
+                        0 0 60px rgba(255, 0, 255, 0.5),
+                        0 0 90px rgba(0, 255, 255, 0.3),
+                        inset 0 0 40px rgba(255, 0, 255, 0.2);
+                }
+                30% {
+                    filter: brightness(1.8) saturate(1.3);
+                }
+                60% {
+                    filter: brightness(1.3) saturate(1.1);
+                }
+                100% {
+                    filter: brightness(1) saturate(1);
+                    box-shadow: 
+                        0 0 15px rgba(255, 0, 255, 0.4),
+                        0 0 30px rgba(255, 0, 255, 0.2),
+                        inset 0 0 20px rgba(255, 0, 255, 0.05);
+                }
+            }
+            
+            @keyframes incentiveSlideOut {
+                0% { 
+                    transform: translateX(0); 
+                    opacity: 1; 
+                }
+                100% { 
+                    transform: translateX(120%); 
+                    opacity: 0; 
+                }
+            }
+            
+            /* Success state - when bonus is earned */
+            #incentiveBanner.incentive-success {
+                border-color: #00ff00;
+                box-shadow: 
+                    0 0 15px rgba(0, 255, 0, 0.5),
+                    0 0 30px rgba(0, 255, 0, 0.3),
+                    inset 0 0 20px rgba(0, 255, 0, 0.05);
+                animation: incentiveSuccessFlash 0.5s ease-out forwards;
+            }
+            
+            #incentiveBanner.incentive-success .incentive-title {
+                color: #00ff00;
+                text-shadow: 
+                    0 0 10px #00ff00,
+                    0 0 20px rgba(0, 255, 0, 0.5);
+            }
+            
+            #incentiveBanner.incentive-success .incentive-scanlines {
+                opacity: 0.2;
+            }
+            
+            @keyframes incentiveSuccessFlash {
+                0% {
+                    filter: brightness(2) saturate(1.5);
+                    box-shadow: 
+                        0 0 40px rgba(0, 255, 0, 0.8),
+                        0 0 80px rgba(0, 255, 0, 0.5),
+                        inset 0 0 40px rgba(0, 255, 0, 0.2);
+                }
+                100% {
+                    filter: brightness(1) saturate(1);
+                    box-shadow: 
+                        0 0 15px rgba(0, 255, 0, 0.5),
+                        0 0 30px rgba(0, 255, 0, 0.3),
+                        inset 0 0 20px rgba(0, 255, 0, 0.05);
+                }
+            }
+            
+            /* Dimmed state - when user clicks to temporarily hide */
+            #incentiveBanner.incentive-dimmed {
+                opacity: 0.15;
+                transform: scale(0.95);
+                filter: brightness(0.5) saturate(0.5);
+                transition: all 0.3s ease-out;
+                pointer-events: none;
+            }
+            
+            #incentiveBanner.incentive-returning {
+                opacity: 1;
+                transform: scale(1);
+                filter: brightness(1) saturate(1);
+                transition: all 0.5s ease-out;
+                pointer-events: auto;
+            }
+        `;
         document.head.appendChild(style);
     }
     
-    notificationArea.appendChild(banner);
+    // Click to temporarily dim (NOT close) - returns after a few seconds
+    banner.onclick = function() {
+        if (banner.classList.contains('incentive-dimmed')) return; // Already dimmed
+        
+        banner.classList.add('incentive-dimmed');
+        banner.classList.remove('incentive-settled');
+        
+        // Return after 4 seconds
+        setTimeout(() => {
+            if (banner && banner.parentNode && !banner.classList.contains('incentive-success')) {
+                banner.classList.remove('incentive-dimmed');
+                banner.classList.add('incentive-returning');
+                
+                // Remove returning class after transition
+                setTimeout(() => {
+                    if (banner && banner.parentNode) {
+                        banner.classList.remove('incentive-returning');
+                        banner.classList.add('incentive-settled');
+                    }
+                }, 500);
+            }
+        }, 4000);
+    };
     
-    console.log('🎁 Incentive banner displayed in poker table area:', incentiveText);
+    // Append to poker table
+    pokerTable.style.position = 'relative';
+    pokerTable.appendChild(banner);
+    
+    // After flourish animation, settle into legible state
+    setTimeout(() => {
+        if (banner && banner.parentNode) {
+            banner.classList.remove('incentive-flourish');
+            banner.classList.add('incentive-settled');
+        }
+    }, 800);
+    
+    console.log('🎁 CRT incentive banner displayed on poker table:', incentiveText);
 }
 
 // Hide incentive banner
@@ -12025,6 +12300,354 @@ function hideIncentiveBanner() {
     if (existingBanner) {
         existingBanner.remove();
     }
+}
+
+// Immediate Incentive Token Animation - spawns from incentive banner and flies to wallet
+function showIncentiveTokenAnimation(blackTokens) {
+    if (blackTokens <= 0) return;
+    
+    // Get source position (incentive banner or notification area)
+    const incentiveBanner = document.getElementById('incentiveBanner');
+    const notificationArea = document.getElementById('pokerTableNotificationArea');
+    const sourceEl = incentiveBanner || notificationArea;
+    
+    // Get destination (black token wallet)
+    const blackWalletEl = document.getElementById('blackTokens');
+    
+    if (!sourceEl || !blackWalletEl) {
+        console.log('🎁 Incentive animation: Could not find source/destination elements');
+        return;
+    }
+    
+    const sourceRect = sourceEl.getBoundingClientRect();
+    const destRect = blackWalletEl.getBoundingClientRect();
+    
+    // Source: center of incentive banner
+    const sourceX = sourceRect.left + sourceRect.width / 2;
+    const sourceY = sourceRect.top + sourceRect.height / 2;
+    
+    // Add animation styles if not present
+    let style = document.getElementById('incentiveTokenAnimStyle');
+    if (!style) {
+        style = document.createElement('style');
+        style.id = 'incentiveTokenAnimStyle';
+        style.textContent = `
+            .incentive-flying-token {
+                position: fixed;
+                font-size: 32px;
+                pointer-events: none;
+                z-index: 100000;
+                opacity: 0;
+                filter: drop-shadow(0 0 10px rgba(0, 255, 0, 0.8)) drop-shadow(0 0 20px rgba(0, 255, 0, 0.5));
+            }
+            
+            @keyframes incentiveTokenSpawn {
+                0% { opacity: 0; transform: scale(0); }
+                60% { opacity: 1; transform: scale(1.3); }
+                100% { opacity: 1; transform: scale(1); }
+            }
+            
+            @keyframes incentiveTokenFly {
+                0% { 
+                    opacity: 1; 
+                    transform: scale(1); 
+                }
+                50% { 
+                    opacity: 1; 
+                    transform: scale(1.1) translateY(-15px); 
+                }
+                100% { 
+                    opacity: 0; 
+                    transform: scale(0.6); 
+                }
+            }
+        `;
+        document.head.appendChild(style);
+    }
+    
+    // Create and animate tokens
+    for (let i = 0; i < blackTokens; i++) {
+        const token = document.createElement('div');
+        token.className = 'incentive-flying-token';
+        token.textContent = '⚫';
+        token.style.left = `${sourceX}px`;
+        token.style.top = `${sourceY}px`;
+        document.body.appendChild(token);
+        
+        const staggerDelay = i * 150;
+        
+        // Phase 1: Spawn with golden glow effect
+        setTimeout(() => {
+            token.style.animation = 'incentiveTokenSpawn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards';
+        }, staggerDelay);
+        
+        // Phase 2: Fly to wallet
+        setTimeout(() => {
+            token.style.animation = 'incentiveTokenFly 0.7s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards';
+            token.style.transition = 'left 0.7s cubic-bezier(0.25, 0.46, 0.45, 0.94), top 0.7s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
+            token.style.left = `${destRect.left + destRect.width / 2}px`;
+            token.style.top = `${destRect.top + destRect.height / 2}px`;
+        }, staggerDelay + 500);
+        
+        // Cleanup
+        setTimeout(() => {
+            token.remove();
+            
+            // On last token, increment the black token count in the wallet
+            if (i === blackTokens - 1) {
+                const blackWalletDisplay = document.getElementById('blackTokens');
+                if (blackWalletDisplay) {
+                    const currentCount = parseInt(blackWalletDisplay.textContent) || 0;
+                    blackWalletDisplay.textContent = currentCount + blackTokens;
+                    
+                    // Add a brief pulse effect to the wallet
+                    blackWalletDisplay.style.transition = 'transform 0.2s ease, color 0.2s ease';
+                    blackWalletDisplay.style.transform = 'scale(1.3)';
+                    blackWalletDisplay.style.color = '#22c55e';
+                    
+                    setTimeout(() => {
+                        blackWalletDisplay.style.transform = 'scale(1)';
+                        blackWalletDisplay.style.color = '';
+                    }, 300);
+                    
+                    console.log(`🎁 Black token count updated: ${currentCount} → ${currentCount + blackTokens}`);
+                }
+            }
+        }, staggerDelay + 1300);
+    }
+    
+    // Cleanup style after all animations
+    setTimeout(() => {
+        if (style && style.parentNode) {
+            style.remove();
+        }
+    }, (blackTokens * 150) + 1500);
+    
+    console.log(`🎁 Incentive token animation: ${blackTokens} black tokens flying to wallet`);
+}
+
+// Token Animation - Shows tokens earned at end of round
+// Tokens float from moderator square → line up below poker table → fly to player's wallet
+function showTokenAnimation(whiteTokens, blackTokens) {
+    // Don't animate if no tokens
+    if (whiteTokens === 0 && blackTokens === 0) return;
+    
+    // Remove any existing animation
+    const existingTokens = document.querySelectorAll('.flying-token');
+    existingTokens.forEach(t => t.remove());
+    
+    const existingStyle = document.getElementById('tokenAnimStyle');
+    if (existingStyle) existingStyle.remove();
+    
+    // Get source position (moderator square / table center)
+    const moderatorEl = document.getElementById('moderatorPosition') || document.getElementById('tableCenter');
+    const pokerTable = document.getElementById('pokerTable');
+    
+    // Get destination positions (wallet tokens in status panel)
+    const whiteWalletEl = document.getElementById('whiteTokens');
+    const blackWalletEl = document.getElementById('blackTokens');
+    
+    if (!moderatorEl || !pokerTable) {
+        console.log('🎯 Token animation: Could not find poker table elements');
+        return;
+    }
+    
+    // Calculate positions
+    const sourceRect = moderatorEl.getBoundingClientRect();
+    const tableRect = pokerTable.getBoundingClientRect();
+    const whiteDestRect = whiteWalletEl?.getBoundingClientRect();
+    const blackDestRect = blackWalletEl?.getBoundingClientRect();
+    
+    // Source: center of moderator square
+    const sourceX = sourceRect.left + sourceRect.width / 2;
+    const sourceY = sourceRect.top + sourceRect.height / 2;
+    
+    // Staging area: below the poker table, centered
+    const stagingY = tableRect.bottom + 20;
+    const stagingBaseX = tableRect.left + tableRect.width / 2;
+    
+    // Add animation styles
+    const style = document.createElement('style');
+    style.id = 'tokenAnimStyle';
+    style.textContent = `
+        .flying-token {
+            position: fixed;
+            font-size: 28px;
+            pointer-events: none;
+            z-index: 99999;
+            opacity: 0;
+            transition: none;
+        }
+        
+        .flying-token.white-token {
+            filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.5)) drop-shadow(0 0 12px rgba(200, 200, 200, 0.3));
+        }
+        
+        .flying-token.black-token {
+            filter: drop-shadow(0 0 6px rgba(80, 80, 80, 0.6)) drop-shadow(0 0 12px rgba(60, 60, 60, 0.4));
+        }
+        
+        @keyframes tokenSpawn {
+            0% { opacity: 0; transform: scale(0) rotate(0deg); }
+            60% { opacity: 0.9; transform: scale(1.1) rotate(180deg); }
+            100% { opacity: 0.9; transform: scale(1) rotate(360deg); }
+        }
+        
+        @keyframes tokenIdle {
+            0%, 100% { transform: translateY(0) rotate(0deg); }
+            50% { transform: translateY(-3px) rotate(5deg); }
+        }
+        
+        @keyframes tokenFlyToWallet {
+            0% { 
+                opacity: 0.9; 
+                transform: scale(1) rotate(0deg); 
+            }
+            20% { 
+                opacity: 1; 
+                transform: scale(1.15) rotate(30deg) translateY(-10px); 
+            }
+            50% { 
+                opacity: 0.95; 
+                transform: scale(1.05) rotate(180deg); 
+            }
+            80% { 
+                opacity: 0.8; 
+                transform: scale(0.8) rotate(300deg); 
+            }
+            100% { 
+                opacity: 0; 
+                transform: scale(0.4) rotate(360deg); 
+            }
+        }
+    `;
+    document.head.appendChild(style);
+    
+    // Create and animate tokens
+    const totalTokens = whiteTokens + blackTokens;
+    const tokens = [];
+    
+    // Create white tokens first, then black tokens
+    for (let i = 0; i < whiteTokens; i++) {
+        tokens.push({ type: 'white', emoji: '⚪', destRect: whiteDestRect });
+    }
+    for (let i = 0; i < blackTokens; i++) {
+        tokens.push({ type: 'black', emoji: '⚫', destRect: blackDestRect });
+    }
+    
+    // Calculate side-by-side positions below table
+    const tokenSpacing = 36; // pixels between token centers
+    const totalWidth = (totalTokens - 1) * tokenSpacing;
+    const startX = stagingBaseX - totalWidth / 2;
+    
+    // Animate each token with staggered timing
+    tokens.forEach((tokenData, index) => {
+        const token = document.createElement('div');
+        token.className = `flying-token ${tokenData.type}-token`;
+        token.textContent = tokenData.emoji;
+        token.style.left = `${sourceX}px`;
+        token.style.top = `${sourceY}px`;
+        document.body.appendChild(token);
+        
+        const staggerDelay = index * 120; // 120ms between each token
+        
+        // Calculate this token's final position in the lineup
+        const lineupX = startX + (index * tokenSpacing);
+        
+        // Phase 1: Spawn at moderator square with pop animation
+        setTimeout(() => {
+            token.style.animation = 'tokenSpawn 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) forwards';
+        }, staggerDelay);
+        
+        // Phase 2: Float to lineup position below poker table
+        setTimeout(() => {
+            token.style.animation = 'none';
+            token.style.opacity = '0.9';
+            token.style.transition = 'left 0.5s cubic-bezier(0.4, 0, 0.2, 1), top 0.5s cubic-bezier(0.4, 0, 0.2, 1)';
+            token.style.left = `${lineupX}px`;
+            token.style.top = `${stagingY}px`;
+        }, staggerDelay + 350);
+        
+        // Phase 3: Gentle idle animation while waiting (longer pause)
+        setTimeout(() => {
+            token.style.transition = 'none';
+            token.style.animation = 'tokenIdle 1.5s ease-in-out infinite';
+        }, staggerDelay + 850);
+        
+        // Phase 4: Fly to wallet destination with smooth arc
+        const flyDelay = (totalTokens * 120) + 1800; // Wait for all tokens + 1.8s pause
+        setTimeout(() => {
+            const destRect = tokenData.destRect;
+            if (destRect) {
+                // Use smoother easing and longer duration for flight
+                token.style.animation = 'tokenFlyToWallet 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards';
+                token.style.transition = 'left 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94), top 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
+                token.style.left = `${destRect.left + destRect.width / 2}px`;
+                token.style.top = `${destRect.top + destRect.height / 2}px`;
+            } else {
+                // Fallback: fade out in place
+                token.style.animation = 'tokenFlyToWallet 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards';
+            }
+        }, flyDelay + (index * 100)); // Slightly more stagger for smoother cascade
+        
+        // Cleanup token
+        setTimeout(() => {
+            token.remove();
+        }, flyDelay + (index * 100) + 900);
+    });
+    
+    // Cleanup styles after all animations complete
+    const totalDuration = (totalTokens * 120) + 1800 + (totalTokens * 100) + 1000;
+    setTimeout(() => {
+        style.remove();
+    }, totalDuration);
+    
+    console.log(`🎯 Token animation: ${whiteTokens} white, ${blackTokens} black flying from moderator to wallet`);
+}
+
+// Initialize round results panel with waiting state (called when game starts)
+function initializeRoundResultsPanel() {
+    const roundResultsPanels = document.querySelectorAll('.roundResultsPanel');
+    const conversionRateInfos = document.querySelectorAll('.conversionRateInfo');
+    
+    // Show the panels with initial waiting state
+    roundResultsPanels.forEach(element => {
+        if (element.querySelector('.conversionRateInfo')) {
+            element.style.display = 'block';
+        }
+    });
+    
+    // Set initial content
+    const initialHTML = `
+        <div style="background: rgba(64, 68, 75, 0.8); backdrop-filter: blur(12px); border-radius: 8px; padding: 12px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2); border: 1px solid rgba(114, 118, 125, 0.2); max-width: 400px;">
+            <div style="background: rgba(40, 43, 48, 0.6); border-radius: 6px; padding: 16px; text-align: center;">
+                <div style="color: #b9bbbe; font-size: 14px; margin-bottom: 10px;">
+                    <i class="fas fa-hourglass-half" style="margin-right: 8px; animation: pulse 1.5s ease infinite;"></i>
+                    Waiting for first round...
+                </div>
+                <div style="display: flex; justify-content: center; gap: 30px; opacity: 0.5;">
+                    <div style="text-align: center;">
+                        <div style="font-size: 24px;">⚪</div>
+                        <div style="color: #43b581; font-size: 16px; font-weight: 600;">--</div>
+                    </div>
+                    <div style="text-align: center;">
+                        <div style="font-size: 24px;">⚫</div>
+                        <div style="color: #e74c3c; font-size: 16px; font-weight: 600;">--</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    conversionRateInfos.forEach(element => {
+        element.innerHTML = initialHTML;
+    });
+    
+    // Hide the title/message since we're showing the panel
+    document.querySelectorAll('.roundResultsTitle').forEach(el => el.style.display = 'none');
+    document.querySelectorAll('.roundResults').forEach(el => el.style.display = 'none');
+    
+    console.log('📊 Initialized round results panel with waiting state');
 }
 
 // Update Round Results Panel for Moderators
@@ -12137,8 +12760,13 @@ function updateRoundResultsPanel(roundData) {
     }
     
     // 2. Show Previous Round second - update all versions
+    // For non-moderators, only show their own results
     if (conversionRateInfos.length > 0 && roundData.previousRoundPlayers) {
         const previousRoundNumber = roundData.round;
+        
+        // Find current player's data
+        const currentPlayerData = roundData.previousRoundPlayers.find(p => p.username === currentUsername);
+        
         let previousDistributionHTML = `
             <div style="background: rgba(64, 68, 75, 0.8); backdrop-filter: blur(12px); border-radius: 8px; padding: 12px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2); border: 1px solid rgba(114, 118, 125, 0.2); max-height: 280px; overflow-y: auto; max-width: 400px;">
                 <div style="background: rgba(40, 43, 48, 0.6); border-radius: 6px; padding: 12px; margin-bottom: 8px;">
@@ -12155,68 +12783,105 @@ function updateRoundResultsPanel(roundData) {
                 </div>`;
         }
         
-        previousDistributionHTML += `
+        // Check if moderator - moderators see all players, non-moderators only see themselves
+        if (isModerator) {
+            // Moderator view - show all players
+            previousDistributionHTML += `
                 <div style="display: grid; grid-template-columns: 1fr auto auto auto; gap: 8px; font-size: 12px;">
                     <div style="color: #b9bbbe; font-weight: 500;">Player</div>
                     <div style="color: #b9bbbe; font-weight: 500; text-align: right;">⚪</div>
                     <div style="color: #b9bbbe; font-weight: 500; text-align: right;">⚫</div>
                     <div style="color: #b9bbbe; font-weight: 500; text-align: right;">Round $</div>
-        `;
-        
-        // Sort players by their seat position (left-to-right: left, top, right)
-        const seatOrder = { 'left': 1, 'top': 2, 'right': 3 };
-        const sortedPreviousPlayers = [...roundData.previousRoundPlayers].sort((a, b) => {
-            const seatA = seatOrder[a.seatPosition] || 999;
-            const seatB = seatOrder[b.seatPosition] || 999;
-            return seatA - seatB;
-        });
-        
-        // Calculate totals for previous round
-        let prevTotalWhite = 0;
-        let prevTotalBlack = 0;
-        let prevTotalRoundEarnings = 0;
-        
-        sortedPreviousPlayers.forEach(player => {
-            const whiteTokens = player.whiteTokens || 0;
-            const blackTokens = player.blackTokens || 0;
-            const incentiveBonus = player.incentiveBonus || 0;
-            // Total black tokens includes cooperative black tokens + incentive bonus
-            const totalBlackTokens = blackTokens + incentiveBonus;
-            // Use roundEarnings instead of totalEarnings for previous round values
-            const roundEarnings = player.roundEarnings || 0;
-            const isAI = player.isAI ? ' (AI)' : '';
+            `;
             
-            prevTotalWhite += whiteTokens;
-            prevTotalBlack += totalBlackTokens;
-            prevTotalRoundEarnings += roundEarnings;
+            // Sort players by their seat position (left-to-right: left, top, right)
+            const seatOrder = { 'left': 1, 'top': 2, 'right': 3 };
+            const sortedPreviousPlayers = [...roundData.previousRoundPlayers].sort((a, b) => {
+                const seatA = seatOrder[a.seatPosition] || 999;
+                const seatB = seatOrder[b.seatPosition] || 999;
+                return seatA - seatB;
+            });
+            
+            // Calculate totals for previous round
+            let prevTotalWhite = 0;
+            let prevTotalBlack = 0;
+            let prevTotalRoundEarnings = 0;
+            
+            sortedPreviousPlayers.forEach(player => {
+                const whiteTokens = player.whiteTokens || 0;
+                const blackTokens = player.blackTokens || 0;
+                const incentiveBonus = player.incentiveBonus || 0;
+                const totalBlackTokens = blackTokens + incentiveBonus;
+                const roundEarnings = player.roundEarnings || 0;
+                const isAI = player.isAI ? ' (AI)' : '';
+                
+                prevTotalWhite += whiteTokens;
+                prevTotalBlack += totalBlackTokens;
+                prevTotalRoundEarnings += roundEarnings;
+                
+                previousDistributionHTML += `
+                    <div style="color: #ffffff;">${player.username}${isAI}</div>
+                    <div style="color: #43b581; text-align: right;">${whiteTokens}</div>
+                    <div style="color: #e74c3c; text-align: right;">${totalBlackTokens}</div>
+                    <div style="color: #faa61a; text-align: right; font-weight: 500;">$${roundEarnings.toFixed(2)}</div>
+                `;
+            });
+            
+            // Add totals row for previous round
+            previousDistributionHTML += `
+                    <div style="grid-column: 1 / -1; height: 1px; background: rgba(255, 255, 255, 0.1); margin: 8px 0;"></div>
+                    <div style="color: #ffffff; font-weight: 600;">ROUND TOTALS</div>
+                    <div style="color: #43b581; text-align: right; font-weight: 600;">${prevTotalWhite}</div>
+                    <div style="color: #e74c3c; text-align: right; font-weight: 600;">${prevTotalBlack}</div>
+                    <div style="color: #faa61a; text-align: right; font-weight: 600;">$${prevTotalRoundEarnings.toFixed(2)}</div>
+                </div>
+            </div>
+            </div>
+            `;
+        } else if (currentPlayerData) {
+            // Non-moderator view - only show their own results
+            const whiteTokens = currentPlayerData.whiteTokens || 0;
+            const blackTokens = currentPlayerData.blackTokens || 0;
+            const incentiveBonus = currentPlayerData.incentiveBonus || 0;
+            const totalBlackTokens = blackTokens + incentiveBonus;
+            const roundEarnings = currentPlayerData.roundEarnings || 0;
             
             previousDistributionHTML += `
-                <div style="color: #ffffff;">${player.username}${isAI}</div>
-                <div style="color: #43b581; text-align: right;">${whiteTokens}</div>
-                <div style="color: #e74c3c; text-align: right;">${totalBlackTokens}</div>
-                <div style="color: #faa61a; text-align: right; font-weight: 500;">$${roundEarnings.toFixed(2)}</div>
-            `;
-        });
-        
-        // Add totals row for previous round
-        previousDistributionHTML += `
-                <div style="grid-column: 1 / -1; height: 1px; background: rgba(255, 255, 255, 0.1); margin: 8px 0;"></div>
-                <div style="color: #ffffff; font-weight: 600;">PREVIOUS ROUND TOTALS</div>
-                <div style="color: #43b581; text-align: right; font-weight: 600;">${prevTotalWhite}</div>
-                <div style="color: #e74c3c; text-align: right; font-weight: 600;">${prevTotalBlack}</div>
-                <div style="color: #faa61a; text-align: right; font-weight: 600;">$${prevTotalRoundEarnings.toFixed(2)}</div>
+                <div style="text-align: center; padding: 10px 0;">
+                    <div style="color: #b9bbbe; font-size: 11px; margin-bottom: 8px;">Your Earnings This Round</div>
+                    <div style="display: flex; justify-content: center; gap: 20px; margin-bottom: 10px;">
+                        <div style="text-align: center;">
+                            <div style="font-size: 24px;">⚪</div>
+                            <div style="color: #43b581; font-size: 18px; font-weight: 600;">${whiteTokens}</div>
+                        </div>
+                        <div style="text-align: center;">
+                            <div style="font-size: 24px;">⚫</div>
+                            <div style="color: #e74c3c; font-size: 18px; font-weight: 600;">${totalBlackTokens}</div>
+                        </div>
+                    </div>
+                    <div style="color: #faa61a; font-size: 20px; font-weight: 600;">+$${roundEarnings.toFixed(2)}</div>
+                </div>
             </div>
-        </div>
-        </div>
-        `;
+            </div>
+            `;
+        } else {
+            // Fallback if player data not found
+            previousDistributionHTML += `
+                <div style="text-align: center; padding: 10px 0; color: #b9bbbe;">
+                    Waiting for results...
+                </div>
+            </div>
+            </div>
+            `;
+        }
         
         conversionRateInfos.forEach(element => {
             element.innerHTML = previousDistributionHTML;
         });
     }
     
-    // 2. SWAPPED: Show Cumulative Totals second - update all versions
-    if (playerResultsTables.length > 0 && roundData.players) {
+    // 2. SWAPPED: Show Cumulative Totals - MODERATOR ONLY (non-moderators see their own data in the round results above)
+    if (playerResultsTables.length > 0 && roundData.players && isModerator) {
         const totalWhite = roundData.players.reduce((sum, p) => sum + (p.whiteTokens || 0), 0);
         const totalBlack = roundData.players.reduce((sum, p) => sum + (p.blackTokens || 0), 0);
         const totalEarnings = roundData.players.reduce((sum, p) => sum + (p.totalEarnings || 0), 0);

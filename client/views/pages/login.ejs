@@ -1022,11 +1022,6 @@
                     </div>
                 </div>
                 
-                <!-- Cooperation Counter -->
-                <div style="text-align: center; margin-top: 10px;">
-                    <span style="color: #b9bbbe; margin-right: 10px;">Cooperation Events:</span>
-                    <span id="culturantCount" style="color: #7289da; font-size: 16px; font-weight: bold;">0</span>
-                </div>
             </div>
 
             <!-- Game Content Wrapper: Side-by-side on wide screens, stacked on narrow -->
@@ -1137,7 +1132,25 @@
                     </div>
                     <!-- End of decisionGridContainer -->
                     
-                    <!-- Lock In Section (below game board) -->
+                    <!-- Current Token Value Display (above lock-in button) -->
+                    <div id="currentTokenValueDisplay" style="display: none; margin-top: 10px; margin-bottom: 8px; max-width: 280px; margin-left: calc(50% - 230px); margin-right: auto;">
+                        <div style="background: rgba(54, 57, 63, 0.8); backdrop-filter: blur(12px); border-radius: 8px; padding: 10px 16px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2); border: 1px solid rgba(114, 118, 125, 0.2);">
+                            <div style="color: #b9bbbe; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; text-align: center;">Current Token Value</div>
+                            <div style="display: flex; align-items: center; justify-content: center; gap: 20px;">
+                                <div style="display: flex; align-items: center; gap: 6px;">
+                                    <span style="font-size: 14px;">⚪</span>
+                                    <span id="currentWhiteTokenValue" style="color: #43b581; font-size: 13px; font-weight: 600;">$0.10</span>
+                                </div>
+                                <div style="width: 1px; height: 16px; background: rgba(255, 255, 255, 0.1);"></div>
+                                <div style="display: flex; align-items: center; gap: 6px;">
+                                    <span style="font-size: 14px;">⚫</span>
+                                    <span id="currentBlackTokenValue" style="color: #e74c3c; font-size: 13px; font-weight: 600;">$0.02</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Lock In Section (below token value display) -->
                     <div id="selectionSection" style="display: none; margin-top: 5px; max-width: 120px; margin-left: calc(50% - 150px); margin-right: auto;">
                         <div style="background: rgba(54, 57, 63, 0.8); backdrop-filter: blur(12px); border-radius: 8px; padding: 10px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2); border: 1px solid rgba(114, 118, 125, 0.2);">
                             <div style="display: flex; align-items: center; justify-content: center; gap: 4px; margin-bottom: 8px;">
@@ -1174,24 +1187,6 @@
                             ">
                                 <span id="lockInText" style="position: relative; z-index: 1;">Lock in</span>
                             </button>
-                        </div>
-                    </div>
-                    
-                    <!-- Current Token Value Display (centered below lock-in button) -->
-                    <div id="currentTokenValueDisplay" style="display: none; margin-top: 10px; max-width: 280px; margin-left: calc(50% - 230px); margin-right: auto;">
-                        <div style="background: rgba(54, 57, 63, 0.8); backdrop-filter: blur(12px); border-radius: 8px; padding: 10px 16px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2); border: 1px solid rgba(114, 118, 125, 0.2);">
-                            <div style="color: #b9bbbe; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; text-align: center;">Current Token Value</div>
-                            <div style="display: flex; align-items: center; justify-content: center; gap: 20px;">
-                                <div style="display: flex; align-items: center; gap: 6px;">
-                                    <span style="font-size: 14px;">⚪</span>
-                                    <span id="currentWhiteTokenValue" style="color: #43b581; font-size: 13px; font-weight: 600;">$0.10</span>
-                                </div>
-                                <div style="width: 1px; height: 16px; background: rgba(255, 255, 255, 0.1);"></div>
-                                <div style="display: flex; align-items: center; gap: 6px;">
-                                    <span style="font-size: 14px;">⚫</span>
-                                    <span id="currentBlackTokenValue" style="color: #e74c3c; font-size: 13px; font-weight: 600;">$0.02</span>
-                                </div>
-                            </div>
                         </div>
                     </div>
                     
