@@ -1230,14 +1230,89 @@ GameSession = {
             console.log(`🏁 Experiment ending: ${endStatus.reason}`);
             session.gameState = 'finished';
             
-            // Broadcast experiment end to all players
+            // Get room to identify moderator (room creator)
+            const currentRoom = roomList.find(r => r.name === roomName);
+            const moderatorUsername = currentRoom ? currentRoom.creator : null;
+            
+            // Calculate comprehensive stats
             const playersInRoom = Object.values(Player.list).filter(p => p.room === roomName);
+            
+            // Calculate player stats - EXCLUDE moderator from display (compare by username)
+            const playerStats = playersInRoom
+                .filter(p => p.username !== moderatorUsername) // Filter out moderator by username
+                .map(p => ({
+                    username: p.username,
+                    isAI: p.isAI || false,
+                    whiteTokens: p.whiteTokens || 0,
+                    blackTokens: p.blackTokens || 0,
+                    totalEarnings: p.totalEarnings || 0
+                }));
+            
+            // Calculate experiment-wide stats from dataLog
+            let totalCulturants = session.culturantsProduced || 0;
+            let selfControlChoices = 0;
+            let impulsiveChoices = 0;
+            let totalWhiteTokensDistributed = 0;
+            
+            if (session.dataLog && session.dataLog.length > 0) {
+                session.dataLog.forEach(round => {
+                    // Count choices from players array (correct structure)
+                    if (round.players && Array.isArray(round.players)) {
+                        round.players.forEach(player => {
+                            // Skip moderator in choice counting too
+                            if (player.username === moderatorUsername) return;
+                            
+                            const choice = parseInt(player.choice);
+                            if (!isNaN(choice)) {
+                                // Even rows = self-control, Odd rows = impulsive
+                                if (choice % 2 === 0) {
+                                    selfControlChoices++;
+                                } else {
+                                    impulsiveChoices++;
+                                }
+                            }
+                        });
+                    }
+                });
+            }
+            
+            // Calculate tokens used: sum up all white tokens earned by players (excluding moderator)
+            let tokensUsed = 0;
+            playerStats.forEach(p => {
+                tokensUsed += p.whiteTokens || 0;
+            });
+            
+            // Also use starting pool minus remaining as a cross-check
+            const startingPool = session.experiment.whiteTokenPool || TOKEN_CONFIG.CONDITIONS_TOKENS;
+            const remainingPool = session.whiteTokenPool || 0;
+            const poolDifference = startingPool - remainingPool;
+            
+            // Use the pool difference as it's more accurate
+            tokensUsed = poolDifference;
+            
+            const sessionDuration = session.sessionStartTime ? 
+                Math.floor((new Date() - session.sessionStartTime) / 1000) : 0;
+            
+            console.log(`📊 Experiment stats: ${selfControlChoices} self-control, ${impulsiveChoices} impulsive, ${tokensUsed} tokens used (pool: ${startingPool} -> ${remainingPool})`);
+            
+            // Broadcast experiment end to all players with comprehensive stats
             playersInRoom.forEach(p => {
+                const isPlayerModerator = p.username === moderatorUsername;
                 if (p.socket) {
                     p.socket.emit('experimentEnded', {
                         reason: endStatus.reason,
+                        roomName: roomName,
                         totalRounds: session.currentRound,
-                        finalTokenPool: session.whiteTokenPool
+                        maxRounds: session.experiment.maxRounds || 189,
+                        finalTokenPool: remainingPool,
+                        startingTokenPool: startingPool,
+                        tokensUsed: tokensUsed,
+                        culturantsProduced: totalCulturants,
+                        selfControlChoices: selfControlChoices,
+                        impulsiveChoices: impulsiveChoices,
+                        sessionDuration: sessionDuration,
+                        playerStats: playerStats,
+                        isModerator: isPlayerModerator
                     });
                 }
             });

@@ -1361,183 +1361,460 @@ function closeInviteCodeAlert() {
     }
 }
 
-// Function to show experiment ended modal with glassmorphic styling
-function showExperimentEndedModal(message, moderator) {
+// Function to show experiment ended modal with retro-future neon stat screen
+function showExperimentEndedModal(data) {
     // Remove any existing modal
     const existingModal = document.getElementById('experimentEndedModal');
     if (existingModal) {
         existingModal.remove();
     }
 
-    const modalHTML = `
-        <div id="experimentEndedModal" style="
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.8);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            z-index: 10000;
-            animation: fadeIn 0.3s ease-out;
-        ">
-            <div style="
-                max-width: 500px;
-                width: 90%;
-                background: linear-gradient(145deg, 
-                    rgba(43, 45, 59, 0.98) 0%, 
-                    rgba(54, 57, 63, 0.95) 100%);
-                backdrop-filter: blur(20px);
-                -webkit-backdrop-filter: blur(20px);
-                border: 1px solid rgba(255, 255, 255, 0.15);
-                border-radius: 20px;
-                box-shadow: 
-                    0 25px 80px rgba(0, 0, 0, 0.6),
-                    0 10px 40px rgba(0, 0, 0, 0.4),
-                    inset 0 1px 0 rgba(255, 255, 255, 0.1);
-                padding: 40px;
-                text-align: center;
-                position: relative;
-                animation: modalSlideIn 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-            ">
-                <!-- Decorative elements -->
-                <div style="
-                    position: absolute;
-                    top: -2px;
-                    left: -2px;
-                    right: -2px;
-                    height: 4px;
-                    background: linear-gradient(90deg, #e74c3c, #f39c12, #e74c3c);
-                    border-radius: 20px 20px 0 0;
-                    opacity: 0.8;
-                "></div>
-                
-                <div style="
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    gap: 12px;
-                    margin-bottom: 25px;
-                ">
-                    <div style="
-                        width: 4px;
-                        height: 4px;
-                        background: linear-gradient(135deg, #e74c3c, #f39c12);
-                        border-radius: 50%;
-                        animation: subtlePulse 2s infinite;
-                    "></div>
-                    <h2 style="
-                        color: #dcddde; 
-                        font-weight: 600; 
-                        margin: 0;
-                        font-size: 28px;
-                        letter-spacing: -0.5px;
-                        background: linear-gradient(135deg, #e74c3c, #f39c12);
-                        -webkit-background-clip: text;
-                        -webkit-text-fill-color: transparent;
-                        background-clip: text;
-                    ">🛑 Experiment Ended</h2>
-                    <div style="
-                        width: 4px;
-                        height: 4px;
-                        background: linear-gradient(135deg, #e74c3c, #f39c12);
-                        border-radius: 50%;
-                        animation: subtlePulse 2s infinite 0.5s;
-                    "></div>
-                </div>
-                
-                <div style="
-                    font-size: 56px;
-                    margin-bottom: 20px;
-                    opacity: 0.9;
-                    filter: drop-shadow(0 4px 8px rgba(0,0,0,0.3));
-                ">🏁</div>
-                
-                <div style="
-                    background: rgba(32, 34, 37, 0.6);
-                    border: 1px solid rgba(231, 76, 60, 0.3);
-                    border-radius: 12px;
-                    padding: 20px;
-                    margin: 20px 0;
-                    backdrop-filter: blur(10px);
-                ">
-                    <p style="
-                        color: #dcddde; 
-                        font-size: 16px; 
-                        margin: 0 0 10px 0; 
-                        line-height: 1.5;
-                        font-weight: 500;
-                    ">${message}</p>
-                    
-                    ${moderator ? `<p style="
-                        color: #f39c12; 
-                        font-size: 14px; 
-                        margin: 0;
-                        opacity: 0.9;
-                        font-style: italic;
-                    ">— ${moderator}</p>` : ''}
-                </div>
-                
-                <p style="
-                    color: #b9bbbe; 
-                    font-size: 14px; 
-                    margin-bottom: 30px; 
-                    opacity: 0.8;
-                    line-height: 1.4;
-                ">You will be returned to the global chat area.</p>
+    // Extract data with defaults
+    const reason = data.reason || 'Experiment completed';
+    const totalRounds = data.totalRounds || 0;
+    const maxRounds = data.maxRounds || 189;
+    const tokensUsed = data.tokensUsed || 0;
+    const startingTokenPool = data.startingTokenPool || 1250;
+    const finalTokenPool = data.finalTokenPool || 0;
+    const culturantsProduced = data.culturantsProduced || 0;
+    const selfControlChoices = data.selfControlChoices || 0;
+    const impulsiveChoices = data.impulsiveChoices || 0;
+    const sessionDuration = data.sessionDuration || 0;
+    const playerStats = data.playerStats || [];
+    const isModerator = data.isModerator || window.currentUserIsModerator || false;
+    const roomName = data.roomName || currentRoom || 'Unknown';
+    
+    // Format session duration
+    const minutes = Math.floor(sessionDuration / 60);
+    const seconds = sessionDuration % 60;
+    const durationStr = `${minutes}m ${seconds}s`;
+    
+    // Calculate choice percentages
+    const totalChoices = selfControlChoices + impulsiveChoices;
+    const selfControlPct = totalChoices > 0 ? Math.round((selfControlChoices / totalChoices) * 100) : 0;
+    const impulsivePct = totalChoices > 0 ? Math.round((impulsiveChoices / totalChoices) * 100) : 0;
+    
+    // Generate player stats HTML
+    const playerStatsHTML = playerStats.map(p => `
+        <div class="exp-end-player-row">
+            <span class="exp-end-player-name">${p.isAI ? '🤖' : '👤'} ${p.username}</span>
+            <span class="exp-end-player-tokens">
+                <span class="exp-end-white-token">⚪ ${p.whiteTokens}</span>
+                <span class="exp-end-black-token">⚫ ${p.blackTokens}</span>
+            </span>
+        </div>
+    `).join('');
+    
+    // CSV download button (moderator only)
+    const csvButtonHTML = isModerator ? `
+        <button onclick="downloadExperimentCSVFromModal('${roomName}')" class="exp-end-csv-btn">
+            <span>📊</span> Download CSV Data
+        </button>
+    ` : '';
 
-                <button onclick="closeExperimentEndedModal()" style="
-                    background: linear-gradient(135deg, rgba(67, 181, 129, 0.9) 0%, rgba(52, 168, 107, 0.9) 100%);
-                    color: white;
-                    padding: 15px 32px;
-                    border: none;
-                    border-radius: 10px;
-                    cursor: pointer;
-                    font-weight: 600;
-                    font-size: 16px;
-                    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-                    box-shadow: 
-                        0 4px 15px rgba(67, 181, 129, 0.4),
-                        0 2px 8px rgba(0, 0, 0, 0.2);
-                    display: flex;
-                    align-items: center;
-                    gap: 8px;
-                    margin: 0 auto;
-                    position: relative;
-                    overflow: hidden;
-                "
-                onmouseover="
-                    this.style.background='linear-gradient(135deg, rgba(52, 168, 107, 0.95) 0%, rgba(39, 174, 96, 0.95) 100%)';
-                    this.style.transform='translateY(-2px)';
-                    this.style.boxShadow='0 6px 20px rgba(67, 181, 129, 0.5), 0 4px 12px rgba(0, 0, 0, 0.3)';
-                "
-                onmouseout="
-                    this.style.background='linear-gradient(135deg, rgba(67, 181, 129, 0.9) 0%, rgba(52, 168, 107, 0.9) 100%)';
-                    this.style.transform='translateY(0)';
-                    this.style.boxShadow='0 4px 15px rgba(67, 181, 129, 0.4), 0 2px 8px rgba(0, 0, 0, 0.2)';
-                "
-                onmousedown="this.style.transform='translateY(0) scale(0.98)'"
-                onmouseup="this.style.transform='translateY(-2px) scale(1)'">
-                    <span style="font-size: 14px;">🏠</span>
-                    Return to Global Chat
-                </button>
+    const modalHTML = `
+        <div id="experimentEndedModal" class="exp-end-overlay">
+            <div class="exp-end-container">
+                <!-- Scanline overlay -->
+                <div class="exp-end-scanlines"></div>
+                
+                <!-- Neon border glow -->
+                <div class="exp-end-neon-border"></div>
+                
+                <!-- Header -->
+                <div class="exp-end-header">
+                    <div class="exp-end-title-glow">EXPERIMENT COMPLETE</div>
+                    <div class="exp-end-subtitle">${reason}</div>
+                </div>
+                
+                <!-- Main stats grid -->
+                <div class="exp-end-stats-grid">
+                    <div class="exp-end-stat-card exp-end-stat-rounds">
+                        <div class="exp-end-stat-icon">🔄</div>
+                        <div class="exp-end-stat-value">${totalRounds}<span class="exp-end-stat-max">/${maxRounds}</span></div>
+                        <div class="exp-end-stat-label">ROUNDS</div>
+                    </div>
+                    
+                    <div class="exp-end-stat-card exp-end-stat-duration">
+                        <div class="exp-end-stat-icon">⏱️</div>
+                        <div class="exp-end-stat-value">${durationStr}</div>
+                        <div class="exp-end-stat-label">DURATION</div>
+                    </div>
+                    
+                    <div class="exp-end-stat-card exp-end-stat-tokens">
+                        <div class="exp-end-stat-icon">🪙</div>
+                        <div class="exp-end-stat-value">${tokensUsed}<span class="exp-end-stat-max">/${startingTokenPool}</span></div>
+                        <div class="exp-end-stat-label">TOKENS USED</div>
+                    </div>
+                    
+                    <div class="exp-end-stat-card exp-end-stat-culturants">
+                        <div class="exp-end-stat-icon">⚫</div>
+                        <div class="exp-end-stat-value">${culturantsProduced}</div>
+                        <div class="exp-end-stat-label">CULTURANTS</div>
+                    </div>
+                </div>
+                
+                <!-- Choice breakdown -->
+                <div class="exp-end-choices-section">
+                    <div class="exp-end-section-title">CHOICE BREAKDOWN</div>
+                    <div class="exp-end-choice-bar-container">
+                        <div class="exp-end-choice-bar">
+                            <div class="exp-end-choice-self-control" style="width: ${selfControlPct}%"></div>
+                            <div class="exp-end-choice-impulsive" style="width: ${impulsivePct}%"></div>
+                        </div>
+                        <div class="exp-end-choice-labels">
+                            <span class="exp-end-choice-label-sc">🧘 Self-Control: ${selfControlPct}%</span>
+                            <span class="exp-end-choice-label-imp">⚡ Impulsive: ${impulsivePct}%</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Player leaderboard -->
+                <div class="exp-end-players-section">
+                    <div class="exp-end-section-title">PLAYER RESULTS</div>
+                    <div class="exp-end-players-list">
+                        ${playerStatsHTML}
+                    </div>
+                </div>
+                
+                <!-- Action buttons -->
+                <div class="exp-end-actions">
+                    ${csvButtonHTML}
+                    <button onclick="closeExperimentEndedModal()" class="exp-end-return-btn">
+                        <span>🏠</span> Return to Global Chat
+                    </button>
+                </div>
             </div>
         </div>
         
         <style>
-            @keyframes fadeIn {
+            .exp-end-overlay {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0, 0, 0, 0.92);
+                backdrop-filter: blur(8px);
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                z-index: 10000;
+                animation: expEndFadeIn 0.4s ease-out;
+            }
+            
+            .exp-end-container {
+                max-width: 600px;
+                width: 95%;
+                max-height: 90vh;
+                overflow-y: auto;
+                background: linear-gradient(180deg, 
+                    rgba(10, 12, 20, 0.98) 0%, 
+                    rgba(15, 18, 30, 0.98) 100%);
+                border: 2px solid rgba(0, 255, 255, 0.3);
+                border-radius: 12px;
+                padding: 30px;
+                position: relative;
+                box-shadow: 
+                    0 0 40px rgba(0, 255, 255, 0.15),
+                    0 0 80px rgba(255, 0, 128, 0.1),
+                    inset 0 0 60px rgba(0, 0, 0, 0.5);
+                animation: expEndSlideIn 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            }
+            
+            .exp-end-scanlines {
+                position: absolute;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: repeating-linear-gradient(
+                    0deg,
+                    transparent,
+                    transparent 2px,
+                    rgba(0, 255, 255, 0.02) 2px,
+                    rgba(0, 255, 255, 0.02) 4px
+                );
+                pointer-events: none;
+                border-radius: 12px;
+            }
+            
+            .exp-end-neon-border {
+                position: absolute;
+                top: -2px;
+                left: -2px;
+                right: -2px;
+                bottom: -2px;
+                border-radius: 14px;
+                background: linear-gradient(45deg, 
+                    rgba(0, 255, 255, 0.5), 
+                    rgba(255, 0, 128, 0.5), 
+                    rgba(0, 255, 255, 0.5));
+                z-index: -1;
+                animation: expEndNeonPulse 3s ease-in-out infinite;
+                filter: blur(3px);
+            }
+            
+            .exp-end-header {
+                text-align: center;
+                margin-bottom: 25px;
+            }
+            
+            .exp-end-title-glow {
+                font-size: 28px;
+                font-weight: 800;
+                letter-spacing: 4px;
+                color: #00ffff;
+                text-shadow: 
+                    0 0 10px rgba(0, 255, 255, 0.8),
+                    0 0 20px rgba(0, 255, 255, 0.6),
+                    0 0 40px rgba(0, 255, 255, 0.4);
+                animation: expEndTitleFlicker 4s ease-in-out infinite;
+                font-family: 'Courier New', monospace;
+            }
+            
+            .exp-end-subtitle {
+                font-size: 14px;
+                color: rgba(255, 255, 255, 0.7);
+                margin-top: 10px;
+                font-family: 'Courier New', monospace;
+                text-transform: uppercase;
+                letter-spacing: 2px;
+            }
+            
+            .exp-end-stats-grid {
+                display: grid;
+                grid-template-columns: repeat(2, 1fr);
+                gap: 15px;
+                margin-bottom: 25px;
+            }
+            
+            .exp-end-stat-card {
+                background: rgba(0, 20, 40, 0.6);
+                border: 1px solid rgba(0, 255, 255, 0.2);
+                border-radius: 8px;
+                padding: 15px;
+                text-align: center;
+                position: relative;
+                overflow: hidden;
+            }
+            
+            .exp-end-stat-card::before {
+                content: '';
+                position: absolute;
+                top: 0;
+                left: 0;
+                right: 0;
+                height: 2px;
+                background: linear-gradient(90deg, transparent, rgba(0, 255, 255, 0.5), transparent);
+            }
+            
+            .exp-end-stat-icon {
+                font-size: 24px;
+                margin-bottom: 5px;
+            }
+            
+            .exp-end-stat-value {
+                font-size: 28px;
+                font-weight: 700;
+                color: #00ffff;
+                font-family: 'Courier New', monospace;
+                text-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
+            }
+            
+            .exp-end-stat-max {
+                font-size: 14px;
+                color: rgba(255, 255, 255, 0.5);
+            }
+            
+            .exp-end-stat-label {
+                font-size: 11px;
+                color: rgba(255, 255, 255, 0.6);
+                letter-spacing: 2px;
+                margin-top: 5px;
+                font-family: 'Courier New', monospace;
+            }
+            
+            .exp-end-stat-culturants {
+                border-color: rgba(255, 0, 128, 0.3);
+            }
+            
+            .exp-end-stat-culturants .exp-end-stat-value {
+                color: #ff0080;
+                text-shadow: 0 0 10px rgba(255, 0, 128, 0.5);
+            }
+            
+            .exp-end-stat-culturants::before {
+                background: linear-gradient(90deg, transparent, rgba(255, 0, 128, 0.5), transparent);
+            }
+            
+            .exp-end-section-title {
+                font-size: 12px;
+                color: rgba(0, 255, 255, 0.8);
+                letter-spacing: 3px;
+                margin-bottom: 12px;
+                font-family: 'Courier New', monospace;
+                text-align: center;
+            }
+            
+            .exp-end-choices-section {
+                margin-bottom: 25px;
+            }
+            
+            .exp-end-choice-bar-container {
+                background: rgba(0, 20, 40, 0.6);
+                border: 1px solid rgba(0, 255, 255, 0.2);
+                border-radius: 8px;
+                padding: 15px;
+            }
+            
+            .exp-end-choice-bar {
+                height: 20px;
+                border-radius: 10px;
+                overflow: hidden;
+                display: flex;
+                background: rgba(0, 0, 0, 0.5);
+            }
+            
+            .exp-end-choice-self-control {
+                background: linear-gradient(90deg, #00ff88, #00cc6a);
+                box-shadow: 0 0 10px rgba(0, 255, 136, 0.5);
+                transition: width 1s ease-out;
+            }
+            
+            .exp-end-choice-impulsive {
+                background: linear-gradient(90deg, #ff4444, #cc0000);
+                box-shadow: 0 0 10px rgba(255, 68, 68, 0.5);
+                transition: width 1s ease-out;
+            }
+            
+            .exp-end-choice-labels {
+                display: flex;
+                justify-content: space-between;
+                margin-top: 10px;
+                font-size: 12px;
+                font-family: 'Courier New', monospace;
+            }
+            
+            .exp-end-choice-label-sc {
+                color: #00ff88;
+            }
+            
+            .exp-end-choice-label-imp {
+                color: #ff4444;
+            }
+            
+            .exp-end-players-section {
+                margin-bottom: 25px;
+            }
+            
+            .exp-end-players-list {
+                background: rgba(0, 20, 40, 0.6);
+                border: 1px solid rgba(0, 255, 255, 0.2);
+                border-radius: 8px;
+                padding: 10px;
+            }
+            
+            .exp-end-player-row {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                padding: 8px 10px;
+                border-bottom: 1px solid rgba(0, 255, 255, 0.1);
+            }
+            
+            .exp-end-player-row:last-child {
+                border-bottom: none;
+            }
+            
+            .exp-end-player-name {
+                color: rgba(255, 255, 255, 0.9);
+                font-family: 'Courier New', monospace;
+                font-size: 14px;
+            }
+            
+            .exp-end-player-tokens {
+                display: flex;
+                gap: 15px;
+                font-family: 'Courier New', monospace;
+                font-size: 14px;
+            }
+            
+            .exp-end-white-token {
+                color: #ffffff;
+                text-shadow: 0 0 5px rgba(255, 255, 255, 0.5);
+            }
+            
+            .exp-end-black-token {
+                color: #ff0080;
+                text-shadow: 0 0 5px rgba(255, 0, 128, 0.5);
+            }
+            
+            .exp-end-actions {
+                display: flex;
+                flex-direction: column;
+                gap: 12px;
+            }
+            
+            .exp-end-csv-btn {
+                background: linear-gradient(135deg, rgba(255, 165, 0, 0.2) 0%, rgba(255, 140, 0, 0.2) 100%);
+                border: 1px solid rgba(255, 165, 0, 0.5);
+                color: #ffa500;
+                padding: 14px 24px;
+                border-radius: 8px;
+                font-size: 14px;
+                font-weight: 600;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                gap: 10px;
+                font-family: 'Courier New', monospace;
+                letter-spacing: 1px;
+                transition: all 0.3s ease;
+                text-shadow: 0 0 10px rgba(255, 165, 0, 0.5);
+            }
+            
+            .exp-end-csv-btn:hover {
+                background: linear-gradient(135deg, rgba(255, 165, 0, 0.4) 0%, rgba(255, 140, 0, 0.4) 100%);
+                box-shadow: 0 0 20px rgba(255, 165, 0, 0.3);
+                transform: translateY(-2px);
+            }
+            
+            .exp-end-return-btn {
+                background: linear-gradient(135deg, rgba(0, 255, 255, 0.2) 0%, rgba(0, 200, 200, 0.2) 100%);
+                border: 1px solid rgba(0, 255, 255, 0.5);
+                color: #00ffff;
+                padding: 14px 24px;
+                border-radius: 8px;
+                font-size: 14px;
+                font-weight: 600;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                gap: 10px;
+                font-family: 'Courier New', monospace;
+                letter-spacing: 1px;
+                transition: all 0.3s ease;
+                text-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
+            }
+            
+            .exp-end-return-btn:hover {
+                background: linear-gradient(135deg, rgba(0, 255, 255, 0.4) 0%, rgba(0, 200, 200, 0.4) 100%);
+                box-shadow: 0 0 20px rgba(0, 255, 255, 0.3);
+                transform: translateY(-2px);
+            }
+            
+            @keyframes expEndFadeIn {
                 from { opacity: 0; }
                 to { opacity: 1; }
             }
             
-            @keyframes modalSlideIn {
+            @keyframes expEndSlideIn {
                 from {
                     opacity: 0;
-                    transform: translateY(-20px) scale(0.95);
+                    transform: translateY(-30px) scale(0.95);
                 }
                 to {
                     opacity: 1;
@@ -1545,14 +1822,37 @@ function showExperimentEndedModal(message, moderator) {
                 }
             }
             
-            @keyframes subtlePulse {
-                0%, 100% { opacity: 0.6; transform: scale(1); }
-                50% { opacity: 1; transform: scale(1.2); }
+            @keyframes expEndNeonPulse {
+                0%, 100% { opacity: 0.5; }
+                50% { opacity: 0.8; }
+            }
+            
+            @keyframes expEndTitleFlicker {
+                0%, 100% { opacity: 1; }
+                92% { opacity: 1; }
+                93% { opacity: 0.8; }
+                94% { opacity: 1; }
+                95% { opacity: 0.9; }
+                96% { opacity: 1; }
             }
         </style>
     `;
     
     document.body.insertAdjacentHTML('beforeend', modalHTML);
+}
+
+// Download CSV from the experiment end modal
+function downloadExperimentCSVFromModal(roomName) {
+    const downloadUrl = `/api/download-experiment-csv/${encodeURIComponent(roomName)}`;
+    
+    const link = document.createElement('a');
+    link.href = downloadUrl;
+    link.download = `experiment_${roomName}_${new Date().toISOString().slice(0,10)}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    console.log(`📊 CSV download initiated from experiment end modal for room: ${roomName}`);
 }
 
 // Function to close experiment ended modal and return to global chat
@@ -4691,8 +4991,8 @@ socket.on('leftRoom', function(data) {
 socket.on('experimentEnded', function(data) {
     console.log('🛑 Experiment ended:', data);
     
-    // Show glassmorphic experiment ended modal
-    showExperimentEndedModal(data.message, data.moderator);
+    // Show retro-future neon stat screen with full experiment data
+    showExperimentEndedModal(data);
     
     // User will refresh by clicking "Return to Global Chat" button
     
@@ -5166,6 +5466,36 @@ socket.on('yourTurn', function(data) {
             const blackValueEl = document.getElementById('currentBlackTokenValue');
             if (whiteValueEl) whiteValueEl.textContent = `$${data.condition.whiteValue.toFixed(2)}`;
             if (blackValueEl) blackValueEl.textContent = `$${data.condition.blackValue.toFixed(2)}`;
+            
+            // Color-code background based on condition
+            const innerBox = currentTokenValueDisplay.querySelector('div');
+            if (innerBox && data.condition.name) {
+                let bgColor, borderColor;
+                switch (data.condition.name) {
+                    case 'High Operant':
+                        // Blue for high-operant
+                        bgColor = 'rgba(88, 101, 242, 0.3)';
+                        borderColor = 'rgba(88, 101, 242, 0.5)';
+                        break;
+                    case 'Equal Culturant-Operant':
+                        // Green for equal operant-culturant
+                        bgColor = 'rgba(67, 181, 129, 0.3)';
+                        borderColor = 'rgba(67, 181, 129, 0.5)';
+                        break;
+                    case 'High Culturant':
+                        // Yellow for high culturant
+                        bgColor = 'rgba(250, 166, 26, 0.3)';
+                        borderColor = 'rgba(250, 166, 26, 0.5)';
+                        break;
+                    default:
+                        // Default gray for baseline or unknown
+                        bgColor = 'rgba(54, 57, 63, 0.8)';
+                        borderColor = 'rgba(114, 118, 125, 0.2)';
+                }
+                innerBox.style.background = bgColor;
+                innerBox.style.borderColor = borderColor;
+                innerBox.style.transition = 'background 0.3s ease, border-color 0.3s ease';
+            }
         }
     }
     
@@ -6698,6 +7028,39 @@ socket.on('conditionUpdate', function(data) {
     const currentBlackValueEl = document.getElementById('currentBlackTokenValue');
     if (currentWhiteValueEl) currentWhiteValueEl.textContent = `$${data.tokenValues.white.toFixed(2)}`;
     if (currentBlackValueEl) currentBlackValueEl.textContent = `$${data.tokenValues.black.toFixed(2)}`;
+    
+    // Color-code token value display based on condition
+    const currentTokenValueDisplay = document.getElementById('currentTokenValueDisplay');
+    if (currentTokenValueDisplay && data.condition) {
+        const innerBox = currentTokenValueDisplay.querySelector('div');
+        if (innerBox) {
+            let bgColor, borderColor;
+            switch (data.condition) {
+                case 'High Operant':
+                    // Blue for high-operant
+                    bgColor = 'rgba(88, 101, 242, 0.3)';
+                    borderColor = 'rgba(88, 101, 242, 0.5)';
+                    break;
+                case 'Equal Culturant-Operant':
+                    // Green for equal operant-culturant
+                    bgColor = 'rgba(67, 181, 129, 0.3)';
+                    borderColor = 'rgba(67, 181, 129, 0.5)';
+                    break;
+                case 'High Culturant':
+                    // Yellow for high culturant
+                    bgColor = 'rgba(250, 166, 26, 0.3)';
+                    borderColor = 'rgba(250, 166, 26, 0.5)';
+                    break;
+                default:
+                    // Default gray for baseline or unknown
+                    bgColor = 'rgba(54, 57, 63, 0.8)';
+                    borderColor = 'rgba(114, 118, 125, 0.2)';
+            }
+            innerBox.style.background = bgColor;
+            innerBox.style.borderColor = borderColor;
+            innerBox.style.transition = 'background 0.3s ease, border-color 0.3s ease';
+        }
+    }
     
     // Update HUD with experimental information
     updateExperimentalHUD(data);
@@ -12848,7 +13211,7 @@ function updateRoundResultsPanel(roundData) {
             
             previousDistributionHTML += `
                 <div style="text-align: center; padding: 10px 0;">
-                    <div style="color: #b9bbbe; font-size: 11px; margin-bottom: 8px;">Your Earnings This Round</div>
+                    <div style="color: #b9bbbe; font-size: 11px; margin-bottom: 8px;">Your Earnings last Round</div>
                     <div style="display: flex; justify-content: center; gap: 20px; margin-bottom: 10px;">
                         <div style="text-align: center;">
                             <div style="font-size: 24px;">⚪</div>
