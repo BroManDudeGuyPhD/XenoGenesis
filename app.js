@@ -339,8 +339,10 @@ app.get('/debug/test-led-tracker', function(req, res) {
     });
 });
 
-server.listen(2000, () => {
-    console.log("------------ Server started ------------");
+const LISTEN_PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 2000;
+
+server.listen(LISTEN_PORT, () => {
+    console.log(`------------ Server started on port ${LISTEN_PORT} ------------`);
     
     // Update invite code schema and clean up on startup
     setTimeout(() => {
@@ -582,6 +584,40 @@ io.on('connection', (socket) => {
                 });
             }
         });
+    });
+
+    // Client can request a session restore explicitly (useful after reconnect)
+    socket.on('requestSessionRestore', function(req) {
+        console.log('🔁 requestSessionRestore received from socket', socket.id, 'for', req && req.room ? req.room : 'n/a');
+        // Use existing session data to build the same response as on initial connect
+        if (socket.handshake.session && socket.handshake.session.username) {
+            let targetRoom = socket.handshake.session.room || 'Global';
+            let roomExists = false;
+
+            if (typeof roomList !== 'undefined') {
+                const roomIndex = roomList.findIndex(r => r.name.toLowerCase() === (targetRoom || 'Global').toLowerCase());
+                roomExists = roomIndex !== -1;
+                if (!roomExists) targetRoom = 'Global';
+            } else {
+                targetRoom = 'Global';
+            }
+
+            const Entity = require('./Entity.js');
+            const hasActiveGame = Entity.hasActiveGameSession && Entity.hasActiveGameSession(targetRoom);
+
+            Database.isAdmin({ username: socket.handshake.session.username }, function(admin) {
+                socket.emit('sessionRestored', {
+                    success: true,
+                    username: socket.handshake.session.username,
+                    room: targetRoom,
+                    roomRestored: roomExists,
+                    hasActiveGame: hasActiveGame,
+                    isAdmin: admin
+                });
+            });
+        } else {
+            socket.emit('sessionInvalid', { message: 'Session expired, please log in again' });
+        }
     });
 
     socket.on('signUp', function(data) {

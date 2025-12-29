@@ -28,8 +28,13 @@
     "mongojs": "^3.1.0",
     "postprocessing": "^6.37.8",
     "socket.io": "^4.7.5",
+    "socket.io-client": "^4.7.5",
     "three": "^0.180.0",
     "unique-names-generator": "^4.7.1"
+  },
+  "scripts": {
+    "start": "node app.js",
+    "test:reconnect": "node test_reconnect.js"
   },
   "devDependencies": {
     "nodemon": "^3.1.4"

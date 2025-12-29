@@ -3236,6 +3236,8 @@ Player.onGameStart = function(socket,username, progress, io, room, admin){
                     player.socket.emit('incentiveBonusNotification', {
                         bonusTokens: immediateBonus
                     });
+                    // Mark that we've already notified this player for this round to avoid double notifications
+                    player.incentiveBonusNotified = true;
                 }
             }
             
@@ -4462,19 +4464,25 @@ function processRound(roomName, gameSession) {
         }
         tokenDistributionLog.push(`${player.username}: ${whiteTokensEarned}/${whiteTokensDesired} white tokens`);
         
-        // Calculate incentive bonus (reuse roundIncentiveInfo from outer scope)
-        let incentiveBonus = 0;
+        // Calculate monetary incentive applicable to this player (fix: do NOT apply round-level incentive to everyone)
+        let monetaryIncentiveForPlayer = 0;
         if (roundIncentiveInfo && roundIncentiveInfo.bonus > 0) {
-            if (roundIncentiveInfo.appliesWhen === 'always') {
-                incentiveBonus = roundIncentiveInfo.bonus;
-            } else if (roundIncentiveInfo.appliesWhen === 'allChoseEven' && allChooseEvenRows) {
-                incentiveBonus = roundIncentiveInfo.bonus;
+            // If incentive applies to everyone when condition met (e.g., culturant)
+            if (roundIncentiveInfo.appliesWhen === 'allChoseEven' && allChooseEvenRows) {
+                monetaryIncentiveForPlayer = roundIncentiveInfo.bonus;
+            }
+            // If incentive applies to the assigned player (e.g., Impulse Incentive), only award when this player is the target
+            else if (roundIncentiveInfo.appliesWhen === 'always') {
+                const targetName = gameSession.currentPlayer || null;
+                if (targetName && player.username === targetName) {
+                    monetaryIncentiveForPlayer = roundIncentiveInfo.bonus;
+                }
             }
         }
-        
-        // Calculate player incentive bonus (set by moderator)
+
+        // Calculate player incentive bonus (black token awarded for following incentive rule)
         const playerIncentiveBonus = calculateIncentiveBonus(player, chosenRow, gameSession);
-        
+
         // Award tokens to player
         player.whiteTokens += whiteTokensEarned;
         player.blackTokens += blackTokensEarned + playerIncentiveBonus; // Add player incentive bonus to black tokens
@@ -4487,9 +4495,10 @@ function processRound(roomName, gameSession) {
         // Calculate earnings based on current condition's token values
         const whiteEarnings = whiteTokensEarned * condition.whiteTokenValue;
         const blackEarnings = (blackTokensEarned + playerIncentiveBonus) * condition.blackTokenValue;
-        const incentiveEarnings = incentiveBonus;
+        // Monetary incentive for this player (fixed: per-player monetary incentive)
+        const incentiveEarnings = monetaryIncentiveForPlayer;
         const totalEarnings = whiteEarnings + blackEarnings + incentiveEarnings;
-        
+
         player.totalEarnings += totalEarnings;
         
         // Track totals for token pool deduction
@@ -4678,8 +4687,28 @@ function processRound(roomName, gameSession) {
                     isModerator: currentRoom && p.username === currentRoom.creator
                 }))
             });
+
+            // If this player earned a per-player incentive bonus but wasn't notified earlier (e.g. no immediate lock-in notification),
+            // send the incentiveBonusNotification now so the client can animate the black-token reward immediately.
+            try {
+                if (playerIncentiveBonus > 0 && !player.incentiveBonusNotified) {
+                    player.socket.emit('incentiveBonusNotification', {
+                        bonusTokens: playerIncentiveBonus
+                    });
+                    player.incentiveBonusNotified = true;
+                }
+            } catch (err) {
+                console.warn(`⚠️ Failed to send incentiveBonusNotification to ${player.username}:`, err.message || err);
+            }
             
             // Removed: incentive bonus notification banner for players
+
+    // Clear transient per-round notification flags so next round can notify again if needed
+    orderedRoomPlayers.forEach(p => {
+        if (p.incentiveBonusNotified) {
+            delete p.incentiveBonusNotified;
+        }
+    });
             // The bonus is still calculated and awarded, just no visual notification
         }
     });

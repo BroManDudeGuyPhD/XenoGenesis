@@ -210,6 +210,37 @@ socket.on('disconnect', function() {
 
 socket.on('reconnect', function() {
     console.log('Socket reconnected to server');
+    // Show a brief reconnection notification when user was in an active game
+    try {
+        if (gameActive && currentRoom && currentRoom !== 'Global') {
+            const reconNotice = document.createElement('div');
+            reconNotice.innerHTML = `
+                <div style="position: fixed; top: 20px; left: 50%; transform: translateX(-50%); 
+                            background: linear-gradient(135deg, #43b581, #5bc0de); color: white; 
+                            padding: 12px 20px; border-radius: 8px; font-weight: bold; z-index: 9999;
+                            box-shadow: 0 4px 12px rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.2);
+                            font-size: 14px; text-align: center;">
+                    🎮 Reconnected to active game in ${currentRoom}
+                </div>
+            `;
+            document.body.appendChild(reconNotice);
+            setTimeout(() => {
+                if (reconNotice && reconNotice.parentNode) {
+                    reconNotice.style.transition = 'all 0.5s ease-out';
+                    reconNotice.style.opacity = '0';
+                    reconNotice.style.transform = 'translateX(-50%) translateY(-20px)';
+                    setTimeout(() => {
+                        if (reconNotice.parentNode) reconNotice.remove();
+                    }, 500);
+                }
+            }, 2000);
+        }
+    } catch (err) {
+        console.warn('⚠️ Error showing reconnection notice:', err.message || err);
+    }
+
+    // Ask server to re-send session state if available; server may ignore unknown events.
+    try { socket.emit('requestSessionRestore', { room: currentRoom || 'Global' }); } catch (e) { /* ignore */ }
 });
 
 // Handle session restoration
@@ -1857,20 +1888,19 @@ function downloadExperimentCSVFromModal(roomName) {
 
 // Function to close experiment ended modal and return to global chat
 function closeExperimentEndedModal() {
-    // Immediate refresh when "Return to Global Chat" is clicked
-    console.log('🔄 Refreshing page immediately after experiment end...');
-    window.location.reload();
-    
+    // Soft-return to global chat when "Return to Global Chat" is clicked
+    console.log('🔄 Soft-returning to global chat after experiment end (no full reload)');
+
     // Ensure proper UI state when returning to global chat
     // Hide the login screen (landing page) and show the chat interface
     const landingPage = document.getElementById('landingPage');
     const chatContainer = document.getElementById('chat-container');
-    
+
     if (landingPage) {
         landingPage.style.display = 'none';
         console.log('✅ Hidden landing page (login screen background)');
     }
-    
+
     if (chatContainer) {
         chatContainer.style.display = 'block';
         console.log('✅ Shown chat container');
@@ -2937,8 +2967,16 @@ socket.on('logoutResponse', function(data) {
             gameDiv.style.display = 'none';
         }
         
-        // Refresh page to reset state
-        window.location.reload();
+        // Soft-reset client UI to logged-out state without full page reload
+        console.log('🔄 Performing soft-reset to logged-out UI (no full reload)');
+        // Ensure landing page / sign-in UI is visible and hide game UI
+        const landing = document.getElementById('landingPage');
+        const signDivLocal = document.getElementById('signDiv');
+        const gameDivLocal = document.getElementById('gameDiv');
+
+        if (landing) landing.style.display = 'block';
+        if (signDivLocal) signDivLocal.style.display = 'block';
+        if (gameDivLocal) gameDivLocal.style.display = 'none';
     }
 });
 
@@ -7888,7 +7926,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 const leaveRoom = confirm('Are you sure you want to leave the chatroom?');
                 if (leaveRoom) {
                     socket.emit('leaveRoom', "Global");
-                    window.location.href = '/';
+                    console.log('🔄 Soft-returning to landing page (no full navigation)');
+                    currentRoom = "Global";
+                    const landing = document.getElementById('landingPage');
+                    const gameDivLocal = document.getElementById('gameDiv');
+                    if (landing) landing.style.display = 'block';
+                    if (gameDivLocal) gameDivLocal.style.display = 'none';
+                    switchToLoggedOutUI();
+                    updateLeaveButtonVisibility();
                 }
             }
         });
@@ -7952,7 +7997,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 const leaveRoom = confirm("Are you sure you want to leave this room?");
                 if (leaveRoom) {
                     socket.emit('leaveRoom', "Global");
-                    window.location.href = '/';
+                    console.log('🔄 Soft-returning to landing page (no full navigation)');
+                    currentRoom = "Global";
+                    const landing = document.getElementById('landingPage');
+                    const gameDivLocal = document.getElementById('gameDiv');
+                    if (landing) landing.style.display = 'block';
+                    if (gameDivLocal) gameDivLocal.style.display = 'none';
+                    switchToLoggedOutUI();
+                    updateLeaveButtonVisibility();
                 }
             }
         });
@@ -12002,9 +12054,16 @@ function handlePauseExperiment() {
     if (confirmPause) {
         console.log('⏸️ Moderator pausing experiment (leaving room)');
         
-        // Regular leave room behavior for moderator
+        // Regular leave room behavior for moderator (soft-return)
         socket.emit('leaveRoom', "Global");
-        window.location.href = '/';
+        console.log('🔄 Moderator soft-returning to landing page (no full navigation)');
+        currentRoom = "Global";
+        const landingModerator = document.getElementById('landingPage');
+        const gameDivModerator = document.getElementById('gameDiv');
+        if (landingModerator) landingModerator.style.display = 'block';
+        if (gameDivModerator) gameDivModerator.style.display = 'none';
+        switchToLoggedOutUI();
+        updateLeaveButtonVisibility();
     }
 }
 
