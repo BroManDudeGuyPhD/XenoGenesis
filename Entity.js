@@ -863,7 +863,30 @@ GameSession = {
         const session = GameSessions[roomName];
         if (!session) return;
         
-        const playersInRoom = Object.values(Player.list).filter(p => p.room === roomName);
+        // Initialize position storage if not exists
+        if (!session.playerPositions) {
+            session.playerPositions = {};
+        }
+        
+        const allPlayersInRoom = Object.values(Player.list).filter(p => p.room === roomName);
+        
+        // Get room info to identify moderator
+        const currentRoom = roomList.find(r => r.name === roomName);
+        const moderatorUsername = currentRoom ? currentRoom.creator : null;
+        
+        // Filter out moderator from position assignment - moderators NEVER get seats
+        const playersInRoom = allPlayersInRoom.filter(p => p.username !== moderatorUsername);
+        
+        console.log(`🎯 Position assignment for ${roomName}: ${allPlayersInRoom.length} total, ${playersInRoom.length} participants (excluding moderator: ${moderatorUsername})`);
+        
+        // Clean up stored positions for players no longer in room
+        const currentUsernames = new Set(playersInRoom.map(p => p.username));
+        Object.keys(session.playerPositions).forEach(username => {
+            if (!currentUsernames.has(username)) {
+                console.log(`🧹 Removing stored position for disconnected player: ${username}`);
+                delete session.playerPositions[username];
+            }
+        });
         
         // Poker table positioning: positions for 3 players + moderator
         const pokerPositions = [
@@ -878,9 +901,25 @@ GameSession = {
         const playersWithPositions = [];
         const playersNeedingPositions = [];
         
-        // First, identify players who already have positions (reconnection case)
+        // First, restore positions from server storage (reconnection case)
         playersInRoom.forEach(player => {
-            if (player.seatPosition && player.triadPosition) {
+            const storedPosition = session.playerPositions[player.username];
+            
+            if (storedPosition) {
+                // Restore from server storage
+                player.triadPosition = storedPosition.triadPosition;
+                player.x = storedPosition.x;
+                player.y = storedPosition.y;
+                player.seatPosition = storedPosition.seatPosition;
+                
+                const positionIndex = pokerPositions.findIndex(pos => pos.seat === storedPosition.seatPosition);
+                if (positionIndex !== -1) {
+                    occupiedPositions.add(positionIndex);
+                    playersWithPositions.push({ player, positionIndex });
+                    console.log(`🔄 Restored ${player.username} from server storage: ${storedPosition.seatPosition} (${storedPosition.x}, ${storedPosition.y})`);
+                }
+            } else if (player.seatPosition && player.triadPosition) {
+                // Fallback: preserve existing client position
                 const positionIndex = pokerPositions.findIndex(pos => pos.seat === player.seatPosition);
                 if (positionIndex !== -1) {
                     occupiedPositions.add(positionIndex);
@@ -905,6 +944,14 @@ GameSession = {
                     player.y = position.y;
                     player.seatPosition = position.seat;
                     occupiedPositions.add(i);
+                    
+                    // Store in server-side position map
+                    session.playerPositions[player.username] = {
+                        triadPosition: player.triadPosition,
+                        x: player.x,
+                        y: player.y,
+                        seatPosition: player.seatPosition
+                    };
                     
                     console.log(`🎯 Assigned ${player.username} to ${position.description} (${position.x}, ${position.y})`);
                     break;
@@ -1416,13 +1463,21 @@ Player.onConnect = function(socket,username,admin,io){
                     
                     // Send updated player list to remaining players
                     const allRoomUsers = getRoomUsers(room);
+                    const currentRoom = roomList.find(r => r.name === room);
                     const playersWithModerator = allRoomUsers.map(user => {
-                        const currentRoom = roomList.find(r => r.name === room);
+                        const playerObj = remainingPlayers.find(p => p.username === user.username);
+                        const isModerator = currentRoom && user.username === currentRoom.creator;
+                        
                         return {
                             username: user.username,
                             id: user.id,
                             isAI: false,
-                            isModerator: currentRoom && user.username === currentRoom.creator
+                            isModerator: isModerator,
+                            seatPosition: isModerator ? null : (playerObj?.seatPosition || null),
+                            triadPosition: isModerator ? null : (playerObj?.triadPosition || null),
+                            x: isModerator ? null : (playerObj?.x || null),
+                            y: isModerator ? null : (playerObj?.y || null),
+                            totalEarnings: isModerator ? null : (playerObj?.totalEarnings || 0)
                         };
                     });
                     
@@ -1433,7 +1488,12 @@ Player.onConnect = function(socket,username,admin,io){
                             username: aiPlayer.username,
                             id: aiPlayer.id,
                             isAI: true,
-                            isModerator: false
+                            isModerator: false,
+                            seatPosition: aiPlayer.seatPosition || null,
+                            triadPosition: aiPlayer.triadPosition || null,
+                            x: aiPlayer.x || null,
+                            y: aiPlayer.y || null,
+                            totalEarnings: aiPlayer.totalEarnings || 0
                         });
                     });
                     
@@ -1569,26 +1629,45 @@ Player.onConnect = function(socket,username,admin,io){
                 usersCount: Player.getLength() 
             });
 
-            // Create player list with moderator info
-            const playersWithModerator = allRoomUsers.map(user => ({
-                username: user.username,
-                id: user.id,
-                isAI: false, // Users from getRoomUsers are human players
-                isModerator: currentRoom && user.username === currentRoom.creator
-            }));
+            // Create player list with moderator info and position data (onConnect)
+            console.log(`🔍 Building player list for ${room}. CurrentRoom creator: ${currentRoom?.creator}`);
+            const playersWithModerator = allRoomUsers.map(user => {
+                const playerObj = playersInRoom.find(p => p.username === user.username);
+                const isModerator = currentRoom && user.username === currentRoom.creator;
+                
+                console.log(`🔍 Player ${user.username}: isModerator=${isModerator}, creator=${currentRoom?.creator}`);
+                
+                return {
+                    username: user.username,
+                    id: user.id,
+                    isAI: false,
+                    isModerator: isModerator,
+                    // Always include position properties - null for moderators
+                    seatPosition: isModerator ? null : (playerObj?.seatPosition || null),
+                    triadPosition: isModerator ? null : (playerObj?.triadPosition || null),
+                    x: isModerator ? null : (playerObj?.x || null),
+                    y: isModerator ? null : (playerObj?.y || null),
+                    totalEarnings: isModerator ? null : (playerObj?.totalEarnings || 0)
+                };
+            });
             
-            // Add any AI players that might be in the room
+            // Add any AI players that might be in the room (AI never moderators)
             const aiPlayersInRoom = playersInRoom.filter(p => p.isAI);
             aiPlayersInRoom.forEach(aiPlayer => {
                 playersWithModerator.push({
                     username: aiPlayer.username,
                     id: aiPlayer.id,
                     isAI: true,
-                    isModerator: false
+                    isModerator: false,
+                    seatPosition: aiPlayer.seatPosition || null,
+                    triadPosition: aiPlayer.triadPosition || null,
+                    x: aiPlayer.x || null,
+                    y: aiPlayer.y || null,
+                    totalEarnings: aiPlayer.totalEarnings || 0
                 });
             });
             
-            console.log(`📡 Emitting playersInRoom to individual socket for ${playerData.username} in ${room}:`, playersWithModerator);
+            console.log(`📡 Emitting playersInRoom to individual socket for ${playerData.username} in ${room}:`, playersWithModerator.map(p => ({username: p.username, isModerator: p.isModerator})));
             // Only send playersInRoom to the specific joining/reconnecting player
             // Don't disrupt other players' UIs who are already in the room
             socket.emit('playersInRoom', {
@@ -1634,21 +1713,40 @@ Player.onConnect = function(socket,username,admin,io){
                             // After successful reconnection, broadcast updated player list to everyone in room
                             // This ensures all players see the updated socket ID for the reconnecting player
                             const reconnectionRoomUsers = getRoomUsers(room);
-                            const allReconnectionPlayersData = reconnectionRoomUsers.map(user => ({
-                                username: user.username,
-                                id: user.id,
-                                isAI: false,
-                                isModerator: user.admin || false
-                            }));
+                            const currentReconnectRoom = roomList.find(r => r.name === room);
+                            const reconnectGameSession = GameSessions[room];
+                            
+                            const allReconnectionPlayersData = reconnectionRoomUsers.map(user => {
+                                const isModerator = currentReconnectRoom && user.username === currentReconnectRoom.creator;
+                                const playerObj = reconnectGameSession?.playerPositions?.[user.username];
+                                
+                                return {
+                                    username: user.username,
+                                    id: user.id,
+                                    isAI: false,
+                                    isModerator: isModerator,
+                                    seatPosition: isModerator ? null : (playerObj?.seatPosition || null),
+                                    triadPosition: isModerator ? null : (playerObj?.triadPosition || null),
+                                    x: isModerator ? null : (playerObj?.x || null),
+                                    y: isModerator ? null : (playerObj?.y || null),
+                                    totalEarnings: isModerator ? null : (playerObj?.totalEarnings || 0)
+                                };
+                            });
                             
                             // Add AI players to the list
                             const roomAIPlayers = Object.values(Player.list).filter(p => p.room === room && p.isAI);
                             roomAIPlayers.forEach(aiPlayer => {
+                                const aiPlayerObj = reconnectGameSession?.playerPositions?.[aiPlayer.username];
                                 allReconnectionPlayersData.push({
                                     username: aiPlayer.username,
                                     id: aiPlayer.id,
                                     isAI: true,
-                                    isModerator: false
+                                    isModerator: false,
+                                    seatPosition: aiPlayerObj?.seatPosition || null,
+                                    triadPosition: aiPlayerObj?.triadPosition || null,
+                                    x: aiPlayerObj?.x || null,
+                                    y: aiPlayerObj?.y || null,
+                                    totalEarnings: aiPlayerObj?.totalEarnings || 0
                                 });
                             });
                             
@@ -1882,24 +1980,40 @@ Player.onConnect = function(socket,username,admin,io){
                     
                     // Send updated player list to remaining players
                     const allRoomUsers = getRoomUsers(user.room);
+                    const currentRoom = roomList.find(r => r.name === user.room);
+                    const disconnectGameSession = GameSessions[user.room];
+                    
                     const playersWithModerator = allRoomUsers.map(roomUser => {
-                        const currentRoom = roomList.find(r => r.name === user.room);
+                        const isModerator = currentRoom && roomUser.username === currentRoom.creator;
+                        const playerObj = disconnectGameSession?.playerPositions?.[roomUser.username];
+                        
                         return {
                             username: roomUser.username,
                             id: roomUser.id,
                             isAI: false,
-                            isModerator: currentRoom && roomUser.username === currentRoom.creator
+                            isModerator: isModerator,
+                            seatPosition: isModerator ? null : (playerObj?.seatPosition || null),
+                            triadPosition: isModerator ? null : (playerObj?.triadPosition || null),
+                            x: isModerator ? null : (playerObj?.x || null),
+                            y: isModerator ? null : (playerObj?.y || null),
+                            totalEarnings: isModerator ? null : (playerObj?.totalEarnings || 0)
                         };
                     });
                     
                     // Add any AI players that might still be in the room
                     const aiPlayersInRoom = remainingPlayers.filter(p => p.isAI);
                     aiPlayersInRoom.forEach(aiPlayer => {
+                        const aiPlayerObj = disconnectGameSession?.playerPositions?.[aiPlayer.username];
                         playersWithModerator.push({
                             username: aiPlayer.username,
                             id: aiPlayer.id,
                             isAI: true,
-                            isModerator: false
+                            isModerator: false,
+                            seatPosition: aiPlayerObj?.seatPosition || null,
+                            triadPosition: aiPlayerObj?.triadPosition || null,
+                            x: aiPlayerObj?.x || null,
+                            y: aiPlayerObj?.y || null,
+                            totalEarnings: aiPlayerObj?.totalEarnings || 0
                         });
                     });
                     
@@ -2067,20 +2181,38 @@ Player.onConnect = function(socket,username,admin,io){
             
             // Send updated playersInRoom to all players so they see the complete player list
             const gameStartRoomUsers = getRoomUsers(room);
-            const allPlayersData = gameStartRoomUsers.map(user => ({
-                username: user.username,
-                id: user.id,
-                isAI: false,
-                isModerator: user.admin || false
-            }));
+            const gameStartRoom = roomList.find(r => r.name === room);
+            
+            const allPlayersData = gameStartRoomUsers.map(user => {
+                const isModerator = gameStartRoom && user.username === gameStartRoom.creator;
+                const playerObj = gameSession?.playerPositions?.[user.username];
+                
+                return {
+                    username: user.username,
+                    id: user.id,
+                    isAI: false,
+                    isModerator: isModerator,
+                    seatPosition: isModerator ? null : (playerObj?.seatPosition || null),
+                    triadPosition: isModerator ? null : (playerObj?.triadPosition || null),
+                    x: isModerator ? null : (playerObj?.x || null),
+                    y: isModerator ? null : (playerObj?.y || null),
+                    totalEarnings: isModerator ? null : (playerObj?.totalEarnings || 0)
+                };
+            });
             
             // Add AI players to the list
             roomPlayers.filter(p => p.isAI).forEach(aiPlayer => {
+                const aiPlayerObj = gameSession?.playerPositions?.[aiPlayer.username];
                 allPlayersData.push({
                     username: aiPlayer.username,
                     id: aiPlayer.id,
                     isAI: true,
-                    isModerator: false
+                    isModerator: false,
+                    seatPosition: aiPlayerObj?.seatPosition || null,
+                    triadPosition: aiPlayerObj?.triadPosition || null,
+                    x: aiPlayerObj?.x || null,
+                    y: aiPlayerObj?.y || null,
+                    totalEarnings: aiPlayerObj?.totalEarnings || 0
                 });
             });
             
@@ -2177,13 +2309,23 @@ Player.onConnect = function(socket,username,admin,io){
             const playersInRoom = Object.values(Player.list).filter(p => p.room === room);
             const allRoomUsers = getRoomUsers(room);
             
-            // Create player list with moderator info
-            const playersWithModerator = allRoomUsers.map(user => ({
-                username: user.username,
-                id: user.id,
-                isAI: false, // Users from getRoomUsers are human players
-                isModerator: currentRoom && user.username === currentRoom.creator
-            }));
+            // Create player list with moderator info and position data
+            const playersWithModerator = allRoomUsers.map(user => {
+                const playerObj = playersInRoom.find(p => p.username === user.username);
+                const isModerator = currentRoom && user.username === currentRoom.creator;
+                
+                return {
+                    username: user.username,
+                    id: user.id,
+                    isAI: false,
+                    isModerator: isModerator,
+                    seatPosition: isModerator ? null : (playerObj?.seatPosition || null),
+                    triadPosition: isModerator ? null : (playerObj?.triadPosition || null),
+                    x: isModerator ? null : (playerObj?.x || null),
+                    y: isModerator ? null : (playerObj?.y || null),
+                    totalEarnings: isModerator ? null : (playerObj?.totalEarnings || 0)
+                };
+            });
             
             // Add any AI players that might be in the room
             const aiPlayersInRoom = playersInRoom.filter(p => p.isAI);
@@ -2192,7 +2334,12 @@ Player.onConnect = function(socket,username,admin,io){
                     username: aiPlayer.username,
                     id: aiPlayer.id,
                     isAI: true,
-                    isModerator: false
+                    isModerator: false,
+                    seatPosition: aiPlayer.seatPosition || null,
+                    triadPosition: aiPlayer.triadPosition || null,
+                    x: aiPlayer.x || null,
+                    y: aiPlayer.y || null,
+                    totalEarnings: aiPlayer.totalEarnings || 0
                 });
             });
             
@@ -2216,13 +2363,23 @@ Player.onConnect = function(socket,username,admin,io){
             const playersInRoom = Object.values(Player.list).filter(p => p.room === room);
             const allRoomUsers = getRoomUsers(room);
             
-            // Create player list with moderator info
-            const playersWithModerator = allRoomUsers.map(user => ({
-                username: user.username,
-                id: user.id,
-                isAI: false, // Users from getRoomUsers are human players
-                isModerator: currentRoom && user.username === currentRoom.creator
-            }));
+            // Create player list with moderator info and position data
+            const playersWithModerator = allRoomUsers.map(user => {
+                const playerObj = playersInRoom.find(p => p.username === user.username);
+                const isModerator = currentRoom && user.username === currentRoom.creator;
+                
+                return {
+                    username: user.username,
+                    id: user.id,
+                    isAI: false,
+                    isModerator: isModerator,
+                    seatPosition: isModerator ? null : (playerObj?.seatPosition || null),
+                    triadPosition: isModerator ? null : (playerObj?.triadPosition || null),
+                    x: isModerator ? null : (playerObj?.x || null),
+                    y: isModerator ? null : (playerObj?.y || null),
+                    totalEarnings: isModerator ? null : (playerObj?.totalEarnings || 0)
+                };
+            });
             
             // Add any AI players that might be in the room
             const aiPlayersInRoom = playersInRoom.filter(p => p.isAI);
@@ -2231,7 +2388,12 @@ Player.onConnect = function(socket,username,admin,io){
                     username: aiPlayer.username,
                     id: aiPlayer.id,
                     isAI: true,
-                    isModerator: false
+                    isModerator: false,
+                    seatPosition: aiPlayer.seatPosition || null,
+                    triadPosition: aiPlayer.triadPosition || null,
+                    x: aiPlayer.x || null,
+                    y: aiPlayer.y || null,
+                    totalEarnings: aiPlayer.totalEarnings || 0
                 });
             });
             
@@ -2335,24 +2497,39 @@ Player.onConnect = function(socket,username,admin,io){
         // Use the same data format as other playersInRoom events
         const allRoomUsers = getRoomUsers(room);
         const currentRoom = roomList.find(r => r.name === room);
+        const updatedRoomPlayers = Object.values(Player.list).filter(p => p.room === room);
         
-        // Create player list with moderator info (human players)
-        const playersWithModerator = allRoomUsers.map(user => ({
-            username: user.username,
-            id: user.id,
-            isAI: false,
-            isModerator: currentRoom && user.username === currentRoom.creator
-        }));
+        // Create player list with moderator info and position data
+        const playersWithModerator = allRoomUsers.map(user => {
+            const playerObj = updatedRoomPlayers.find(p => p.username === user.username);
+            const isModerator = currentRoom && user.username === currentRoom.creator;
+            
+            return {
+                username: user.username,
+                id: user.id,
+                isAI: false,
+                isModerator: isModerator,
+                seatPosition: isModerator ? null : (playerObj?.seatPosition || null),
+                triadPosition: isModerator ? null : (playerObj?.triadPosition || null),
+                x: isModerator ? null : (playerObj?.x || null),
+                y: isModerator ? null : (playerObj?.y || null),
+                totalEarnings: isModerator ? null : (playerObj?.totalEarnings || 0)
+            };
+        });
         
         // Add AI players to the list
-        const updatedRoomPlayers = Object.values(Player.list).filter(p => p.room === room);
         const aiPlayersInRoom = updatedRoomPlayers.filter(p => p.isAI);
         aiPlayersInRoom.forEach(aiPlayer => {
             playersWithModerator.push({
                 username: aiPlayer.username,
                 id: aiPlayer.id,
                 isAI: true,
-                isModerator: false
+                isModerator: false,
+                seatPosition: aiPlayer.seatPosition || null,
+                triadPosition: aiPlayer.triadPosition || null,
+                x: aiPlayer.x || null,
+                y: aiPlayer.y || null,
+                totalEarnings: aiPlayer.totalEarnings || 0
             });
         });
         
@@ -2421,14 +2598,25 @@ Player.onConnect = function(socket,username,admin,io){
             // Notify all players in the room about the AI removal
             const allRoomUsers = getRoomUsers(room);
             const currentRoom = roomList.find(r => r.name === room);
+            const roomPlayersAfterRemoval = Object.values(Player.list).filter(p => p.room === room);
             
             // Create updated player list (only human players now)
-            const playersWithModerator = allRoomUsers.map(user => ({
-                username: user.username,
-                id: user.id,
-                isAI: false,
-                isModerator: currentRoom && user.username === currentRoom.creator
-            }));
+            const playersWithModerator = allRoomUsers.map(user => {
+                const playerObj = roomPlayersAfterRemoval.find(p => p.username === user.username);
+                const isModerator = currentRoom && user.username === currentRoom.creator;
+                
+                return {
+                    username: user.username,
+                    id: user.id,
+                    isAI: false,
+                    isModerator: isModerator,
+                    seatPosition: isModerator ? null : (playerObj?.seatPosition || null),
+                    triadPosition: isModerator ? null : (playerObj?.triadPosition || null),
+                    x: isModerator ? null : (playerObj?.x || null),
+                    y: isModerator ? null : (playerObj?.y || null),
+                    totalEarnings: isModerator ? null : (playerObj?.totalEarnings || 0)
+                };
+            });
             
             console.log(`📡 Emitting playersInRoom after AI removal for ${room}:`, playersWithModerator);
             io.to(room).emit('playersInRoom', { 
@@ -2524,21 +2712,38 @@ Player.onConnect = function(socket,username,admin,io){
             // Update players in room display
             const allRoomUsers = getRoomUsers(room);
             const currentRoom = roomList.find(r => r.name === room);
-            const playersWithModerator = allRoomUsers.map(user => ({
-                username: user.username,
-                id: user.id,
-                isAI: false,
-                isModerator: currentRoom && user.username === currentRoom.creator
-            }));
+            const lightningPlayers = Object.values(Player.list).filter(p => p.room === room);
+            
+            const playersWithModerator = allRoomUsers.map(user => {
+                const playerObj = lightningPlayers.find(p => p.username === user.username);
+                const isModerator = currentRoom && user.username === currentRoom.creator;
+                
+                return {
+                    username: user.username,
+                    id: user.id,
+                    isAI: false,
+                    isModerator: isModerator,
+                    seatPosition: isModerator ? null : (playerObj?.seatPosition || null),
+                    triadPosition: isModerator ? null : (playerObj?.triadPosition || null),
+                    x: isModerator ? null : (playerObj?.x || null),
+                    y: isModerator ? null : (playerObj?.y || null),
+                    totalEarnings: isModerator ? null : (playerObj?.totalEarnings || 0)
+                };
+            });
             
             // Add the AI players to display
-            const lightningAIPlayers = Object.values(Player.list).filter(p => p.room === room && p.isAI);
+            const lightningAIPlayers = lightningPlayers.filter(p => p.isAI);
             lightningAIPlayers.forEach(aiPlayer => {
                 playersWithModerator.push({
                     username: aiPlayer.username,
                     id: aiPlayer.id,
                     isAI: true,
-                    isModerator: false
+                    isModerator: false,
+                    seatPosition: aiPlayer.seatPosition || null,
+                    triadPosition: aiPlayer.triadPosition || null,
+                    x: aiPlayer.x || null,
+                    y: aiPlayer.y || null,
+                    totalEarnings: aiPlayer.totalEarnings || 0
                 });
             });
             
@@ -2630,13 +2835,23 @@ Player.onConnect = function(socket,username,admin,io){
         const playersInRoom = Object.values(Player.list).filter(p => p.room === room);
         const allRoomUsers = getRoomUsers(room);
         
-        // Create player list with moderator info
-        const playersWithModerator = allRoomUsers.map(user => ({
-            username: user.username,
-            id: user.id,
-            isAI: false,
-            isModerator: currentRoom && user.username === currentRoom.creator
-        }));
+        // Create player list with moderator info and position data
+        const playersWithModerator = allRoomUsers.map(user => {
+            const playerObj = playersInRoom.find(p => p.username === user.username);
+            const isModerator = currentRoom && user.username === currentRoom.creator;
+            
+            return {
+                username: user.username,
+                id: user.id,
+                isAI: false,
+                isModerator: isModerator,
+                seatPosition: isModerator ? null : (playerObj?.seatPosition || null),
+                triadPosition: isModerator ? null : (playerObj?.triadPosition || null),
+                x: isModerator ? null : (playerObj?.x || null),
+                y: isModerator ? null : (playerObj?.y || null),
+                totalEarnings: isModerator ? null : (playerObj?.totalEarnings || 0)
+            };
+        });
         
         // Add any AI players that might be in the room
         const aiPlayersInRoom = playersInRoom.filter(p => p.isAI);
@@ -2645,7 +2860,12 @@ Player.onConnect = function(socket,username,admin,io){
                 username: aiPlayer.username,
                 id: aiPlayer.id,
                 isAI: true,
-                isModerator: false
+                isModerator: false,
+                seatPosition: aiPlayer.seatPosition || null,
+                triadPosition: aiPlayer.triadPosition || null,
+                x: aiPlayer.x || null,
+                y: aiPlayer.y || null,
+                totalEarnings: aiPlayer.totalEarnings || 0
             });
         });
         
@@ -3220,10 +3440,13 @@ Player.onGameStart = function(socket,username, progress, io, room, admin){
             
             // Check for IMMEDIATE incentive bonus (Impulse or Self Control incentive)
             // This triggers the incentive token animation right away, not at end of round
+            console.log(`🎁 Checking incentive for ${player.username}: activeIncentive="${player.activeIncentive}", isAI=${player.isAI}, choice=${data.choice}`);
             if (player.activeIncentive && !player.isAI) {
                 const chosenRow = parseInt(data.choice);
                 const rowType = chosenRow % 2 === 1 ? 'odd' : 'even';
                 let immediateBonus = 0;
+                
+                console.log(`🎁 ${player.username} has incentive "${player.activeIncentive}", chose row ${chosenRow} (${rowType})`);
                 
                 if (player.activeIncentive === 'Impulse Incentive' && rowType === 'odd') {
                     immediateBonus = 1;
@@ -3238,7 +3461,11 @@ Player.onGameStart = function(socket,username, progress, io, room, admin){
                     });
                     // Mark that we've already notified this player for this round to avoid double notifications
                     player.incentiveBonusNotified = true;
+                } else {
+                    console.log(`🎁 ${player.username} did NOT earn incentive bonus: activeIncentive="${player.activeIncentive}", rowType=${rowType}, immediateBonus=${immediateBonus}`);
                 }
+            } else {
+                console.log(`🎁 ${player.username} skipped incentive check: activeIncentive=${player.activeIncentive}, isAI=${player.isAI}`);
             }
             
             // Check if all non-moderator players have locked in their choices BEFORE advancing turn

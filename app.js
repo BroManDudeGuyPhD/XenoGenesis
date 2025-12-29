@@ -419,6 +419,15 @@ io.on('connection', (socket) => {
                 const hasActiveGame = Entity.hasActiveGameSession && Entity.hasActiveGameSession(targetRoom);
                 console.log(`🎮 Checking for active game in room "${targetRoom}": ${hasActiveGame}`);
                 
+                // Get stored player position if available
+                let playerPosition = null;
+                if (hasActiveGame) {
+                    const gameSession = Entity.GameSession.get(targetRoom);
+                    if (gameSession && gameSession.playerPositions) {
+                        playerPosition = gameSession.playerPositions[socket.handshake.session.username];
+                    }
+                }
+                
                 // Emit session restore event with validated room and game status
                 socket.emit('sessionRestored', { 
                     success: true, 
@@ -426,7 +435,8 @@ io.on('connection', (socket) => {
                     room: targetRoom,
                     roomRestored: roomExists,
                     hasActiveGame: hasActiveGame,
-                    isAdmin: admin
+                    isAdmin: admin,
+                    playerPosition: playerPosition
                 });
             });
         } else {
@@ -493,6 +503,13 @@ io.on('connection', (socket) => {
                                 });
                                 console.log('✅ Sign in response sent to client');
                                 
+                                // Get stored player position if available
+                                let playerPosition = null;
+                                const gameSession = Entity.GameSession.get(restorationData.room);
+                                if (gameSession && gameSession.playerPositions) {
+                                    playerPosition = gameSession.playerPositions[data.username];
+                                }
+                                
                                 // Trigger session restoration event for room restoration
                                 socket.emit('sessionRestored', { 
                                     success: true, 
@@ -500,7 +517,8 @@ io.on('connection', (socket) => {
                                     room: restorationData.room,
                                     roomRestored: true,
                                     hasActiveGame: true,
-                                    isAdmin: admin
+                                    isAdmin: admin,
+                                    playerPosition: playerPosition
                                 });
                             });
                         });

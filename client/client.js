@@ -209,38 +209,9 @@ socket.on('disconnect', function() {
 });
 
 socket.on('reconnect', function() {
-    console.log('Socket reconnected to server');
-    // Show a brief reconnection notification when user was in an active game
-    try {
-        if (gameActive && currentRoom && currentRoom !== 'Global') {
-            const reconNotice = document.createElement('div');
-            reconNotice.innerHTML = `
-                <div style="position: fixed; top: 20px; left: 50%; transform: translateX(-50%); 
-                            background: linear-gradient(135deg, #43b581, #5bc0de); color: white; 
-                            padding: 12px 20px; border-radius: 8px; font-weight: bold; z-index: 9999;
-                            box-shadow: 0 4px 12px rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.2);
-                            font-size: 14px; text-align: center;">
-                    🎮 Reconnected to active game in ${currentRoom}
-                </div>
-            `;
-            document.body.appendChild(reconNotice);
-            setTimeout(() => {
-                if (reconNotice && reconNotice.parentNode) {
-                    reconNotice.style.transition = 'all 0.5s ease-out';
-                    reconNotice.style.opacity = '0';
-                    reconNotice.style.transform = 'translateX(-50%) translateY(-20px)';
-                    setTimeout(() => {
-                        if (reconNotice.parentNode) reconNotice.remove();
-                    }, 500);
-                }
-            }, 2000);
-        }
-    } catch (err) {
-        console.warn('⚠️ Error showing reconnection notice:', err.message || err);
-    }
-
-    // Ask server to re-send session state if available; server may ignore unknown events.
-    try { socket.emit('requestSessionRestore', { room: currentRoom || 'Global' }); } catch (e) { /* ignore */ }
+    console.log('Socket reconnected to server (no forced session restore)');
+    // Reconnects now happen silently; session is only restored on initial page load or explicit refresh.
+    // Server preserves game state for reconnecting players automatically via socket.id matching.
 });
 
 // Handle session restoration
@@ -250,6 +221,12 @@ socket.on('sessionRestored', function(data) {
         if (!domLoaded) {
             pendingSessionRestore = data;
             return;
+        }
+        
+        // Store player position if provided by server
+        if (data.playerPosition) {
+            console.log('📍 Server provided player position:', data.playerPosition);
+            window.storedPlayerPosition = data.playerPosition;
         }
         
         performSessionRestore(data);
@@ -3848,6 +3825,18 @@ socket.on('roomUsers', ({ room, users, usersCount }) => {
 
 // Handle players in room updates (including AI players)
 socket.on('playersInRoom', function(data) {
+    console.log('📥 Received playersInRoom event:', {
+        room: data.room,
+        playerCount: data.players.length,
+        players: data.players.map(p => ({
+            username: p.username,
+            isModerator: p.isModerator,
+            isAI: p.isAI,
+            seatPosition: p.seatPosition,
+            triadPosition: p.triadPosition
+        }))
+    });
+    
     // Only update if this is for our current room
     if (data.room === currentRoom) {
         // Check if the player list has actually changed to avoid unnecessary UI rebuilds
@@ -3867,9 +3856,9 @@ socket.on('playersInRoom', function(data) {
         const moderatorNameDiv = moderatorDiv?.querySelector('.moderator-name');
         const currentModerator = moderatorNameDiv?.textContent;
         
-        // Get new player list
-        const newModerator = data.players.find(p => p.isModerator) || data.players[0];
-        const newParticipants = data.players.filter(p => p !== newModerator).map(p => p.username);
+        // Get new player list using isModerator flag
+        const newModerator = data.players.find(p => p.isModerator);
+        const newParticipants = data.players.filter(p => !p.isModerator).map(p => p.username);
         
         console.log('🔄 playersInRoom change detection:', {
             currentRoom: currentRoom,
@@ -3883,7 +3872,7 @@ socket.on('playersInRoom', function(data) {
         
         // EARLY INITIALIZATION: Initialize player names in LED tracker as soon as we have players
         // Filter out moderators and only include actual participants
-        const trackerPlayers = data.players.filter(p => p.username !== newModerator?.username).map(p => ({ name: p.username, isAI: p.isAI }));
+        const trackerPlayers = data.players.filter(p => !p.isModerator).map(p => ({ name: p.username, isAI: p.isAI }));
         if (trackerPlayers.length > 0 && (!playerNameMapping || playerNameMapping.size === 0)) {
             console.log('🎯 EARLY: Initializing player names from playersInRoom event');
             console.log('🎯 EARLY: Participant players:', trackerPlayers);
@@ -4194,8 +4183,8 @@ socket.on('playersInRoom', function(data) {
             console.warn('👑 No moderator found in player data:', data.players);
         }
         
-        // Get non-moderator players for the poker seats
-        const participantPlayers = data.players.filter(p => p !== moderator);
+        // Get non-moderator players (participants) - exclude moderator from seat placement
+        const participantPlayers = data.players.filter(p => !p.isModerator);
         
         console.log('🎯 Participant placement:', {
             totalPlayers: data.players.length,
@@ -4252,64 +4241,80 @@ socket.on('playersInRoom', function(data) {
         
         console.log('🎯 Available seats for placement:', availableSeats);
         
+        // Map server seat positions to client seat IDs
+        const seatPositionMap = {
+            'left': 'leftPlayer',
+            'top': 'topPlayer',
+            'right': 'rightPlayer'
+        };
+        
         participantPlayers.forEach((player, index) => {
-            if (index < availableSeats.length) { // Only place if we have available seats
-                const seatId = availableSeats[index];
-                const seat = document.getElementById(seatId);
-                
-                console.log(`🎯 Placing ${player.username} (${player.isAI ? 'AI' : 'Human'}) in seat ${seatId} (index ${index})`);
-                
-                if (seat) {
-                    const nameDiv = seat.querySelector('.player-name');
-                    const statusDiv = seat.querySelector('.player-status');
-                    const aiDiv = seat.querySelector('.ai-indicator');
-                    const walletDiv = seat.querySelector('.player-wallet');
-                    
-                    if (nameDiv) nameDiv.textContent = player.username;
-                    if (statusDiv) statusDiv.textContent = `P${index + 1}`;
-                    
-                    // Show AI indicator if it's an AI player
-                    if (aiDiv) {
-                        if (player.isAI) {
-                            aiDiv.style.display = 'block';
-                        } else {
-                            aiDiv.style.display = 'none';
-                        }
-                    }
-                    
-                    // Display wallet totals
-                    if (walletDiv) {
-                        const totalEarnings = player.totalEarnings || 0;
-                        walletDiv.textContent = `$${totalEarnings.toFixed(2)}`;
-                    }
-                    
-                    // Store player data for wallet updates
-                    seat.setAttribute('data-player-username', player.username);
-                    
-                    // Highlight active seat
-                    seat.style.borderColor = '#7289da';
-                    
-                    console.log(`✅ Successfully placed ${player.username} in ${seatId}`);
-                    
-                    // Process any pending lock indicators for this player
-                    if (pendingLockIndicators.has(player.username)) {
-                        const lockData = pendingLockIndicators.get(player.username);
-                        console.log(`🔄 Processing pending lock indicator for ${player.username}`);
-                        
-                        // Apply visual lock indicator
-                        applyLockIndicator(lockData);
-                        
-                        // IMPORTANT: Also trigger the full floating animation that was missed during initial lock-in
-                        console.log(`🎭 Triggering deferred floating animation for ${player.username}`);
-                        console.log(`🎭 Function params: seat=${!!seat}, lockData=${!!lockData}, username=${player.username}`);
-                        triggerPlayerSeatAnimation(seat, lockData, player.username);
-                    }
-                    
-                } else {
-                    console.error(`❌ Seat element ${seatId} not found during placement (should have been checked earlier)`);
-                }
+            // Use server-assigned seatPosition if available, otherwise fallback to index
+            let seatId;
+            if (player.seatPosition && seatPositionMap[player.seatPosition]) {
+                seatId = seatPositionMap[player.seatPosition];
+                console.log(`🎯 Using server-assigned seat for ${player.username}: ${player.seatPosition} -> ${seatId}`);
             } else {
-                console.log(`⚠️ Skipping ${player.username} - no available seats (index ${index}, available: ${availableSeats.length})`);
+                // Fallback to index-based assignment
+                seatId = availableSeats[index];
+                console.log(`⚠️ No server seat position for ${player.username}, using index ${index} -> ${seatId}`);
+            }
+            
+            const seat = document.getElementById(seatId);
+            
+            if (seat) {
+                console.log(`🎯 Placing ${player.username} (${player.isAI ? 'AI' : 'Human'}) in seat ${seatId} (triadPosition: ${player.triadPosition})`);
+                
+                const nameDiv = seat.querySelector('.player-name');
+                const statusDiv = seat.querySelector('.player-status');
+                const aiDiv = seat.querySelector('.ai-indicator');
+                const walletDiv = seat.querySelector('.player-wallet');
+                
+                if (nameDiv) nameDiv.textContent = player.username;
+                // Use triadPosition for P1/P2/P3 label if available, otherwise use index
+                if (statusDiv) statusDiv.textContent = player.triadPosition ? `P${player.triadPosition}` : `P${index + 1}`;
+                
+                // Show AI indicator if it's an AI player
+                if (aiDiv) {
+                    if (player.isAI) {
+                        aiDiv.style.display = 'block';
+                    } else {
+                        aiDiv.style.display = 'none';
+                    }
+                }
+                
+                // Display wallet totals (only for non-moderators)
+                if (walletDiv && !player.isModerator) {
+                    const totalEarnings = player.totalEarnings || 0;
+                    walletDiv.textContent = `$${totalEarnings.toFixed(2)}`;
+                } else if (walletDiv && player.isModerator) {
+                    walletDiv.textContent = ''; // Moderators don't have wallets
+                }
+                
+                // Store player data for wallet updates
+                seat.setAttribute('data-player-username', player.username);
+                
+                // Highlight active seat
+                seat.style.borderColor = '#7289da';
+                
+                console.log(`✅ Successfully placed ${player.username} in ${seatId} as P${player.triadPosition || index + 1}`);
+                
+                // Process any pending lock indicators for this player
+                if (pendingLockIndicators.has(player.username)) {
+                    const lockData = pendingLockIndicators.get(player.username);
+                    console.log(`🔄 Processing pending lock indicator for ${player.username}`);
+                    
+                    // Apply visual lock indicator
+                    applyLockIndicator(lockData);
+                    
+                    // IMPORTANT: Also trigger the full floating animation that was missed during initial lock-in
+                    console.log(`🎭 Triggering deferred floating animation for ${player.username}`);
+                    console.log(`🎭 Function params: seat=${!!seat}, lockData=${!!lockData}, username=${player.username}`);
+                    triggerPlayerSeatAnimation(seat, lockData, player.username);
+                }
+                
+            } else {
+                console.error(`❌ Seat element ${seatId} not found during placement`);
             }
         });
         
