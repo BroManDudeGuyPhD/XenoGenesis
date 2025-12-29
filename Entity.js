@@ -4513,8 +4513,8 @@ function processRound(roomName, gameSession) {
         console.log(`🎯 ${player.username}: Row ${chosenRow} (${rowType})`);
         console.log(`   White tokens: ${whiteTokensEarned} ($${whiteEarnings.toFixed(2)})`);
         console.log(`   Black tokens: ${blackTokensEarned} ($${blackEarnings.toFixed(2)})`);
-        if (incentiveBonus > 0) {
-            console.log(`   Incentive bonus: $${incentiveBonus.toFixed(2)} (${roundCurrentIncentive})`);
+        if (monetaryIncentiveForPlayer > 0) {
+            console.log(`   Incentive bonus: $${monetaryIncentiveForPlayer.toFixed(2)} (${roundCurrentIncentive})`);
         }
         console.log(`   Total earnings: $${totalEarnings.toFixed(2)}`);
     });
