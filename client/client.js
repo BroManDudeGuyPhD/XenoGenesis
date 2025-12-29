@@ -1868,6 +1868,20 @@ function closeExperimentEndedModal() {
     // Soft-return to global chat when "Return to Global Chat" is clicked
     console.log('🔄 Soft-returning to global chat after experiment end (no full reload)');
 
+    // Remove the modal from DOM
+    const modal = document.getElementById('experimentEndedModal');
+    if (modal) {
+        modal.remove();
+        console.log('✅ Removed experiment ended modal');
+    }
+
+    // Hide game interface
+    const gameDiv = document.getElementById('gameDiv');
+    if (gameDiv) {
+        gameDiv.style.display = 'none';
+        console.log('✅ Hidden game interface');
+    }
+
     // Ensure proper UI state when returning to global chat
     // Hide the login screen (landing page) and show the chat interface
     const landingPage = document.getElementById('landingPage');
@@ -1901,6 +1915,18 @@ function closeExperimentEndedModal() {
     if (globalNameText) {
         globalNameText.style.backgroundColor = '#667aff';
         console.log('✅ Activated global chat tab styling');
+    }
+    
+    // Leave current room and join Global via socket
+    if (currentRoom && currentRoom !== 'Global') {
+        console.log(`🚪 Leaving room: ${currentRoom}`);
+        socket.emit('leaveRoom', { room: currentRoom });
+        
+        // Small delay before joining Global to let server process the leave
+        setTimeout(() => {
+            console.log('🌍 Joining Global chat');
+            socket.emit('joinRoom', { room: 'Global' });
+        }, 100);
     }
     
     // Reset current room state
