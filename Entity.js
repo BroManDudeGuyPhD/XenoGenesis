@@ -204,21 +204,18 @@ var Conditions = {
 // Incentive bonuses - additional payouts based on incentive type
 var IncentiveBonuses = {
     'No Incentive': {
-        bonus: 0,
         description: 'No additional bonus',
         displayName: 'No Incentive'
     },
     'Self Control Incentive': {
-        bonus: 0.02, // $0.02 bonus for culturant behavior (choosing even rows when all do)
-        description: 'Bonus for cooperative behavior (all choose even rows)',
+        description: 'Bonus token for choosing even rows',
         displayName: 'Choose Even Rows (2, 4, 6, 8)',
-        appliesWhen: 'allChoseEven'
+        appliesWhen: 'playerChoice' // Applies based on player's choice
     },
     'Impulse Incentive': {
-        bonus: 0.02, // $0.02 bonus for individual choice
-        description: 'Bonus for individual impulse choice',
+        description: 'Bonus token for choosing odd rows',
         displayName: 'Choose Odd Rows (1, 3, 5, 7)',
-        appliesWhen: 'always'
+        appliesWhen: 'playerChoice' // Applies based on player's choice
     }
 };
 
@@ -3440,17 +3437,23 @@ Player.onGameStart = function(socket,username, progress, io, room, admin){
             
             // Check for IMMEDIATE incentive bonus (Impulse or Self Control incentive)
             // This triggers the incentive token animation right away, not at end of round
-            console.log(`🎁 Checking incentive for ${player.username}: activeIncentive="${player.activeIncentive}", isAI=${player.isAI}, choice=${data.choice}`);
-            if (player.activeIncentive && !player.isAI) {
+            const gameSession = GameSessions[room];
+            const isAssignedPlayer = gameSession && gameSession.currentPlayer === player.username;
+            const hasActiveIncentive = player.activeIncentive && !player.isAI;
+            
+            console.log(`🎁 Checking incentive for ${player.username}: activeIncentive="${player.activeIncentive}", isAI=${player.isAI}, isAssignedPlayer=${isAssignedPlayer}, choice=${data.choice}`);
+            
+            if ((hasActiveIncentive || isAssignedPlayer) && !player.isAI) {
                 const chosenRow = parseInt(data.choice);
                 const rowType = chosenRow % 2 === 1 ? 'odd' : 'even';
+                const currentIncentive = player.activeIncentive || gameSession?.currentIncentive;
                 let immediateBonus = 0;
                 
-                console.log(`🎁 ${player.username} has incentive "${player.activeIncentive}", chose row ${chosenRow} (${rowType})`);
+                console.log(`🎁 ${player.username} has incentive "${currentIncentive}", chose row ${chosenRow} (${rowType})`);
                 
-                if (player.activeIncentive === 'Impulse Incentive' && rowType === 'odd') {
+                if (currentIncentive === 'Impulse Incentive' && rowType === 'odd') {
                     immediateBonus = 1;
-                } else if (player.activeIncentive === 'Self Control Incentive' && rowType === 'even') {
+                } else if (currentIncentive === 'Self Control Incentive' && rowType === 'even') {
                     immediateBonus = 1;
                 }
                 
@@ -3462,10 +3465,10 @@ Player.onGameStart = function(socket,username, progress, io, room, admin){
                     // Mark that we've already notified this player for this round to avoid double notifications
                     player.incentiveBonusNotified = true;
                 } else {
-                    console.log(`🎁 ${player.username} did NOT earn incentive bonus: activeIncentive="${player.activeIncentive}", rowType=${rowType}, immediateBonus=${immediateBonus}`);
+                    console.log(`🎁 ${player.username} did NOT earn incentive bonus: currentIncentive="${currentIncentive}", rowType=${rowType}, immediateBonus=${immediateBonus}`);
                 }
             } else {
-                console.log(`🎁 ${player.username} skipped incentive check: activeIncentive=${player.activeIncentive}, isAI=${player.isAI}`);
+                console.log(`🎁 ${player.username} skipped incentive check: activeIncentive=${player.activeIncentive}, isAI=${player.isAI}, isAssignedPlayer=${isAssignedPlayer}`);
             }
             
             // Check if all non-moderator players have locked in their choices BEFORE advancing turn
@@ -4549,26 +4552,13 @@ function processRound(roomName, gameSession) {
     const roundCurrentIncentive = gameSession.currentIncentive || 'No Incentive';
     const roundIncentiveInfo = IncentiveBonuses[roundCurrentIncentive];
 
-    // Set activeIncentive for the player who has the incentive this round
-    // This must happen BEFORE token calculation
+    // Note: We DO NOT clear activeIncentive here because:
+    // 1. It was already set by updateConditionForRound at the start of this round
+    // 2. Clearing it here causes a race condition where players lock in before the next round's updateConditionForRound
+    // 3. The next round's updateConditionForRound will properly update it when that round starts
+    
     const currentPlayerName = gameSession.currentPlayer; // Now contains actual player name (after updateConditionForRound)
-    
-    // Clear all players' incentives first, then set the active one
-    roomPlayers.forEach(p => {
-        p.activeIncentive = null;
-    });
-    
-    // Find the target player by name and set their activeIncentive
-    if (currentPlayerName && currentPlayerName !== 'None' && 
-        roundCurrentIncentive && roundCurrentIncentive !== 'No Incentive') {
-        const targetPlayer = roomPlayers.find(p => p.username === currentPlayerName);
-        if (targetPlayer) {
-            targetPlayer.activeIncentive = roundCurrentIncentive;
-            console.log(`🎯 Set ${targetPlayer.username}.activeIncentive = ${roundCurrentIncentive} for round ${gameSession.currentRound}`);
-        } else {
-            console.log(`⚠️ Could not find player "${currentPlayerName}" to set activeIncentive`);
-        }
-    }
+    console.log(`🎯 Processing round ${gameSession.currentRound} with incentive "${roundCurrentIncentive}" for player "${currentPlayerName}"`);
     
     // Sort players by turn order for consistent token distribution
     // Token distribution should follow the same order as the round that just ended
@@ -4691,24 +4681,11 @@ function processRound(roomName, gameSession) {
         }
         tokenDistributionLog.push(`${player.username}: ${whiteTokensEarned}/${whiteTokensDesired} white tokens`);
         
-        // Calculate monetary incentive applicable to this player (fix: do NOT apply round-level incentive to everyone)
-        let monetaryIncentiveForPlayer = 0;
-        if (roundIncentiveInfo && roundIncentiveInfo.bonus > 0) {
-            // If incentive applies to everyone when condition met (e.g., culturant)
-            if (roundIncentiveInfo.appliesWhen === 'allChoseEven' && allChooseEvenRows) {
-                monetaryIncentiveForPlayer = roundIncentiveInfo.bonus;
-            }
-            // If incentive applies to the assigned player (e.g., Impulse Incentive), only award when this player is the target
-            else if (roundIncentiveInfo.appliesWhen === 'always') {
-                const targetName = gameSession.currentPlayer || null;
-                if (targetName && player.username === targetName) {
-                    monetaryIncentiveForPlayer = roundIncentiveInfo.bonus;
-                }
-            }
-        }
-
         // Calculate player incentive bonus (black token awarded for following incentive rule)
-        const playerIncentiveBonus = calculateIncentiveBonus(player, chosenRow, gameSession);
+        // ONLY award to the player who has the active incentive assigned to them
+        const playerIncentiveBonus = (player.activeIncentive && player.username === gameSession.currentPlayer) 
+            ? calculateIncentiveBonus(player, chosenRow, gameSession) 
+            : 0;
 
         // Award tokens to player
         player.whiteTokens += whiteTokensEarned;
@@ -4722,9 +4699,8 @@ function processRound(roomName, gameSession) {
         // Calculate earnings based on current condition's token values
         const whiteEarnings = whiteTokensEarned * condition.whiteTokenValue;
         const blackEarnings = (blackTokensEarned + playerIncentiveBonus) * condition.blackTokenValue;
-        // Monetary incentive for this player (fixed: per-player monetary incentive)
-        const incentiveEarnings = monetaryIncentiveForPlayer;
-        const totalEarnings = whiteEarnings + blackEarnings + incentiveEarnings;
+        // NO direct monetary incentives - all bonuses are tokens with exchange rates
+        const totalEarnings = whiteEarnings + blackEarnings;
 
         player.totalEarnings += totalEarnings;
         
@@ -4739,10 +4715,7 @@ function processRound(roomName, gameSession) {
         const rowType = chosenRow % 2 === 1 ? 'odd' : 'even';
         console.log(`🎯 ${player.username}: Row ${chosenRow} (${rowType})`);
         console.log(`   White tokens: ${whiteTokensEarned} ($${whiteEarnings.toFixed(2)})`);
-        console.log(`   Black tokens: ${blackTokensEarned} ($${blackEarnings.toFixed(2)})`);
-        if (monetaryIncentiveForPlayer > 0) {
-            console.log(`   Incentive bonus: $${monetaryIncentiveForPlayer.toFixed(2)} (${roundCurrentIncentive})`);
-        }
+        console.log(`   Black tokens: ${blackTokensEarned} + ${playerIncentiveBonus} incentive ($${blackEarnings.toFixed(2)})`);
         console.log(`   Total earnings: $${totalEarnings.toFixed(2)}`);
     });
     

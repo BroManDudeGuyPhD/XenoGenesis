@@ -988,8 +988,6 @@
                 <div class="status-card" style="background-color: #40444b; padding: 15px; border-radius: 5px; flex: 1; text-align: center;">
                     <h3 style="color: #ffffff; margin: 0; font-size: 18px;">Round</h3>
                     <span id="currentRound" style="color: #7289da; font-size: 24px; font-weight: bold;">0</span>
-                    <span style="color: #b9bbbe;"> / </span>
-                    <span id="maxRounds" style="color: #b9bbbe; font-size: 18px;">500</span>
                 </div>
                 <div class="status-card" style="background-color: #40444b; padding: 15px; border-radius: 5px; flex: 1; text-align: center;">
                     <h3 style="color: #ffffff; margin: 0; font-size: 18px;">White Tokens</h3>
@@ -1257,14 +1255,14 @@
                             <div class="player-name" style="color: #ffffff; font-size: 16px; font-weight: bold;"></div>
                             <div class="player-status" style="color: #b9bbbe; font-size: 14px;"></div>
                             <div class="ai-indicator" style="color: #faa61a; font-size: 12px; display: none;">🤖 AI</div>
-                            <div class="player-wallet" style="color: #43b581; font-size: 12px; margin-top: 2px;"></div>
+                            <div class="player-wallet" style="color: #43b581; font-size: 12px; margin-top: 2px; display: none;"></div>
                         </div>
                         
                         <div id="rightPlayer" class="poker-seat" style="position: absolute; right: 20px; top: 50%; transform: translateY(-50%); width: 120px; height: 80px; background-color: #36393f; border: 2px solid #7289da; border-radius: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center;">
                             <div class="player-name" style="color: #ffffff; font-size: 16px; font-weight: bold;"></div>
                             <div class="player-status" style="color: #b9bbbe; font-size: 14px;"></div>
                             <div class="ai-indicator" style="color: #faa61a; font-size: 12px; display: none;">🤖 AI</div>
-                            <div class="player-wallet" style="color: #43b581; font-size: 12px; margin-top: 2px;"></div>
+                            <div class="player-wallet" style="color: #43b581; font-size: 12px; margin-top: 2px; display: none;"></div>
                         </div>
                         
                         <!-- Moderator Position -->
@@ -1463,7 +1461,7 @@
                                             </div>
                                             <div class="status-row">
                                                 <span class="status-label">Block:</span>
-                                                <span id="currentBlockDisplay" class="status-value">0/3</span>
+                                                <span id="currentBlockDisplay" class="status-value">0/9</span>
                                             </div>
                                         </div>
                                     </div>
@@ -1472,7 +1470,7 @@
                                     <div class="control-group">
                                         <div class="control-label">
                                             Condition Tracker 
-                                            <button class="info-btn mini" data-info="condition-tracker" title="Quality control tracker - each condition should occur exactly once per round position within each block. Red LEDs indicate scheduling errors.">i</button>
+                                            <button class="info-btn mini" data-info="condition-tracker" title="Tracks progress through each 21-round block. Each condition appears 7 times per block. LEDs light up as rounds complete within the current block. LEDs reset at the start of each new block. Red indicates scheduling errors.">i</button>
                                         </div>
                                         <div id="conditionLEDArray" class="led-array-container">
                                             <div class="led-array-header">

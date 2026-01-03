@@ -4309,12 +4309,9 @@ socket.on('playersInRoom', function(data) {
                     }
                 }
                 
-                // Display wallet totals (only for non-moderators)
-                if (walletDiv && !player.isModerator) {
-                    const totalEarnings = player.totalEarnings || 0;
-                    walletDiv.textContent = `$${totalEarnings.toFixed(2)}`;
-                } else if (walletDiv && player.isModerator) {
-                    walletDiv.textContent = ''; // Moderators don't have wallets
+                // Hide wallet display for non-moderators (only show for moderators viewing)
+                if (walletDiv) {
+                    walletDiv.style.display = 'none'; // Always hide for non-moderator view
                 }
                 
                 // Store player data for wallet updates
@@ -4449,6 +4446,45 @@ socket.on('roomCreated', (roomName) => {
     gameActive = false;
     currentRoundNumber = 0;
     document.body.classList.remove('game-active', 'experiment-running', 'lightning-active');
+    
+    // Clean up any lingering experiment ended modals
+    const existingModal = document.getElementById('experimentEndedModal');
+    if (existingModal) {
+        existingModal.remove();
+        console.log('🧹 Removed lingering experiment ended modal');
+    }
+    
+    // Reset all player seats and animations
+    const seatIds = ['leftPlayer', 'topPlayer', 'rightPlayer'];
+    seatIds.forEach(seatId => {
+        const seat = document.getElementById(seatId);
+        if (seat) {
+            // Clear player data
+            seat.removeAttribute('data-player-username');
+            const nameDiv = seat.querySelector('.player-name');
+            const statusDiv = seat.querySelector('.player-status');
+            const aiDiv = seat.querySelector('.ai-indicator');
+            const walletDiv = seat.querySelector('.player-wallet');
+            
+            if (nameDiv) nameDiv.textContent = '';
+            if (statusDiv) statusDiv.textContent = '';
+            if (aiDiv) aiDiv.style.display = 'none';
+            if (walletDiv) {
+                walletDiv.textContent = '';
+                walletDiv.style.display = 'none';
+            }
+            
+            // Reset any floating animations
+            seat.style.transform = '';
+            seat.style.transition = '';
+            seat.classList.remove('floating-animation');
+        }
+    });
+    console.log('🧹 Reset all player seats and animations');
+    
+    // Reset round display
+    const currentRoundEl = document.getElementById('currentRound');
+    if (currentRoundEl) currentRoundEl.textContent = '0';
     
     roomNameText.style.display ="";
     socket.emit('joinRoom', roomName );
@@ -7086,7 +7122,16 @@ socket.on('conditionUpdate', function(data) {
         console.log(`👤 No player assigned (data.player = ${data.player})`);
     }
     if (data.blockNumber) {
-        console.log(`📦 Block: ${data.blockNumber}/7`);
+        console.log(`📦 Block: ${data.blockNumber}/9`);
+    }
+    
+    // Update block number display
+    if (data.blockNumber) {
+        const blockDisplay = document.getElementById('currentBlockDisplay');
+        if (blockDisplay) {
+            blockDisplay.textContent = `${data.blockNumber}/9`;
+            console.log(`📦 Updated block display to: ${data.blockNumber}/9`);
+        }
     }
     
     // Update token conversion display for all players
