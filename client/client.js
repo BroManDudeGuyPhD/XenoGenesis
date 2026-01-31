@@ -144,6 +144,24 @@ function isCurrentRoomModerator() {
 }
 const socket = io();
 
+// Global error handlers to capture runtime exceptions and unhandled promise rejections
+window.addEventListener('error', function (evt) {
+    try {
+        console.error('Global error caught:', evt.message, 'at', evt.filename + ':' + evt.lineno, evt.error);
+    } catch (e) {
+        console.error('Global error (logging failure)', e);
+    }
+    // don't rethrow to avoid halting subsequent handlers
+});
+
+window.addEventListener('unhandledrejection', function (evt) {
+    try {
+        console.error('Unhandled promise rejection:', evt.reason);
+    } catch (e) {
+        console.error('Unhandled rejection (logging failure)', e);
+    }
+});
+
 // Store pending token updates to apply after players return to poker table positions
 let pendingTokenUpdates = null;
 
@@ -1875,6 +1893,110 @@ function closeExperimentEndedModal() {
         console.log('✅ Removed experiment ended modal');
     }
 
+    // COMPREHENSIVE STATE RESET - treat this like a fresh start
+    console.log('🧹 Starting comprehensive state cleanup...');
+    
+    // Reset game state flags
+    gameActive = false;
+    currentRoundNumber = 0;
+    window.currentUserIsModerator = false; // Clear moderator flag
+    document.body.classList.remove('game-active', 'experiment-running', 'lightning-active');
+    
+    // Reset LED tracker state completely
+    if (typeof conditionTracker !== 'undefined') {
+        conditionTracker.appliedHistory = [];
+        conditionTracker.currentBlock = null;
+        conditionTracker.lastPhase = '';
+        conditionTracker.callCounts = {};
+        conditionTracker.isUpdating = false;
+        console.log('🧹 Reset LED tracker state');
+    }
+    
+    // Clear all LEDs back to off state
+    try {
+        const allLEDs = document.querySelectorAll('#playerLEDArray .led-grid .led-indicator');
+        if (allLEDs.length > 0) {
+            allLEDs.forEach(led => led.className = 'led-indicator off');
+            console.log(`🧹 Reset ${allLEDs.length} LEDs to off state`);
+        }
+    } catch (e) {
+        console.warn('LED reset failed:', e);
+    }
+    
+    // Clear LED group player labels back to placeholders
+    try {
+        const ledGroups = document.querySelectorAll('.led-player-group .led-group-label');
+        ledGroups.forEach((label, index) => {
+            if (!label.closest('.led-player-group').querySelector('[data-player="NONE"]')) {
+                label.textContent = `Player ${index + 1}`;
+            }
+        });
+        console.log('🧹 Reset LED player labels to placeholders');
+    } catch (e) {
+        console.warn('LED label reset failed:', e);
+    }
+    
+    // Reset experiment display elements
+    const experimentStatus = document.getElementById('experimentStatus');
+    const blockDisplay = document.getElementById('blockDisplay');
+    const tokenConversion = document.getElementById('tokenConversionDisplay');
+    if (experimentStatus) experimentStatus.textContent = '';
+    if (blockDisplay) blockDisplay.textContent = 'Block: --/--';
+    if (tokenConversion) tokenConversion.textContent = 'White=$-.-- Black=$-.--';
+    
+    // Clear poker table completely
+    const seatIds = ['leftPlayer', 'topPlayer', 'rightPlayer'];
+    seatIds.forEach(seatId => {
+        const seat = document.getElementById(seatId);
+        if (seat) {
+            seat.removeAttribute('data-player-username');
+            const nameDiv = seat.querySelector('.player-name');
+            const statusDiv = seat.querySelector('.player-status');
+            const aiDiv = seat.querySelector('.ai-indicator');
+            const walletDiv = seat.querySelector('.player-wallet');
+            const lockIndicator = seat.querySelector('.player-lock-indicator');
+            
+            if (nameDiv) nameDiv.textContent = '';
+            if (statusDiv) statusDiv.textContent = '';
+            if (aiDiv) aiDiv.style.display = 'none';
+            if (walletDiv) {
+                walletDiv.textContent = '';
+                walletDiv.style.display = 'none';
+            }
+            if (lockIndicator) lockIndicator.remove();
+            
+            // Reset all visual effects
+            seat.style.transform = '';
+            seat.style.transition = '';
+            seat.style.boxShadow = '';
+            seat.style.border = '';
+            seat.classList.remove('floating-animation', 'active-player', 'glow-effect');
+        }
+    });
+    console.log('🧹 Cleared poker table seats');
+    
+    // Reset Player.list to clear any lingering player data
+    if (typeof Player !== 'undefined' && Player.list) {
+        Player.list = {};
+    }
+    
+    // Clear turn display if it exists
+    const turnDisplay = document.querySelector('.turn-display');
+    if (turnDisplay) turnDisplay.remove();
+    
+    // Reset current round display
+    const currentRoundEl = document.getElementById('currentRound');
+    if (currentRoundEl) currentRoundEl.textContent = '0';
+    
+    // Hide all moderator controls (they'll be shown again when creating a new room)
+    const startBtn = document.getElementById('startExperimentBtn');
+    const addAIBtn = document.getElementById('addAIBtn');
+    const endExperimentBtn = document.getElementById('endExperimentBtn');
+    if (startBtn) startBtn.style.display = 'none';
+    if (addAIBtn) addAIBtn.style.display = 'none';
+    if (endExperimentBtn) endExperimentBtn.style.display = 'none';
+    console.log('🧹 Hidden moderator controls');
+
     // Hide game interface
     const gameDiv = document.getElementById('gameDiv');
     if (gameDiv) {
@@ -1883,13 +2005,12 @@ function closeExperimentEndedModal() {
     }
 
     // Ensure proper UI state when returning to global chat
-    // Hide the login screen (landing page) and show the chat interface
     const landingPage = document.getElementById('landingPage');
     const chatContainer = document.getElementById('chat-container');
 
     if (landingPage) {
         landingPage.style.display = 'none';
-        console.log('✅ Hidden landing page (login screen background)');
+        console.log('✅ Hidden landing page');
     }
 
     if (chatContainer) {
@@ -1901,6 +2022,7 @@ function closeExperimentEndedModal() {
     const globalChatMessages = document.getElementById('globalChatMessages');
     const roomChatMessages = document.getElementById('roomChatMessages');
     const globalNameText = document.getElementById('globalNameText');
+    const roomNameText = document.getElementById('roomNameText');
     
     if (globalChatMessages) {
         globalChatMessages.style.display = '';
@@ -1917,7 +2039,14 @@ function closeExperimentEndedModal() {
         console.log('✅ Activated global chat tab styling');
     }
     
+    if (roomNameText) {
+        roomNameText.style.backgroundColor = '';
+        roomNameText.innerText = '';
+        roomNameText.style.display = 'none';
+    }
+    
     // Leave current room and join Global via socket
+    const oldRoom = currentRoom;
     if (currentRoom && currentRoom !== 'Global') {
         console.log(`🚪 Leaving room: ${currentRoom}`);
         socket.emit('leaveRoom', { room: currentRoom });
@@ -1925,19 +2054,18 @@ function closeExperimentEndedModal() {
         // Small delay before joining Global to let server process the leave
         setTimeout(() => {
             console.log('🌍 Joining Global chat');
-            socket.emit('joinRoom', { room: 'Global' });
+            socket.emit('joinRoom', 'Global'); // Fixed: use string, not object
+            currentRoom = 'Global';
+            console.log(`✅ Transitioned from ${oldRoom} to Global`);
         }, 100);
+    } else {
+        currentRoom = 'Global';
     }
-    
-    // Reset current room state
-    currentRoom = 'Global';
-    gameActive = false;
-    document.body.classList.remove('game-active');
     
     // Update card visibility for global context - this includes invite visibility
     updateCardVisibility();
     
-    // Hide room pill in global chat (inline implementation)  
+    // Hide room pill in global chat
     const roomPill = document.getElementById('room-pill');
     if (roomPill) {
         roomPill.style.display = 'none';
@@ -1946,7 +2074,11 @@ function closeExperimentEndedModal() {
     // Double-check invite visibility specifically
     setTimeout(() => {
         updateInviteVisibility();
-    }, 100);
+        // Force update card visibility again to ensure everything is correct
+        updateCardVisibility();
+    }, 200);
+    
+    console.log('✅ Comprehensive cleanup complete - ready for new room');
 }
 
 // Function to properly return user to global chat
@@ -3620,28 +3752,34 @@ socket.on('conditionUpdate', function(data) {
             
             // Initialize player names if we have a players array and haven't done so yet
             if (players && players.length > 0 && playerNameMapping.size === 0) {
-                console.log('🎯 EARLY: Moderator was filtered out:', currentModerator);
                 initializePlayerNamesInTracker(players);
             }
-            
+
             // Update LED matrix - use REAL player names (no A/B/C mapping)
             let playerName = data.player;
-            
+
             // Skip moderator check for player assignment tracking
             if (playerName) {
                 const moderatorDiv = document.getElementById('moderatorPosition');
                 const moderatorNameDiv = moderatorDiv?.querySelector('.moderator-name');
                 const currentModerator = moderatorNameDiv?.textContent;
-                
+
                 if (playerName === currentModerator) {
                     playerName = null; // Skip tracking for moderator
                 }
             }
-            
-            console.log(`🔗 EARLY: Using real player name: ${playerName} (no A/B/C mapping)`);
-            
-            updateConditionLED(condition, round, blockNumber, playerName);
-            console.log('✅ EARLY: Successfully processed conditionUpdate');
+
+            // Always queue for processing by the authoritative experimentStatusUpdate
+            try {
+                const pendingKey = `${blockNumber}:${round}`;
+                conditionTracker.pendingUpdates = conditionTracker.pendingUpdates || new Map();
+                const list = conditionTracker.pendingUpdates.get(pendingKey) || [];
+                list.push({ condition, round, blockNumber, player: playerName });
+                conditionTracker.pendingUpdates.set(pendingKey, list);
+            } catch (e) {
+                // If queuing fails, still call updateConditionLED as a last resort
+                try { updateConditionLED(condition, round, blockNumber, playerName); } catch (ee) { console.warn('Failed to queue or apply condition update', ee); }
+            }
             
         } catch (error) {
             console.error('❌ EARLY: Error processing conditionUpdate:', error);
@@ -4341,6 +4479,20 @@ socket.on('playersInRoom', function(data) {
             }
         });
         
+        // Build triad positions mapping for LED tracker (1->A, 2->B, 3->C)
+        window.triadPositions = {};
+        const positionMap = { 1: 'A', 2: 'B', 3: 'C' };
+        participantPlayers.forEach(player => {
+            if (player.triadPosition && positionMap[player.triadPosition]) {
+                const letter = positionMap[player.triadPosition];
+                window.triadPositions[letter] = player.username;
+                console.log(`🎯 Mapped triad position: ${player.triadPosition} (${letter}) -> ${player.username}`);
+            }
+        });
+        console.log('🎯 Final triad positions mapping:', window.triadPositions);
+        // Update LED group labels and remap LED items to usernames
+        if (window.remapLEDs) window.remapLEDs();
+        
         // Also update the player list display - COMMENTED OUT FOR CLEANER UI
         /*
         const usernames = data.players.map(p => {
@@ -4454,6 +4606,48 @@ socket.on('roomCreated', (roomName) => {
         console.log('🧹 Removed lingering experiment ended modal');
     }
     
+    // Reset LED tracker state completely
+    if (typeof conditionTracker !== 'undefined') {
+        conditionTracker.appliedHistory = [];
+        conditionTracker.currentBlock = null;
+        conditionTracker.lastPhase = '';
+        conditionTracker.callCounts = {};
+        conditionTracker.isUpdating = false;
+        console.log('🧹 Reset LED tracker state');
+    }
+    
+    // Clear all LEDs back to off state
+    try {
+        const allLEDs = document.querySelectorAll('#playerLEDArray .led-grid .led-indicator');
+        if (allLEDs.length > 0) {
+            allLEDs.forEach(led => led.className = 'led-indicator off');
+            console.log(`🧹 Reset ${allLEDs.length} LEDs to off state`);
+        }
+    } catch (e) {
+        console.warn('LED reset failed:', e);
+    }
+    
+    // Clear LED group player labels back to placeholders
+    try {
+        const ledGroups = document.querySelectorAll('.led-player-group .led-group-label');
+        ledGroups.forEach((label, index) => {
+            if (!label.closest('.led-player-group').querySelector('[data-player="NONE"]')) {
+                label.textContent = `Player ${index + 1}`;
+            }
+        });
+        console.log('🧹 Reset LED player labels to placeholders');
+    } catch (e) {
+        console.warn('LED label reset failed:', e);
+    }
+    
+    // Reset experiment display elements
+    const experimentStatus = document.getElementById('experimentStatus');
+    const blockDisplay = document.getElementById('blockDisplay');
+    const tokenConversion = document.getElementById('tokenConversionDisplay');
+    if (experimentStatus) experimentStatus.textContent = '';
+    if (blockDisplay) blockDisplay.textContent = 'Block: --/--';
+    if (tokenConversion) tokenConversion.textContent = 'White=$-.-- Black=$-.--';
+    
     // Reset all player seats and animations
     const seatIds = ['leftPlayer', 'topPlayer', 'rightPlayer'];
     seatIds.forEach(seatId => {
@@ -4465,6 +4659,7 @@ socket.on('roomCreated', (roomName) => {
             const statusDiv = seat.querySelector('.player-status');
             const aiDiv = seat.querySelector('.ai-indicator');
             const walletDiv = seat.querySelector('.player-wallet');
+            const lockIndicator = seat.querySelector('.player-lock-indicator');
             
             if (nameDiv) nameDiv.textContent = '';
             if (statusDiv) statusDiv.textContent = '';
@@ -4473,11 +4668,14 @@ socket.on('roomCreated', (roomName) => {
                 walletDiv.textContent = '';
                 walletDiv.style.display = 'none';
             }
+            if (lockIndicator) lockIndicator.remove();
             
-            // Reset any floating animations
+            // Reset any floating animations and glow effects
             seat.style.transform = '';
             seat.style.transition = '';
-            seat.classList.remove('floating-animation');
+            seat.style.boxShadow = '';
+            seat.style.border = '';
+            seat.classList.remove('floating-animation', 'active-player', 'glow-effect');
         }
     });
     console.log('🧹 Reset all player seats and animations');
@@ -5411,8 +5609,13 @@ socket.on('triadComplete', function(data) {
     console.log('  - rightPlayer exists:', !!document.getElementById('rightPlayer'));
     console.log('  - gameDiv display:', document.getElementById('gameDiv') ? document.getElementById('gameDiv').style.display : 'not found');
     
-    // Update player position and status
-    document.getElementById('playerPosition').textContent = `You are Player ${data.playerPosition}`;
+    // Update player position and status (guard against missing element)
+    try {
+        const playerPositionEl = document.getElementById('playerPosition');
+        if (playerPositionEl) playerPositionEl.textContent = `You are Player ${data.playerPosition}`;
+    } catch (e) {
+        console.warn('triadComplete: playerPosition element missing', e);
+    }
     
     // Update poker table with player positions (preserve active player highlighting)
     console.log('🎯 About to call updatePokerTable with:', data.gameSession);
@@ -5739,9 +5942,9 @@ socket.on('yourTurn', function(data) {
             
             const roundDisplay = document.getElementById('currentRoundDisplay');
             if (roundDisplay && data.round) {
-                // Calculate round within current block (1-63)
-                const roundInBlock = ((data.round - 1) % 63) + 1;
-                roundDisplay.textContent = `${roundInBlock}/63`;
+                // Calculate round within current block (1-21)
+                const roundInBlock = ((data.round - 1) % 21) + 1;
+                roundDisplay.textContent = `${roundInBlock}/21`;
             }
             
             // Update incentive player display
@@ -5751,14 +5954,14 @@ socket.on('yourTurn', function(data) {
                     // Use incentiveDisplay for user-friendly text, fallback to raw incentive
                     incentivePlayerDisplay.textContent = `${data.player} (${data.incentiveDisplay || data.incentive})`;
                 } else {
-                    incentivePlayerDisplay.textContent = 'None';
+                    incentivePlayerDisplay.textContent = 'NONE';
                 }
             }
             
             // Block display will be updated by roundResult, but initialize if we have data
             const blockStatusDisplay = document.getElementById('currentBlockDisplay');
             if (blockStatusDisplay && data.blockNumber) {
-                blockStatusDisplay.textContent = `${data.blockNumber}/3`;
+                blockStatusDisplay.textContent = `${data.blockNumber}/9`;
             } else if (blockStatusDisplay) {
                 blockStatusDisplay.textContent = '1/3';
             }
@@ -5815,6 +6018,22 @@ socket.on('yourTurn', function(data) {
         const totalTokens = data.initialWhiteTokens || TOKEN_CONFIG.CONDITIONS_TOKENS;
         updateTokenPoolDisplay(data.whiteTokensRemaining, totalTokens);
         console.log('🎯 yourTurn: Token pool updated:', data.whiteTokensRemaining, '/', totalTokens);
+    }
+
+    // For moderators: update LED tracker based on yourTurn data (contains incentive + player)
+    if (data.isModerator && data.round && data.incentive) {
+        console.log('🎯 yourTurn: updating moderator LED tracker');
+        try {
+            applyExperimentStatusToLEDs({
+                phase: data.condition ? data.condition.name : '',
+                round: data.round,
+                incentive: data.incentive,
+                player: data.player || null,
+                tokens: data.whiteTokensRemaining
+            });
+        } catch (e) {
+            console.warn('🎯 yourTurn: LED update failed', e);
+        }
     }
     
     // Final gameDiv protection at yourTurn end
@@ -5946,31 +6165,118 @@ let conditionTracker = {
     playerCounts: {}
 };
 
-function initializeConditionTracker() {
-    // Reset tracker for new block
-    conditionTracker.occurrences = {};
-    conditionTracker.playerCounts = {};
+function initializeConditionTracker(newBlockNumber) {
+    // If called with a block number, only reset when block changes
+    if (typeof newBlockNumber !== 'undefined') {
+        if (conditionTracker.currentBlock === newBlockNumber) {
+            // already initialized for this block — do not clear LEDs
+            return;
+        }
+        conditionTracker.currentBlock = newBlockNumber;
+        conditionTracker.occurrences = {};
+        conditionTracker.playerCounts = {};
+    } else {
+        // No explicit new block number provided: do not clear DOM state if tracker already initialized
+        if (conditionTracker && conditionTracker.currentBlock) {
+            // Already initialized; just ensure internal structures are present
+            conditionTracker.occurrences = conditionTracker.occurrences || {};
+            conditionTracker.playerCounts = conditionTracker.playerCounts || {};
+        } else {
+            // First-time initialization
+            conditionTracker.occurrences = {};
+            conditionTracker.playerCounts = {};
+        }
+    }
+    // Build playerLEDSlots keyed by actual player usernames when available
+    conditionTracker.playerLEDSlots = {};
+    const triad = window.triadPositions || {};
+    const playerNames = Object.values(triad).filter(n => !!n);
+    if (playerNames.length === 3) {
+        playerNames.forEach(name => {
+            conditionTracker.playerLEDSlots[name] = { none: 0, sc: 0, imp: 0 };
+        });
+        // Remap DOM data-player attributes from A/B/C to real usernames
+        const ledItems = document.querySelectorAll('.led-item');
+        ledItems.forEach(item => {
+            const dp = item.getAttribute('data-player');
+            if (dp && triad[dp]) {
+                const username = triad[dp];
+                item.setAttribute('data-player', username);
+                // Update title for clarity
+                const title = item.getAttribute('title') || '';
+                item.setAttribute('title', title.replace(/Player [ABC]/, username));
+            }
+        });
+    } else {
+        // Fallback: keep A/B/C if mapping not ready
+        conditionTracker.playerLEDSlots = {
+            A: { none: 0, sc: 0, imp: 0 },
+            B: { none: 0, sc: 0, imp: 0 },
+            C: { none: 0, sc: 0, imp: 0 }
+        };
+    }
+    // Set to track processed updates to avoid duplicate illumination
+    conditionTracker.processedUpdates = conditionTracker.processedUpdates || new Set();
+    // Pending updates keyed by `${block}:${round}` -> array of update objects
+    conditionTracker.pendingUpdates = conditionTracker.pendingUpdates || new Map();
     
-    // Reset all LEDs to off state
-    const allLEDs = document.querySelectorAll('.led-indicator');
-    allLEDs.forEach(led => {
-        led.className = 'led-indicator off';
-    });
-    
-    // Reset all player counters
-    const allCounters = document.querySelectorAll('.player-counter .count');
-    allCounters.forEach(counter => {
-        counter.textContent = '0';
-    });
-    
-    // Remove active state from player counters
-    const allPlayerCounters = document.querySelectorAll('.player-counter');
-    allPlayerCounters.forEach(counter => {
-        counter.classList.remove('active');
-    });
-    
-    console.log('🔵 LED Condition Tracker initialized for new block');
+    // Reset all player-grid LEDs to off state only when we've done a real block reset
+    if (typeof newBlockNumber !== 'undefined') {
+        const allLEDs = document.querySelectorAll('#playerLEDArray .led-grid .led-indicator');
+        allLEDs.forEach(led => {
+            led.className = 'led-indicator off';
+        });
+    }
+
+    // Leave leftmost 'none' LEDs off by default (they'll illuminate when assignments occur)
 }
+
+function removeExistingHalos(fadeMs = 800) {
+    const groups = document.querySelectorAll('.led-player-group.halo');
+    groups.forEach(g => {
+        // add fade class to animate removal
+        g.classList.add('halo-fade');
+        // remove halo classes after fade
+            setTimeout(() => {
+            g.classList.remove('halo', 'halo-green', 'halo-yellow', 'halo-white');
+            g.classList.remove('halo-fade');
+        }, fadeMs);
+    });
+}
+
+// Utility: remap DOM LED items from A/B/C to actual usernames when triad mapping available
+window.remapLEDs = function() {
+    try {
+        const triad = window.triadPositions || {};
+        const ledItems = document.querySelectorAll('.led-item');
+        ledItems.forEach(item => {
+            const dp = item.getAttribute('data-player');
+            if (dp && triad[dp]) {
+                const username = triad[dp];
+                item.setAttribute('data-player', username);
+                const title = item.getAttribute('title') || '';
+                item.setAttribute('title', title.replace(/Player [ABC]/, username));
+            }
+        });
+
+        // Update labels in order
+        const groups = document.querySelectorAll('.led-player-group');
+        const letters = ['A','B','C'];
+        groups.forEach((g, idx) => {
+            const lbl = g.querySelector('.led-group-label');
+            const name = triad[letters[idx]] || (`Player ${letters[idx]}`);
+            if (lbl) lbl.textContent = name;
+        });
+        // Reinitialize condition tracker so playerLEDSlots are keyed by usernames
+        try {
+            initializeConditionTracker();
+        } catch (e) {
+            console.warn('Could not initialize condition tracker after remap', e);
+        }
+    } catch (e) {
+        console.warn('🔀 remapLEDs failed', e);
+    }
+};
 
 // Test function for debugging player counter creation
 function debugPlayerCounterState(playerName, conditionKey) {
@@ -6172,13 +6478,7 @@ function createDynamicPlayerCounter(conditionKey, playerName) {
 }
 
 function updateConditionLED(condition, round, blockNumber, player) {
-    console.log(`🔍 updateConditionLED called with:`, {
-        condition: condition,
-        round: round,
-        blockNumber: blockNumber,
-        player: player,
-        playerType: typeof player
-    });
+    // Guarded debug suppressed in normal operation
     
     // Only track conditions mode (not baseline)
     if (!condition || condition === 'Baseline') {
@@ -6186,224 +6486,122 @@ function updateConditionLED(condition, round, blockNumber, player) {
         return;
     }
     
-    // Skip tracking for moderators - check if this player is the moderator
+    // Skip tracking for moderators
     const moderatorDiv = document.getElementById('moderatorPosition');
     const moderatorNameDiv = moderatorDiv?.querySelector('.moderator-name');
     const currentModerator = moderatorNameDiv?.textContent;
-    
-    // Also check if we have stored moderator information from playersInRoom
     const storedUsername = localStorage.getItem('username');
     const effectiveUsername = currentUsername || storedUsername;
     const isPlayerTheModerator = (player === effectiveUsername && window.currentUserIsModerator);
-    
-    console.log(`🔍 Moderator check debug:`, {
-        player: player,
-        moderatorDiv: !!moderatorDiv,
-        moderatorNameDiv: !!moderatorNameDiv,
-        currentModerator: currentModerator,
-        storedUsername: storedUsername,
-        effectiveUsername: effectiveUsername,
-        isPlayerTheModerator: isPlayerTheModerator,
-        currentUserIsModerator: window.currentUserIsModerator,
-        isDOMMatch: player === currentModerator,
-        shouldSkip: (player && currentModerator && player === currentModerator) || isPlayerTheModerator
-    });
     
     if ((player && currentModerator && player === currentModerator) || isPlayerTheModerator) {
         console.log(`🚫 Skipping LED update - ${player} is the moderator, not a participant`);
         return;
     }
     
-    // Convert display name to constant name for HTML data attributes
-    let conditionKey;
-    console.log(`🔍 Condition matching debug: received="${condition}" (length: ${condition ? condition.length : 0})`);
-    switch(condition) {
+    // Use player username or letter directly
+    const playerName = player;
+    if (!playerName) {
+        console.warn(`⚠️ No player provided for LED update (condition=${condition})`);
+        // allow processing for 'none' (global) updates which target the separate NONE row
+    }
+    // Determine which key to use for playerLEDSlots: username or triad letter
+    // Resolve which key to use in playerLEDSlots and which selector to prefer
+    let playerKey = null;
+    let resolvedUsername = null;
+    const triad = window.triadPositions || {};
+    if (playerName && conditionTracker.playerLEDSlots[playerName]) {
+        playerKey = playerName;
+        resolvedUsername = playerName;
+    } else if (playerName && /^(A|B|C)$/.test(playerName) && conditionTracker.playerLEDSlots[playerName]) {
+        playerKey = playerName;
+    } else if (playerName) {
+        // try to find letter mapping for this username
+        for (const [letter, uname] of Object.entries(triad)) {
+            if (uname === playerName) {
+                resolvedUsername = uname;
+                if (conditionTracker.playerLEDSlots[uname]) {
+                    playerKey = uname;
+                } else if (conditionTracker.playerLEDSlots[letter]) {
+                    playerKey = letter;
+                }
+                break;
+            }
+        }
+    }
+    // If still missing, try to fall back to letters A/B/C if any exist
+    if (!playerKey) {
+        ['A','B','C'].some(l => { if (conditionTracker.playerLEDSlots[l]) { playerKey = l; return true; } return false; });
+    }
+    // If no playerKey and not a NONE update, there's nothing to do
+    // (for NONE updates we proceed to target the global NONE row below)
+    // continue execution
+    
+    // Normalize condition (server may send enum keys like HIGH_CULTURANT)
+    const CONDITION_MAP = {
+        'HIGH_CULTURANT': 'High Culturant',
+        'HIGH_OPERANT': 'High Operant',
+        'EQUAL_CULTURANT_OPERANT': 'Equal Culturant–Operant'
+    };
+    let normalizedCondition = condition;
+    if (typeof condition === 'string') {
+        if (CONDITION_MAP[condition]) {
+            normalizedCondition = CONDITION_MAP[condition];
+        } else {
+            const keyForm = condition.toUpperCase().replace(/\s+/g, '_');
+            if (CONDITION_MAP[keyForm]) normalizedCondition = CONDITION_MAP[keyForm];
+        }
+    }
+
+    // Determine incentive type from normalized condition
+    let incentiveType;
+    switch(normalizedCondition) {
         case 'High Culturant':
-            conditionKey = 'HIGH_CULTURANT';
-            console.log(`✅ Matched High Culturant → ${conditionKey}`);
+            incentiveType = 'sc'; // Self Control
             break;
         case 'High Operant':
-            conditionKey = 'HIGH_OPERANT';
-            console.log(`✅ Matched High Operant → ${conditionKey}`);
+            incentiveType = 'imp'; // Impulse
             break;
         case 'Equal Culturant–Operant':
-            conditionKey = 'EQUAL_CULTURANT_OPERANT';
-            console.log(`✅ Matched Equal Culturant–Operant → ${conditionKey}`);
+            incentiveType = 'none'; // No incentive
             break;
         default:
-            console.warn(`⚠️ Unknown condition: "${condition}" (chars: ${condition ? Array.from(condition).map(c => `${c}(${c.charCodeAt(0)})`).join(' ') : 'null'})`);
+            console.warn(`⚠️ Unknown condition: "${condition}" (normalized: "${normalizedCondition}")`);
             return;
     }
     
+    // Deduplicate updates: only process each block:round once per target (player or NONE)
+    let updateKey;
+    if (incentiveType === 'none') {
+        updateKey = `${blockNumber}:${round}:NONE:${normalizedCondition}`;
+    } else {
+        updateKey = `${blockNumber}:${round}:${playerName}:${normalizedCondition}`;
+    }
+    if (conditionTracker.processedUpdates && conditionTracker.processedUpdates.has(updateKey)) {
+        console.log(`⏭️ Skipping duplicate LED update for ${updateKey}`);
+        return;
+    }
+
     // Reset tracker if new block started
     if (blockNumber && blockNumber !== conditionTracker.currentBlock) {
         conditionTracker.currentBlock = blockNumber;
         initializeConditionTracker();
     }
     
-    // Initialize condition tracking if not exists
-    if (!conditionTracker.occurrences[conditionKey]) {
-        conditionTracker.occurrences[conditionKey] = {};
-    }
-    if (!conditionTracker.playerCounts[conditionKey]) {
-        conditionTracker.playerCounts[conditionKey] = {};
-    }
-    
-    // For conditions mode, each condition gets exactly 21 rounds per block
-    // The round number should be 1-21 within each condition, not global
-    let conditionRound = round;
-    
-    // If this is a global round number > 21, we need to calculate which round within this condition
-    if (typeof round === 'number') {
-        // In a 63-round block: rounds 1-21 = condition 1, rounds 22-42 = condition 2, rounds 43-63 = condition 3
-        // But we don't know which condition this is, so we'll use a different approach
-        // We'll just track each unique round-condition pair once
-        conditionRound = round;
-    }
-    
-    // Create a unique key for this condition-round pair within the block
-    const uniqueKey = `${conditionKey}-${conditionRound}`;
-    
-    // Check if we've already processed this exact condition-round combination
-    if (conditionTracker.occurrences[conditionKey][uniqueKey]) {
-        console.warn(`⚠️ Duplicate processing detected for ${condition} round ${conditionRound} - skipping to prevent false error`);
-        return;
-    }
-    
-    // Mark this condition-round as processed
-    conditionTracker.occurrences[conditionKey][uniqueKey] = 1;
-    
-    // Calculate which LED position to light (1-7 for each condition)
-    // We need to determine which of the 7 LEDs within this condition to light
-    // For now, we'll use a simple counter approach
-    const processedRounds = Object.keys(conditionTracker.occurrences[conditionKey]).length;
-    const ledPosition = Math.min(processedRounds, 7); // Cap at 7 LEDs per condition
-    
-    // Update player count
-    const playerKey = player || 'None';
-    
-    console.log(`🔍 LED Update Debug DETAILED:`);
-    console.log(`   condition: "${condition}"`);
-    console.log(`   player: "${player}" (type: ${typeof player})`);
-    console.log(`   playerKey: "${playerKey}" (type: ${typeof playerKey})`);
-    console.log(`   conditionKey: "${conditionKey}"`);
-    console.log(`🔍 conditionTracker.playerCounts:`, conditionTracker.playerCounts);
-    
-    // Create dynamic player counter if it doesn't exist (including 'None')
-    if (!conditionTracker.playerCounts[conditionKey][playerKey]) {
-        conditionTracker.playerCounts[conditionKey][playerKey] = 0;
-        console.log(`🆕 Initializing counter for ${playerKey} in ${conditionKey}`);
-        
-        // For 'None', check if static counter exists, otherwise create dynamic counter
-        if (playerKey === 'None') {
-            const existingNoneCounter = document.querySelector(`[data-player="None"][data-condition="${conditionKey}"]`);
-            if (existingNoneCounter) {
-                console.log(`✅ Found existing static None counter for ${conditionKey}`);
-                // Make sure it's visible (it should be by default, but just in case)
-                existingNoneCounter.style.display = 'inline-block';
-            } else {
-                console.log(`🆕 Creating dynamic None counter for ${conditionKey}`);
-                const success = createDynamicPlayerCounter(conditionKey, playerKey);
-                console.log(`🆕 Counter creation result for ${playerKey}: ${success}`);
-            }
-        } else {
-            // For regular players, always try to create dynamic counter
-            const success = createDynamicPlayerCounter(conditionKey, playerKey);
-            console.log(`🆕 Counter creation result for ${playerKey}: ${success}`);
-            if (!success) {
-                console.warn(`⚠️ Failed to create counter for ${playerKey} in ${conditionKey} - no available placeholders`);
-            }
-        }
-    }
-    
-    // Increment player count
-    if (conditionTracker.playerCounts[conditionKey][playerKey] !== undefined) {
-        const oldCount = conditionTracker.playerCounts[conditionKey][playerKey];
-        conditionTracker.playerCounts[conditionKey][playerKey]++;
-        const newCount = conditionTracker.playerCounts[conditionKey][playerKey];
-        console.log(`📊 Updated counter: ${playerKey} in ${conditionKey}: ${oldCount} → ${newCount}`);
-        
-        // Update player counter display
-        const playerCounterSelector = `[data-player="${playerKey}"][data-condition="${conditionKey}"] .count`;
-        console.log(`🎯 Looking for counter element with selector: ${playerCounterSelector}`);
-        
-        const playerCounterElement = document.querySelector(playerCounterSelector);
-        if (playerCounterElement) {
-            const oldValue = playerCounterElement.textContent;
-            playerCounterElement.textContent = newCount;
-            console.log(`✅ Updated counter display for ${playerKey}: ${oldValue} → ${newCount}`);
-            
-            // Add visual feedback for the update
-            playerCounterElement.style.fontWeight = 'bold';
-            playerCounterElement.style.color = '#4CAF50';
-            setTimeout(() => {
-                playerCounterElement.style.fontWeight = '';
-                playerCounterElement.style.color = '';
-            }, 1000);
-        } else {
-            console.error(`❌ Counter element not found for ${playerKey} in ${conditionKey}`);
-            
-            // Call debug function to analyze the issue
-            debugPlayerCounterState(playerKey, conditionKey);
-            
-            // Enhanced debugging: Check what elements exist
-            console.log(`🔍 Debug: Looking for elements with data-player="${playerKey}"`);
-            const playerElements = document.querySelectorAll(`[data-player="${playerKey}"]`);
-            console.log(`🔍 Found ${playerElements.length} elements with data-player="${playerKey}":`, 
-                Array.from(playerElements).map(el => ({
-                    tagName: el.tagName,
-                    dataCondition: el.getAttribute('data-condition'),
-                    innerHTML: el.innerHTML,
-                    classes: el.className
-                }))
-            );
-            
-            console.log(`🔍 Debug: Looking for elements with data-condition="${conditionKey}"`);
-            const conditionElements = document.querySelectorAll(`[data-condition="${conditionKey}"]`);
-            console.log(`🔍 Found ${conditionElements.length} elements with data-condition="${conditionKey}":`,
-                Array.from(conditionElements).map(el => ({
-                    tagName: el.tagName,
-                    dataPlayer: el.getAttribute('data-player'),
-                    innerHTML: el.innerHTML,
-                    classes: el.className
-                }))
-            );
-            
-            // Try alternative selectors
-            const altSelector1 = `[data-condition="${conditionKey}"][data-player="${playerKey}"] .count`;
-            const altElement1 = document.querySelector(altSelector1);
-            console.log(`🔍 Alternative selector "${altSelector1}" found:`, !!altElement1);
-            
-            if (altElement1) {
-                altElement1.textContent = newCount;
-                console.log(`✅ Updated counter using alternative selector!`);
-            }
-        }
-        
-        // Highlight current player
-        const allPlayerCounters = document.querySelectorAll(`[data-condition="${conditionKey}"] .player-counter`);
-        allPlayerCounters.forEach(counter => counter.classList.remove('active'));
-        
-        const currentPlayerCounter = document.querySelector(
-            `[data-player="${playerKey}"][data-condition="${conditionKey}"]`
-        );
-        if (currentPlayerCounter) {
-            currentPlayerCounter.classList.add('active');
-        }
-    }
-    
-    // Find the LED element for this condition and LED position
-    const ledElement = document.querySelector(
-        `[data-condition="${conditionKey}"][data-round="${ledPosition}"] .led-indicator`
-    );
-    
-    if (ledElement) {
-        // Always show green for normal processing (no duplicates since we prevent them above)
-        ledElement.className = 'led-indicator green';
-        console.log(`🟢 LED updated: ${condition} position ${ledPosition} - Normal occurrence (Player ${playerKey})`);
-    } else {
-        console.warn(`⚠️ LED not found for condition: ${conditionKey}, position: ${ledPosition}`);
-    }
+    // Enqueue update to be processed by the authoritative experiment status handler (Map keyed by block:round)
+    conditionTracker.pendingUpdates = conditionTracker.pendingUpdates || new Map();
+    const pendingKey = `${blockNumber}:${round}`;
+    const list = conditionTracker.pendingUpdates.get(pendingKey) || [];
+    list.push({
+        incentiveType,
+        player: playerName || 'NONE',
+        round: round,
+        blockNumber: blockNumber,
+        normalizedCondition: normalizedCondition
+    });
+    conditionTracker.pendingUpdates.set(pendingKey, list);
+    // Do not mark processed yet; it will be marked when the status update applies the LED
+    return;
 }
 
 // Function to update experimental HUD with condition and incentive information
@@ -6433,12 +6631,10 @@ function updateExperimentalHUD(data) {
         }
     }
     
-    // Update assigned player if applicable
-    if (data.player) {
-        const playerDisplay = document.getElementById('assignedPlayer');
-        if (playerDisplay) {
-            playerDisplay.textContent = `Player: ${data.player}`;
-        }
+    // Update assigned player (show 'No Player' when undefined)
+    const playerDisplay = document.getElementById('assignedPlayer');
+    if (playerDisplay) {
+        playerDisplay.textContent = `Player: ${data.player || 'NONE'}`;
     }
     
     // Check if current user is moderator
@@ -6488,13 +6684,13 @@ function updateExperimentalHUD(data) {
         conditionStatusDisplay.textContent = data.condition;
     }
     
-    // Update current round display with round count in block (x/63 format)
+    // Update current round display with round count in block (x/21 format)
     const roundDisplay = document.getElementById('currentRoundDisplay');
     if (roundDisplay) {
         if (data.blockNumber) {
-            // Calculate round within current block (1-63)
-            const roundInBlock = ((data.round - 1) % 63) + 1;
-            roundDisplay.textContent = `${roundInBlock}/63`;
+            // Calculate round within current block (1-21)
+            const roundInBlock = ((data.round - 1) % 21) + 1;
+            roundDisplay.textContent = `${roundInBlock}/21`;
         } else {
             roundDisplay.textContent = `Round ${data.round || 0}`;
         }
@@ -6506,7 +6702,7 @@ function updateExperimentalHUD(data) {
         if (data.player && data.incentive !== 'No Incentive') {
             incentivePlayerDisplay.textContent = `${data.player} (${data.incentiveDisplay || data.incentive})`;
         } else {
-            incentivePlayerDisplay.textContent = 'None';
+            incentivePlayerDisplay.textContent = 'NONE';
         }
     }
     
@@ -6514,7 +6710,7 @@ function updateExperimentalHUD(data) {
     const blockStatusDisplay = document.getElementById('currentBlockDisplay');
     if (blockStatusDisplay) {
         if (data.blockNumber) {
-            blockStatusDisplay.textContent = `${data.blockNumber}/3`;
+            blockStatusDisplay.textContent = `${data.blockNumber}/9`;
         } else {
             blockStatusDisplay.textContent = 'N/A';
         }
@@ -7056,23 +7252,29 @@ function initializePlayerNamesInTracker(players) {
     const moderatorDiv = document.getElementById('moderatorPosition');
     const moderatorNameDiv = moderatorDiv?.querySelector('.moderator-name');
     const currentModerator = moderatorNameDiv?.textContent;
-    
+
+    // Normalize player identity: prefer `username`, fallback to `name`
+    const normalizedPlayers = players.map(p => ({
+        username: p.username || p.name || p.id || String(p),
+        isModerator: !!p.isModerator
+    }));
+
     // Filter to get only actual participants (not moderators)
-    const actualParticipants = players.filter(player => {
-        const isModerator = player.isModerator || player.name === currentModerator;
+    const actualParticipants = normalizedPlayers.filter(player => {
+        const isModerator = player.isModerator || player.username === currentModerator;
         if (isModerator) {
-            console.warn(`🚫 FILTERED OUT: Moderator "${player.name}" excluded from LED tracker`);
+            console.warn(`🚫 FILTERED OUT: Moderator "${player.username}" excluded from LED tracker`);
             return false;
         }
         return true;
     });
-    
-    console.log(`✅ Found ${actualParticipants.length} actual participants:`, actualParticipants.map(p => p.name));
-    
+
+    console.log(`✅ Found ${actualParticipants.length} actual participants:`, actualParticipants.map(p => p.username));
+
     // Map up to 3 actual participants (not just first 3 positions)
     actualParticipants.slice(0, 3).forEach((player, index) => {
-        playerNameMapping.set(player.name, player.name);
-        console.log(`🔗 Mapped participant ${index + 1}: ${player.name}`);
+        playerNameMapping.set(player.username, player.username);
+        console.log(`🔗 Mapped participant ${index + 1}: ${player.username}`);
     });
     
     // Initialize all player counters for all conditions using REAL participant names
@@ -7080,9 +7282,9 @@ function initializePlayerNamesInTracker(players) {
     
     allConditions.forEach(conditionKey => {
         actualParticipants.slice(0, 3).forEach((player, index) => {
-            const success = createDynamicPlayerCounter(conditionKey, player.name);
+            const success = createDynamicPlayerCounter(conditionKey, player.username);
             if (!success) {
-                console.error(`❌ Failed to create counter for ${player.name} in ${conditionKey}`);
+                console.error(`❌ Failed to create counter for ${player.username} in ${conditionKey}`);
             }
         });
     });
@@ -7188,7 +7390,7 @@ socket.on('conditionUpdate', function(data) {
         const condition = data.condition || '';
         const round = data.round || 0;
         const blockNumber = data.blockNumber || 0;
-        const playerName = data.player || 'None';  // Simplified - use data.player directly
+        const playerName = data.player || 'NONE';  // Treat undefined player as 'NONE'
         
         console.log(`🔍 conditionUpdate LED processing DETAILED:`);
         console.log(`   data.player: "${data.player}" (type: ${typeof data.player})`);
@@ -7425,49 +7627,15 @@ document.addEventListener('DOMContentLoaded', function() {
     loginButton = document.getElementById('loginNav');
     console.log('🔍 Login button found during init:', !!loginButton);
     if (loginButton) {
-        console.log('🔍 Login button initial display style:', loginButton.style.display);
-        console.log('🔍 Login button computed display:', window.getComputedStyle(loginButton).display);
-        
-        // Add click event handler to open login modal
-        loginButton.addEventListener('click', function(e) {
-            e.preventDefault();
-            console.log('🔑 Login button clicked - opening modal');
-            const modal = document.getElementById('id01');
-            if (modal) {
-                modal.style.display = 'block';
-                
-                // Reinitialize login elements after modal is shown
-                setTimeout(() => {
-                    console.log('🔑 Reinitializing login elements after modal open');
-                    const signDivUsername = document.getElementById('username');
-                    const signDivPassword = document.getElementById('password');
-                    const signDivSignIn = document.getElementById('signIn');
-                    
-                    console.log('🔑 Elements found:');
-                    console.log('  - username:', !!signDivUsername);
-                    console.log('  - password:', !!signDivPassword);
-                    console.log('  - signIn:', !!signDivSignIn);
-                    
-                    // Focus on username input
-                    if (signDivUsername) {
-                        signDivUsername.focus();
-                    }
-                    
-                    // Setup event listeners for sign in button
-                    if (signDivSignIn && !signDivSignIn.hasAttribute('data-handler-added')) {
-                        signDivSignIn.addEventListener('click', handleSignIn);
-                        signDivSignIn.addEventListener('touchend', handleSignIn, { passive: false });
-                        signDivSignIn.setAttribute('data-handler-added', 'true');
-                        console.log('🔑 Event handlers added to sign in button');
-                    }
-                }, 100);
-            } else {
-                console.error('❌ Login modal not found!');
-            }
-        });
-        
-        console.log('🔑 Login button event handler added');
+        console.log('🔍 Login button display:', loginButton.style.display);
+        console.log('🔍 Login button computed:', window.getComputedStyle(loginButton).display);
+        console.log('🔍 Login button visible:', loginButton.offsetParent !== null);
+    } else {
+        console.error('❌ CRITICAL: Login button (#loginNav) not found in DOM!');
     }
+    
+    // Note: Login button click handlers are set up later in the initialization sequence
+    // (see mobile and desktop event handlers below)
     
     // Clean initialization - header should work with normal CSS now
     console.log('🔧 Header initialized with normal CSS styling');
@@ -7565,6 +7733,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
     if (loginButton) {
         console.log('🔑 Primary login button found - adding click and touch support');
+        console.log('🔑 Button element:', loginButton);
+        console.log('🔑 Button parent:', loginButton.parentElement);
+        console.log('🔑 Button offsetParent:', loginButton.offsetParent);
         
         let touchStartedOnLogin = false;
         
@@ -7592,6 +7763,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     loginModal.style.display = 'block';
                     const usernameInput = document.getElementById('username');
                     if (usernameInput) usernameInput.focus();
+                } else {
+                    console.error('❌ Login modal (id01) not found!');
                 }
                 
                 touchStartedOnLogin = false;
@@ -7610,16 +7783,30 @@ document.addEventListener('DOMContentLoaded', function() {
         // Click handler for desktop (works alongside touchend for mobile)
         loginButton.addEventListener('click', function(event) {
             console.log('🖱️ Click on primary login button');
+            console.log('🖱️ Event:', event);
+            console.log('🖱️ Target:', event.target);
+            console.log('🖱️ CurrentTarget:', event.currentTarget);
             event.preventDefault();
+            event.stopPropagation();
+            
             const loginModal = document.getElementById('id01');
+            console.log('🖱️ Modal found:', !!loginModal);
             if (loginModal) {
+                console.log('🖱️ Opening modal...');
                 loginModal.style.display = 'block';
                 const usernameInput = document.getElementById('username');
-                if (usernameInput) usernameInput.focus();
+                if (usernameInput) {
+                    setTimeout(() => usernameInput.focus(), 100);
+                }
+                console.log('✅ Modal should now be visible');
             } else {
                 console.error('❌ Login modal (id01) not found!');
             }
         });
+        
+        console.log('✅ Login button event handlers attached successfully');
+    } else {
+        console.error('❌ CRITICAL: loginButton is null, cannot attach event handlers');
     }
 
     // Set up logout button (legacy - now in profile menu)
@@ -9419,7 +9606,25 @@ socket.on('turnUpdate', function(data) {
     
     // Update global active player tracker
     currentActivePlayer = data.currentTurnPlayer;
+    // Track current round for LED processing logic
+    window.currentRound = data.round;
     console.log(`🎯 Set currentActivePlayer to: ${currentActivePlayer}`);
+    // Illuminate moderator round indicator at the start of a new round
+    try {
+        window._lastRoundNumber = window._lastRoundNumber === undefined ? -1 : window._lastRoundNumber;
+        if (typeof data.round !== 'undefined' && data.round !== window._lastRoundNumber) {
+            window._lastRoundNumber = data.round;
+            const modInd = document.getElementById('modRoundIndicator');
+            if (modInd) {
+                modInd.className = 'led-indicator green';
+                setTimeout(() => { if (modInd) modInd.className = 'led-indicator off'; }, 1500);
+            }
+            // NOTE: LED updates are now handled directly by experimentStatusUpdate and yourTurn events.
+            // The old pending queue system has been removed in favor of direct parsing.
+        }
+    } catch (e) {
+        // non-fatal
+    }
     
     // Update turn display
     console.log('🎯 Calling updateTurnDisplay...');
@@ -12205,7 +12410,265 @@ socket.on('experimentStatusUpdate', function(data) {
     if (statusDisplay) {
         statusDisplay.textContent = `Phase: ${data.phase || 'Unknown'} | Tokens: ${data.tokens || 'Unknown'} | Round: ${data.round || 'Unknown'}`;
     }
+    // Centralized moderator status handling: update HUD and drive LED board changes
+    try {
+        // Update HUD elements consistently
+        updateExperimentalHUD(data);
+    } catch (e) {
+        console.warn('Could not update experimental HUD from status update', e);
+    }
+    // Only update LEDs if user is actually a moderator (check for LED board existence)
+    const ledBoard = document.getElementById('playerLEDArray');
+    if (ledBoard) {
+        try {
+            applyExperimentStatusToLEDs(data);
+        } catch (e) {
+            console.warn('Could not apply experiment status to LEDs', e);
+        }
+    }
 });
+
+// Apply the current experiment status to the LED board and tracker
+function applyExperimentStatusToLEDs(data) {
+    if (!conditionTracker) conditionTracker = {};
+    
+    // Track call counts per round for debugging
+    if (!conditionTracker.callCounts) conditionTracker.callCounts = {};
+    const callKey = `round${data.round}`;
+    conditionTracker.callCounts[callKey] = (conditionTracker.callCounts[callKey] || 0) + 1;
+    const callNumber = conditionTracker.callCounts[callKey];
+    
+    console.log(`LED TRACKER: ==== CALL #${callNumber} for round ${data.round} ====`);
+    console.log(`LED TRACKER: raw data ->`, JSON.stringify(data, null, 2));
+    
+    // Execution lock to prevent concurrent calls from lighting multiple LEDs
+    if (conditionTracker.isUpdating) {
+        console.log('LED TRACKER: update already in progress, skipping duplicate call');
+        return;
+    }
+    conditionTracker.isUpdating = true;
+    
+    try {
+        const phase = data.phase || '';
+        const round = data.round || 0;
+        const incentive = data.incentive || '';
+        const player = data.player || null;
+
+        console.log(`LED TRACKER: experimentStatusUpdate - round=${round}, incentive="${incentive}", player="${player}"`);
+
+        // Initialize appliedHistory if needed (but never reset it during normal gameplay)
+        if (!conditionTracker.appliedHistory) {
+            conditionTracker.appliedHistory = [];
+            conditionTracker.lastPhase = phase;
+            conditionTracker.currentBlock = null;
+            console.log('LED TRACKER: initialized appliedHistory');
+        }
+    
+        // Detect block transitions and reset LEDs for new block (every 21 rounds)
+        const blockNumber = data.blockNumber || Math.ceil(round / 21);
+        if (conditionTracker.currentBlock !== null && blockNumber !== conditionTracker.currentBlock && round > 1) {
+            try {
+                const allLEDs = document.querySelectorAll('#playerLEDArray .led-grid .led-indicator');
+                allLEDs.forEach(led => led.className = 'led-indicator off');
+                conditionTracker.appliedHistory = [];
+                console.log(`LED TRACKER: 🔄 BLOCK ${conditionTracker.currentBlock} → ${blockNumber} - Reset all LEDs for new block`);
+            } catch (e) { console.warn('LED TRACKER: block reset failed', e); }
+        }
+        conditionTracker.currentBlock = blockNumber;
+    
+        // Only reset LEDs when truly starting a new experiment (round 0 or 1 with empty history)
+        if (round <= 1 && conditionTracker.appliedHistory.length === 0) {
+            try {
+                const allLEDs = document.querySelectorAll('#playerLEDArray .led-grid .led-indicator');
+                allLEDs.forEach(led => led.className = 'led-indicator off');
+                console.log('LED TRACKER: reset all LEDs for new experiment start');
+            } catch (e) { console.warn('LED TRACKER: reset failed', e); }
+        }
+
+    // Keep the global current round in sync
+    if (typeof round !== 'undefined') {
+        window.currentRound = round;
+    }
+
+    // Direct LED application: parse experimentStatusUpdate data
+    // Determine incentiveType from incentive string
+    let incentiveType = null;
+    if (!incentive || incentive === 'No Incentive') {
+        incentiveType = 'none';
+    } else if (incentive.toLowerCase().includes('self control') || incentive.toLowerCase().includes('even')) {
+        incentiveType = 'sc'; // Even Row = Green
+    } else if (incentive.toLowerCase().includes('impulse') || incentive.toLowerCase().includes('odd')) {
+        incentiveType = 'imp'; // Odd Row = Yellow
+    } else {
+        incentiveType = 'none'; // fallback
+    }
+
+    // Determine target player
+    const targetPlayer = player || 'NONE';
+
+    console.log(`LED TRACKER: parsed -> incentiveType=${incentiveType}, targetPlayer=${targetPlayer}`);
+
+    // Build unique key for deduplication (exclude phase to catch duplicates across event sources)
+    const updateKey = `${round}:${targetPlayer}:${incentiveType}`;
+    conditionTracker.appliedHistory = conditionTracker.appliedHistory || [];
+    
+    // Check if already applied
+    const alreadyApplied = conditionTracker.appliedHistory.some(key => key === updateKey);
+    if (alreadyApplied) {
+        console.log(`LED TRACKER: already applied ${updateKey}, skipping to preserve lit LED`);
+        return;
+    }
+
+        // Apply the LED update
+        try {
+            lightIncentiveForTarget(incentiveType, targetPlayer, { round, phase });
+            conditionTracker.appliedHistory.push(updateKey);
+            console.log(`LED TRACKER: applied and recorded ${updateKey} (total applied: ${conditionTracker.appliedHistory.length})`);
+        } catch (e) {
+            console.warn('LED TRACKER: lightIncentiveForTarget failed', e);
+        }
+    } finally {
+        // Release lock
+        conditionTracker.isUpdating = false;
+    }
+}
+
+// Light an incentive indicator for a target (playerName or NONE)
+function lightIncentiveForTarget(incentiveType, playerName, dataContext = {}) {
+    console.log(`LED DEBUG: lightIncentiveForTarget called - incentiveType="${incentiveType}", playerName="${playerName}", round=${dataContext.round}`);
+    
+    try {
+        if (!conditionTracker) conditionTracker = {};
+        const round = dataContext.round || window.currentRound || 0;
+        const phase = dataContext.phase || conditionTracker.lastPhase || '';
+
+        // Validate incentiveType
+        if (!['sc', 'imp', 'none'].includes(incentiveType)) {
+            console.error(`LED TRACKER: invalid incentiveType "${incentiveType}", aborting`);
+            return;
+        }
+
+        let group = null;
+        if (incentiveType === 'none') {
+            group = document.querySelector('.led-player-group[data-player="NONE"]');
+        } else {
+            // Primary: find a led-item that was remapped to the username
+            const anyItem = document.querySelector(`.led-item[data-player="${playerName}"]`);
+            group = anyItem ? anyItem.closest('.led-player-group') : null;
+            // Fallback: match by the visible group label text if remapping hasn't occurred
+            if (!group) {
+                const groups = Array.from(document.querySelectorAll('.led-player-group'));
+                for (const g of groups) {
+                    try {
+                        const lbl = g.querySelector('.led-group-label');
+                        if (lbl && lbl.textContent && lbl.textContent.trim() === playerName) {
+                            group = g;
+                            break;
+                        }
+                    } catch (e) { continue; }
+                }
+            }
+        }
+        
+        if (!group) {
+            console.warn(`LED TRACKER: no LED group found for playerName="${playerName}", incentiveType="${incentiveType}"`);
+            return;
+        }
+        
+        const groupLabel = group.querySelector('.led-group-label')?.textContent?.trim() || 'unknown';
+        console.log(`LED DEBUG: found group for "${playerName}" (label: ${groupLabel}), looking for data-incentive="${incentiveType}"`);
+
+        // Choose indicators based on hard positions: left 3 are `sc`, right 3 are `imp`, middle/none handled via `none`.
+        // Select `.led-item` elements whose `data-incentive` matches the requested incentive, then map to `.led-indicator`.
+        const matchingItems = Array.from(group.querySelectorAll('.led-row .led-item'))
+            .filter(item => {
+                const di = item.getAttribute('data-incentive') || 'none';
+                return di === incentiveType;
+            });
+        
+        console.log(`LED DEBUG: found ${matchingItems.length} items with data-incentive="${incentiveType}"`);
+        
+        let indicators = matchingItems
+            .map(item => item.querySelector('.led-indicator'))
+            .filter(Boolean);
+
+        // Strict matching: if no indicators found for this incentive type, log error and abort
+        if (!indicators.length) {
+            console.error(`LED TRACKER: no LED slots with data-incentive="${incentiveType}" found for ${playerName}`);
+            return;
+        }
+
+        // Pick the next left-most OFF indicator inside the incentive segment (progressive fill left→right within that segment)
+        const target = indicators.find(ind => ind.className.indexOf('off') !== -1);
+        if (!target) {
+            console.warn(`LED TRACKER: no OFF indicators available for ${playerName} ${incentiveType} (all ${indicators.length} lit)`);
+            return;
+        }
+        
+        // CRITICAL: Verify we're only lighting ONE LED
+        const targetIndex = indicators.indexOf(target);
+        console.log(`LED DEBUG: selected target at index ${targetIndex} of ${indicators.length} indicators`);
+
+        // Determine color class
+        let colorClass = 'white';
+        if (incentiveType === 'sc') colorClass = 'green';
+        else if (incentiveType === 'imp') colorClass = 'yellow';
+
+        // Apply the color class to ONLY the single target - this should persist!
+        const beforeClass = target.className;
+        target.className = `led-indicator ${colorClass}`;
+        const afterClass = target.className;
+        
+        console.log(`LED DEBUG: lit SINGLE LED - before: "${beforeClass}" -> after: "${afterClass}" (player: ${playerName}, type: ${incentiveType}, color: ${colorClass})`);
+        
+        // Verify no other indicators in this segment were modified
+        const litCount = indicators.filter(ind => ind.className.indexOf('off') === -1).length;
+        console.log(`LED DEBUG: verification - ${litCount} of ${indicators.length} ${incentiveType} indicators now lit for ${playerName}`);
+
+    } catch (e) {
+        console.warn('lightIncentiveForTarget error', e);
+    }
+}
+
+// Process a pending update item (supports legacy {condition} objects and new {incentiveType})
+function processPendingItem(item, phase = '') {
+    if (!item) return;
+    // If item already has incentiveType, use it
+    if (item.incentiveType) {
+        lightIncentiveForTarget(item.incentiveType, item.player || 'NONE', { round: item.round, phase });
+        return;
+    }
+    // Legacy format: has `condition` string
+    const cond = item.condition || item.normalizedCondition || '';
+    if (!cond) {
+        console.warn('processPendingItem: no condition/incentiveType present', item);
+        return;
+    }
+    // Map condition -> incentiveType (duplicate logic from updateConditionLED)
+    const CONDITION_MAP = {
+        'HIGH_CULTURANT': 'High Culturant',
+        'HIGH_OPERANT': 'High Operant',
+        'EQUAL_CULTURANT_OPERANT': 'Equal Culturant–Operant'
+    };
+    let normalized = cond;
+    if (typeof cond === 'string') {
+        if (CONDITION_MAP[cond]) normalized = CONDITION_MAP[cond];
+        else {
+            const keyForm = cond.toUpperCase().replace(/\s+/g, '_');
+            if (CONDITION_MAP[keyForm]) normalized = CONDITION_MAP[keyForm];
+        }
+    }
+    let incentiveType = null;
+    switch (normalized) {
+        case 'High Culturant': incentiveType = 'sc'; break;
+        case 'High Operant': incentiveType = 'imp'; break;
+        case 'Equal Culturant–Operant': incentiveType = 'none'; break;
+        default:
+            console.warn('processPendingItem: unknown condition', normalized);
+            return;
+    }
+    lightIncentiveForTarget(incentiveType, item.player || 'NONE', { round: item.round, phase });
+}
 
 // Initialize switchboard functionality
 function initializeSwitchboardFunctions() {

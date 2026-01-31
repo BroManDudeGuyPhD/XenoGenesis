@@ -54,7 +54,8 @@ class DitherEffect {
         
         // Renderer setup - create canvas first with proper styling to prevent blink
         const canvas = document.createElement('canvas');
-        canvas.style.pointerEvents = 'auto';
+        // Don't capture pointer events so underlying UI (buttons, modals) remain clickable
+        canvas.style.pointerEvents = 'none';
         canvas.style.display = 'block';
         canvas.style.visibility = 'hidden'; // Start hidden until ready
         canvas.style.transition = 'none';
@@ -106,7 +107,7 @@ class DitherEffect {
             this.canvas.style.left = '-20px';
             this.canvas.style.width = 'calc(100vw + 40px)';
             this.canvas.style.height = 'calc(100vh + 40px)';
-            this.canvas.style.zIndex = '5'; // Above most content but below key UI
+            this.canvas.style.zIndex = '0'; // Visual only: don't overlay interactive UI
         } else {
             // Desktop: Use relative positioning to container
             this.canvas.style.position = 'absolute';
@@ -114,7 +115,7 @@ class DitherEffect {
             this.canvas.style.left = '0';
             this.canvas.style.width = '100%';
             this.canvas.style.height = '100%';
-            this.canvas.style.zIndex = '5'; // Above most content but below key UI
+            this.canvas.style.zIndex = '0'; // Visual only: don't overlay interactive UI
         }
         
         // Advanced vertex shader

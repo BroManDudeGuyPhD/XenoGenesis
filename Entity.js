@@ -3745,7 +3745,9 @@ Player.onGameStart = function(socket,username, progress, io, room, admin){
                     p.socket.emit('experimentStatusUpdate', {
                         phase: gameSession.experiment.phase || gameSession.experiment.mode,
                         tokens: newTokens,
-                        round: gameSession.currentRound
+                        round: gameSession.currentRound,
+                        incentive: gameSession.currentIncentive || 'No Incentive',
+                        player: gameSession.currentPlayer || null
                     });
                 }
             }

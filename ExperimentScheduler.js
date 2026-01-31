@@ -46,13 +46,12 @@ class ExperimentScheduler {
     }
 
     /**
-     * Generate a complete 21-round block with balanced distribution
-     * Each block contains:
-     * - 21 rounds total
-     * - Each player gets 7 assignments (21 / 3 players)
-     * - Per player: 3 Self Control, 3 Impulse, 1 None
-     * - 3 None incentives total (1 per player)
-     * - Conditions distributed across rounds
+     * Generate a complete 21-round block with balanced per-player distribution
+     * Creates a FIXED template where each player experiences each condition exactly:
+     * - High Culturant: 2-3 times per player
+     * - High Operant: 2-3 times per player  
+     * - Equal C-O: 2-3 times per player
+     * Total: 7 assignments per player, 21 rounds per block
      * 
      * @param {number} blockNumber - Block number for tracking
      * @returns {Array} Array of 21 round objects
@@ -60,53 +59,58 @@ class ExperimentScheduler {
     generateBlock(blockNumber) {
         const rounds = [];
         
-        // Create assignments for each player
+        // Define exact per-player distribution ensuring each player gets each condition
+        // Each player gets 7 assignments across 3 conditions (7/3 = 2.33, so 2-3 each)
+        // Player A: 3 HC, 2 HO, 2 EC-O | 3 SC, 3 Imp, 1 None
+        // Player B: 2 HC, 3 HO, 2 EC-O | 3 SC, 3 Imp, 1 None
+        // Player C: 2 HC, 2 HO, 3 EC-O | 3 SC, 3 Imp, 1 None
+        const playerAssignments = {
+            'A': [
+                // Player A: 3 HC, 2 HO, 2 EC-O
+                { condition: this.conditions.HIGH_CULTURANT, incentive: this.incentives.CULTURANT_INCENTIVE },
+                { condition: this.conditions.HIGH_CULTURANT, incentive: this.incentives.CULTURANT_INCENTIVE },
+                { condition: this.conditions.HIGH_CULTURANT, incentive: this.incentives.OPERANT_INCENTIVE },
+                { condition: this.conditions.HIGH_OPERANT, incentive: this.incentives.OPERANT_INCENTIVE },
+                { condition: this.conditions.HIGH_OPERANT, incentive: this.incentives.OPERANT_INCENTIVE },
+                { condition: this.conditions.EQUAL_CULTURANT_OPERANT, incentive: this.incentives.CULTURANT_INCENTIVE },
+                { condition: this.conditions.EQUAL_CULTURANT_OPERANT, incentive: this.incentives.NO_INCENTIVE }
+            ],
+            'B': [
+                // Player B: 2 HC, 3 HO, 2 EC-O
+                { condition: this.conditions.HIGH_CULTURANT, incentive: this.incentives.CULTURANT_INCENTIVE },
+                { condition: this.conditions.HIGH_CULTURANT, incentive: this.incentives.OPERANT_INCENTIVE },
+                { condition: this.conditions.HIGH_OPERANT, incentive: this.incentives.CULTURANT_INCENTIVE },
+                { condition: this.conditions.HIGH_OPERANT, incentive: this.incentives.OPERANT_INCENTIVE },
+                { condition: this.conditions.HIGH_OPERANT, incentive: this.incentives.OPERANT_INCENTIVE },
+                { condition: this.conditions.EQUAL_CULTURANT_OPERANT, incentive: this.incentives.CULTURANT_INCENTIVE },
+                { condition: this.conditions.EQUAL_CULTURANT_OPERANT, incentive: this.incentives.NO_INCENTIVE }
+            ],
+            'C': [
+                // Player C: 2 HC, 2 HO, 3 EC-O
+                { condition: this.conditions.HIGH_CULTURANT, incentive: this.incentives.OPERANT_INCENTIVE },
+                { condition: this.conditions.HIGH_CULTURANT, incentive: this.incentives.OPERANT_INCENTIVE },
+                { condition: this.conditions.HIGH_OPERANT, incentive: this.incentives.CULTURANT_INCENTIVE },
+                { condition: this.conditions.HIGH_OPERANT, incentive: this.incentives.CULTURANT_INCENTIVE },
+                { condition: this.conditions.EQUAL_CULTURANT_OPERANT, incentive: this.incentives.CULTURANT_INCENTIVE },
+                { condition: this.conditions.EQUAL_CULTURANT_OPERANT, incentive: this.incentives.OPERANT_INCENTIVE },
+                { condition: this.conditions.EQUAL_CULTURANT_OPERANT, incentive: this.incentives.NO_INCENTIVE }
+            ]
+        };
+        
+        // Build rounds from assignments
         this.players.forEach(player => {
-            // 3 Self Control incentives
-            for (let i = 0; i < this.INCENTIVES_PER_PLAYER_PER_TYPE; i++) {
+            playerAssignments[player].forEach(assignment => {
                 rounds.push({
                     player: player,
-                    incentive: this.incentives.CULTURANT_INCENTIVE,
-                    condition: null, // Will be assigned
+                    incentive: assignment.incentive,
+                    condition: assignment.condition,
                     blockNumber: blockNumber
                 });
-            }
-            
-            // 3 Impulse incentives
-            for (let i = 0; i < this.INCENTIVES_PER_PLAYER_PER_TYPE; i++) {
-                rounds.push({
-                    player: player,
-                    incentive: this.incentives.OPERANT_INCENTIVE,
-                    condition: null, // Will be assigned
-                    blockNumber: blockNumber
-                });
-            }
-            
-            // 1 None incentive
-            rounds.push({
-                player: player,
-                incentive: this.incentives.NO_INCENTIVE,
-                condition: null, // Will be assigned
-                blockNumber: blockNumber
             });
         });
         
         // Shuffle to randomize order within block
         const shuffledRounds = this.shuffleArray(rounds);
-        
-        // Assign conditions evenly (7 of each condition per block)
-        const conditionsArray = [];
-        Object.values(this.conditions).forEach(condition => {
-            for (let i = 0; i < 7; i++) {
-                conditionsArray.push(condition);
-            }
-        });
-        const shuffledConditions = this.shuffleArray(conditionsArray);
-        
-        // Assign conditions to rounds
-        shuffledRounds.forEach((round, index) => {
-            round.condition = shuffledConditions[index];
-        });
         
         return shuffledRounds;
     }

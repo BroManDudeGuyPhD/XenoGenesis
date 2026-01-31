@@ -151,7 +151,7 @@
                     <a href="#" class="nav-link">About</a>
                 </li> -->
                 <li class="nav-item">
-                    <button id="loginNav"><span>Login</span></button>
+                    <button id="loginNav" style="position: relative; z-index: 100000;" onclick="document.getElementById('id01').style.display='block';" ontouchend="document.getElementById('id01').style.display='block';"><span>Login</span></button>
                 </li>
                 <li class="nav-item profile-menu-container" style="display: none; position: relative;">
                     <button id="profileMenuBtn" style="
@@ -421,7 +421,7 @@
                 </div>
 
                 <div style="display: flex; gap: 12px; justify-content: center; margin-bottom: 20px;">
-                    <button type="button" id="signIn" style="
+                    <button type="button" id="signIn" onclick="handleSignIn(event)" ontouchend="handleSignIn(event)" style="
                         background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%) !important;
                         color: white !important;
                         padding: 16px 24px;
@@ -1453,11 +1453,11 @@
                                             </div>
                                             <div class="status-row">
                                                 <span class="status-label">Round:</span>
-                                                <span id="currentRoundDisplay" class="status-value">0/63</span>
+                                                <span id="currentRoundDisplay" class="status-value">0/21</span>
                                             </div>
                                             <div class="status-row">
                                                 <span class="status-label">Incentive Player:</span>
-                                                <span id="currentIncentivePlayerDisplay" class="status-value">None</span>
+                                                <span id="currentIncentivePlayerDisplay" class="status-value">NONE</span>
                                             </div>
                                             <div class="status-row">
                                                 <span class="status-label">Block:</span>
@@ -1466,187 +1466,127 @@
                                         </div>
                                     </div>
                                     
-                                    <!-- Condition Tracker LED Array -->
+                                    <!-- Player Progress Tracker LED Array -->
                                     <div class="control-group">
                                         <div class="control-label">
-                                            Condition Tracker 
-                                            <button class="info-btn mini" data-info="condition-tracker" title="Tracks progress through each 21-round block. Each condition appears 7 times per block. LEDs light up as rounds complete within the current block. LEDs reset at the start of each new block. Red indicates scheduling errors.">i</button>
+                                            Player Progress Tracker 
+                                            <button class="info-btn mini" data-info="player-tracker" title="Tracks each player's incentive assignments within the current block. Each player gets 7 assignments per block: 1 None (white), 3 Self Control (green), 3 Impulse (red). LEDs light up as assignments occur. Resets every 21 rounds.">i</button>
                                         </div>
-                                        <div id="conditionLEDArray" class="led-array-container">
+                                        <div id="playerLEDArray" class="led-array-container">
                                             <div class="led-array-header">
                                                 <div class="led-legend">
                                                     <span class="led-legend-item">
-                                                        <span class="led-indicator green"></span> Normal occurrence
+                                                        <span class="led-indicator white"></span> None
                                                     </span>
                                                     <span class="led-legend-item">
-                                                        <span class="led-indicator red"></span> ERROR - Duplicate!
+                                                        <span class="led-indicator green"></span> Self Control
                                                     </span>
                                                     <span class="led-legend-item">
-                                                        <span class="led-indicator off"></span> Not yet occurred
+                                                        <span class="led-indicator yellow"></span> Impulse
+                                                    </span>
+                                                    <span class="led-legend-item">
+                                                        <span class="led-indicator off"></span> Not yet assigned
                                                     </span>
                                                 </div>
                                             </div>
                                             <div class="led-grid">
-                                                <!-- High Culturant Condition (7 LEDs) -->
-                                                <div class="led-condition-group">
-                                                    <div class="led-group-label">High Culturant</div>
+                                                <!-- Player A (7 LEDs: 1 None + 3 SC + 3 Imp) -->
+                                                <div class="led-player-group">
+                                                    <div class="led-group-label">Player A</div>
                                                     <div class="led-row">
-                                                        <span class="led-item" data-condition="HIGH_CULTURANT" data-round="1" title="High Culturant - Round 1">
+                                                        <!-- Self Control (green) - 3 slots -->
+                                                        <span class="led-item" data-player="A" data-incentive="sc" data-slot="1" title="Player A - Self Control 1">
                                                             <span class="led-indicator off"></span>
-                                                            <span class="led-label">1</span>
                                                         </span>
-                                                        <span class="led-item" data-condition="HIGH_CULTURANT" data-round="2" title="High Culturant - Round 2">
+                                                        <span class="led-item" data-player="A" data-incentive="sc" data-slot="2" title="Player A - Self Control 2">
                                                             <span class="led-indicator off"></span>
-                                                            <span class="led-label">2</span>
                                                         </span>
-                                                        <span class="led-item" data-condition="HIGH_CULTURANT" data-round="3" title="High Culturant - Round 3">
+                                                        <span class="led-item" data-player="A" data-incentive="sc" data-slot="3" title="Player A - Self Control 3">
                                                             <span class="led-indicator off"></span>
-                                                            <span class="led-label">3</span>
                                                         </span>
-                                                        <span class="led-item" data-condition="HIGH_CULTURANT" data-round="4" title="High Culturant - Round 4">
+                                                        <!-- Impulse (yellow) - 3 slots -->
+                                                        <span class="led-item" data-player="A" data-incentive="imp" data-slot="1" title="Player A - Impulse 1">
                                                             <span class="led-indicator off"></span>
-                                                            <span class="led-label">4</span>
                                                         </span>
-                                                        <span class="led-item" data-condition="HIGH_CULTURANT" data-round="5" title="High Culturant - Round 5">
+                                                        <span class="led-item" data-player="A" data-incentive="imp" data-slot="2" title="Player A - Impulse 2">
                                                             <span class="led-indicator off"></span>
-                                                            <span class="led-label">5</span>
                                                         </span>
-                                                        <span class="led-item" data-condition="HIGH_CULTURANT" data-round="6" title="High Culturant - Round 6">
+                                                        <span class="led-item" data-player="A" data-incentive="imp" data-slot="3" title="Player A - Impulse 3">
                                                             <span class="led-indicator off"></span>
-                                                            <span class="led-label">6</span>
                                                         </span>
-                                                        <span class="led-item" data-condition="HIGH_CULTURANT" data-round="7" title="High Culturant - Round 7">
-                                                            <span class="led-indicator off"></span>
-                                                            <span class="led-label">7</span>
-                                                        </span>
-                                                    </div>
-                                                    <div class="player-counter-row">
-                                                        <span class="player-counter" data-player="None" data-condition="HIGH_CULTURANT" title="Rounds with no player incentive">None:<span class="count">0</span></span>
-                                                        <span class="player-counter dynamic-player" data-condition="HIGH_CULTURANT" title="Player A assignments will appear here" style="display: none;"></span>
-                                                        <span class="player-counter dynamic-player" data-condition="HIGH_CULTURANT" title="Player B assignments will appear here" style="display: none;"></span>
-                                                        <span class="player-counter dynamic-player" data-condition="HIGH_CULTURANT" title="Player C assignments will appear here" style="display: none;"></span>
                                                     </div>
                                                 </div>
                                                 
-                                                <!-- High Operant Condition (7 LEDs) -->
-                                                <div class="led-condition-group">
-                                                    <div class="led-group-label">High Operant</div>
+                                                <!-- Player B (7 LEDs: 1 None + 3 SC + 3 Imp) -->
+                                                <div class="led-player-group">
+                                                    <div class="led-group-label">Player B</div>
                                                     <div class="led-row">
-                                                        <span class="led-item" data-condition="HIGH_OPERANT" data-round="1" title="High Operant - Round 1">
+                                                        <!-- Self Control (green) - 3 slots -->
+                                                        <span class="led-item" data-player="B" data-incentive="sc" data-slot="1" title="Player B - Self Control 1">
                                                             <span class="led-indicator off"></span>
-                                                            <span class="led-label">1</span>
                                                         </span>
-                                                        <span class="led-item" data-condition="HIGH_OPERANT" data-round="2" title="High Operant - Round 2">
+                                                        <span class="led-item" data-player="B" data-incentive="sc" data-slot="2" title="Player B - Self Control 2">
                                                             <span class="led-indicator off"></span>
-                                                            <span class="led-label">2</span>
                                                         </span>
-                                                        <span class="led-item" data-condition="HIGH_OPERANT" data-round="3" title="High Operant - Round 3">
+                                                        <span class="led-item" data-player="B" data-incentive="sc" data-slot="3" title="Player B - Self Control 3">
                                                             <span class="led-indicator off"></span>
-                                                            <span class="led-label">3</span>
                                                         </span>
-                                                        <span class="led-item" data-condition="HIGH_OPERANT" data-round="4" title="High Operant - Round 4">
+                                                        <!-- Impulse (yellow) - 3 slots -->
+                                                        <span class="led-item" data-player="B" data-incentive="imp" data-slot="1" title="Player B - Impulse 1">
                                                             <span class="led-indicator off"></span>
-                                                            <span class="led-label">4</span>
                                                         </span>
-                                                        <span class="led-item" data-condition="HIGH_OPERANT" data-round="5" title="High Operant - Round 5">
+                                                        <span class="led-item" data-player="B" data-incentive="imp" data-slot="2" title="Player B - Impulse 2">
                                                             <span class="led-indicator off"></span>
-                                                            <span class="led-label">5</span>
                                                         </span>
-                                                        <span class="led-item" data-condition="HIGH_OPERANT" data-round="6" title="High Operant - Round 6">
+                                                        <span class="led-item" data-player="B" data-incentive="imp" data-slot="3" title="Player B - Impulse 3">
                                                             <span class="led-indicator off"></span>
-                                                            <span class="led-label">6</span>
                                                         </span>
-                                                        <span class="led-item" data-condition="HIGH_OPERANT" data-round="7" title="High Operant - Round 7">
-                                                            <span class="led-indicator off"></span>
-                                                            <span class="led-label">7</span>
-                                                        </span>
-                                                    </div>
-                                                    <div class="player-counter-row">
-                                                        <span class="player-counter" data-player="None" data-condition="HIGH_OPERANT" title="Rounds with no player incentive">None:<span class="count">0</span></span>
-                                                        <span class="player-counter dynamic-player" data-condition="HIGH_OPERANT" title="Player A assignments will appear here" style="display: none;"></span>
-                                                        <span class="player-counter dynamic-player" data-condition="HIGH_OPERANT" title="Player B assignments will appear here" style="display: none;"></span>
-                                                        <span class="player-counter dynamic-player" data-condition="HIGH_OPERANT" title="Player C assignments will appear here" style="display: none;"></span>
                                                     </div>
                                                 </div>
                                                 
-                                                <!-- Equal Culturant-Operant Condition (7 LEDs) -->
-                                                <div class="led-condition-group">
-                                                    <div class="led-group-label">Equal C-O</div>
+                                                <!-- Player C (7 LEDs: 1 None + 3 SC + 3 Imp) -->
+                                                <div class="led-player-group">
+                                                    <div class="led-group-label">Player C</div>
                                                     <div class="led-row">
-                                                        <span class="led-item" data-condition="EQUAL_CULTURANT_OPERANT" data-round="1" title="Equal Culturant-Operant - Round 1">
+                                                        <!-- Self Control (green) - 3 slots -->
+                                                        <span class="led-item" data-player="C" data-incentive="sc" data-slot="1" title="Player C - Self Control 1">
                                                             <span class="led-indicator off"></span>
-                                                            <span class="led-label">1</span>
                                                         </span>
-                                                        <span class="led-item" data-condition="EQUAL_CULTURANT_OPERANT" data-round="2" title="Equal Culturant-Operant - Round 2">
+                                                        <span class="led-item" data-player="C" data-incentive="sc" data-slot="2" title="Player C - Self Control 2">
                                                             <span class="led-indicator off"></span>
-                                                            <span class="led-label">2</span>
                                                         </span>
-                                                        <span class="led-item" data-condition="EQUAL_CULTURANT_OPERANT" data-round="3" title="Equal Culturant-Operant - Round 3">
+                                                        <span class="led-item" data-player="C" data-incentive="sc" data-slot="3" title="Player C - Self Control 3">
                                                             <span class="led-indicator off"></span>
-                                                            <span class="led-label">3</span>
                                                         </span>
-                                                        <span class="led-item" data-condition="EQUAL_CULTURANT_OPERANT" data-round="4" title="Equal Culturant-Operant - Round 4">
+                                                        <!-- Impulse (yellow) - 3 slots -->
+                                                        <span class="led-item" data-player="C" data-incentive="imp" data-slot="1" title="Player C - Impulse 1">
                                                             <span class="led-indicator off"></span>
-                                                            <span class="led-label">4</span>
                                                         </span>
-                                                        <span class="led-item" data-condition="EQUAL_CULTURANT_OPERANT" data-round="5" title="Equal Culturant-Operant - Round 5">
+                                                        <span class="led-item" data-player="C" data-incentive="imp" data-slot="2" title="Player C - Impulse 2">
                                                             <span class="led-indicator off"></span>
-                                                            <span class="led-label">5</span>
                                                         </span>
-                                                        <span class="led-item" data-condition="EQUAL_CULTURANT_OPERANT" data-round="6" title="Equal Culturant-Operant - Round 6">
+                                                        <span class="led-item" data-player="C" data-incentive="imp" data-slot="3" title="Player C - Impulse 3">
                                                             <span class="led-indicator off"></span>
-                                                            <span class="led-label">6</span>
-                                                        </span>
-                                                        <span class="led-item" data-condition="EQUAL_CULTURANT_OPERANT" data-round="7" title="Equal Culturant-Operant - Round 7">
-                                                            <span class="led-indicator off"></span>
-                                                            <span class="led-label">7</span>
                                                         </span>
                                                     </div>
-                                                    <div class="player-counter-row">
-                                                        <span class="player-counter" data-player="None" data-condition="EQUAL_CULTURANT_OPERANT" title="Rounds with no player incentive">None:<span class="count">0</span></span>
-                                                        <span class="player-counter dynamic-player" data-condition="EQUAL_CULTURANT_OPERANT" title="Player A assignments will appear here" style="display: none;"></span>
-                                                        <span class="player-counter dynamic-player" data-condition="EQUAL_CULTURANT_OPERANT" title="Player B assignments will appear here" style="display: none;"></span>
-                                                        <span class="player-counter dynamic-player" data-condition="EQUAL_CULTURANT_OPERANT" title="Player C assignments will appear here" style="display: none;"></span>
+                                                </div>
+                                                <!-- NONE row moved to bottom -->
+                                                <div class="led-player-group" data-player="NONE">
+                                                    <div class="led-group-label">NONE</div>
+                                                    <div class="led-row">
+                                                        <span class="led-item" data-player="NONE" data-incentive="none" data-slot="1" title="NONE - No Incentive">
+                                                            <span class="led-indicator off"></span>
+                                                        </span>
+                                                        <span class="led-item" data-player="NONE" data-incentive="none" data-slot="2" title="NONE - No Incentive">
+                                                            <span class="led-indicator off"></span>
+                                                        </span>
+                                                        <span class="led-item" data-player="NONE" data-incentive="none" data-slot="3" title="NONE - No Incentive">
+                                                            <span class="led-indicator off"></span>
+                                                        </span>
                                                     </div>
                                                 </div>
                                             </div>
                                         </div>
-                                    </div>
-                                    
-                                    <!-- Experimental Condition -->
-                                    <div class="control-group">
-                                        <div class="control-label">
-                                            Experimental Condition 
-                                            <button class="info-btn mini" data-info="conditions" title="Payment structure conditions">i</button>
-                                        </div>
-                                        <select id="experimentalConditionSwitch" class="switchboard-select">
-                                            <option value="BASELINE">Baseline ($0.01/$0.05)</option>
-                                            <option value="HIGH_CULTURANT">High Culturant ($0.02/$0.07)</option>
-                                            <option value="HIGH_OPERANT">High Operant ($0.03/$0.04)</option>
-                                            <option value="EQUAL_CULTURANT_OPERANT">Equal C-O ($0.01/$0.02)</option>
-                                        </select>
-                                        <button onclick="setCondition()" class="switchboard-btn apply-btn">APPLY CONDITION</button>
-                                        <div id="conditionStatusSwitch" class="status-indicator">Current: Baseline</div>
-                                    </div>
-                                    
-                                    <!-- Player Incentives -->
-                                    <div class="control-group">
-                                        <div class="control-label">
-                                            Player Incentives 
-                                            <button class="info-btn mini" data-info="incentives" title="Set bonus conditions for specific players">i</button>
-                                        </div>
-                                        <div class="incentive-controls">
-                                            <select id="incentivePlayerSwitch" class="switchboard-select">
-                                                <option value="">Select Player...</option>
-                                            </select>
-                                            <select id="incentiveTypeSwitch" class="switchboard-select">
-                                                <option value="">No Incentive</option>
-                                                <option value="Impulse Incentive">Impulse Incentive: Choose Odd Rows (1,3,5,7)</option>
-                                                <option value="Self Control Incentive">Self Control Incentive: Choose Even Rows (2,4,6,8)</option>
-                                            </select>
-                                            <button onclick="setPlayerIncentive()" class="switchboard-btn incentive-btn">SET INCENTIVE</button>
-                                        </div>
-                                        <div id="incentiveStatusSwitch" class="status-indicator">No active incentives</div>
                                     </div>
                                 </div>
                                 
@@ -3419,30 +3359,22 @@
         setTimeout(() => {
             const loginButton = document.getElementById('loginNav');
             if (loginButton && window.sessionData && window.sessionData.isLoggedIn) {
-                console.log('🔍 WATCHER: Setting up login button mutation observer for logged-in user');
-                
                 const observer = new MutationObserver((mutations) => {
                     mutations.forEach((mutation) => {
                         if (mutation.type === 'attributes' && mutation.attributeName === 'style') {
                             const currentDisplay = loginButton.style.display;
-                            console.log('🔍 WATCHER: Login button style changed to:', currentDisplay);
-                            
                             if (currentDisplay === 'block' || currentDisplay === '') {
-                                console.log('🔍 WATCHER: Someone tried to show login button! Overriding...');
                                 loginButton.style.setProperty('display', 'none', 'important');
                                 loginButton.hidden = true;
-                                console.log('🔍 WATCHER: Login button force-hidden again');
                             }
                         }
                     });
                 });
-                
+
                 observer.observe(loginButton, {
                     attributes: true,
                     attributeFilter: ['style', 'class']
                 });
-                
-                console.log('🔍 WATCHER: Mutation observer active for login button');
             }
         }, 50);
         
@@ -3467,12 +3399,22 @@
             if (inviteOptions && inviteOptions.style.display === 'block' && 
                 inviteCard && !inviteCard.contains(event.target)) {
                 inviteOptions.style.display = 'none';
-                console.log('📁 Closed invite options (clicked outside)');
             }
         });
     </script>
     <script type="text/javascript" src="/client/client.js?v=2025102401"></script>
-
+    <script>
+        // Ensure `handleSignIn` is available globally for inline handlers.
+        (function(){
+            try {
+                if (typeof handleSignIn === 'function') {
+                    window.handleSignIn = handleSignIn;
+                }
+            } catch (err) {
+                // If handleSignIn cannot be exposed, fail silently — rely on default browser behavior
+            }
+        })();
+    </script>
     <script>
         // Animation control variables
         let starInterval = null;
