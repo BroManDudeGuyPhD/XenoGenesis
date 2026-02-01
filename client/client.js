@@ -2007,6 +2007,7 @@ function closeExperimentEndedModal() {
     // Ensure proper UI state when returning to global chat
     const landingPage = document.getElementById('landingPage');
     const chatContainer = document.getElementById('chat-container');
+    const chatInterface = document.querySelector('.chat-interface');
 
     if (landingPage) {
         landingPage.style.display = 'none';
@@ -2015,7 +2016,15 @@ function closeExperimentEndedModal() {
 
     if (chatContainer) {
         chatContainer.style.display = 'block';
+        chatContainer.style.visibility = 'visible';
+        chatContainer.style.opacity = '1';
         console.log('✅ Shown chat container');
+    }
+    
+    if (chatInterface) {
+        chatInterface.style.display = '';
+        chatInterface.style.visibility = 'visible';
+        console.log('✅ Shown chat interface');
     }
     
     // Ensure we're showing the global chat tab
@@ -4689,13 +4698,15 @@ socket.on('roomCreated', (roomName) => {
     currentRoom = roomName; // Update current room tracking
     roomNameText.innerText = roomName;
     
-    // Show game interface immediately when moderator creates room
-    showGameInterface();
+    // CRITICAL: Set moderator status FIRST before showing game interface
+    window.currentUserIsModerator = true;
+    console.log('🔑 Set currentUserIsModerator = true for room creator');
     
-    // Initialize moderator status and buttons for room creator (with delay to ensure DOM ready)
-    setTimeout(() => {
-        initializeModeratorUI(roomName);
-    }, 10);
+    // Initialize moderator UI immediately (not delayed)
+    initializeModeratorUI(roomName);
+    
+    // Show game interface after moderator status is set
+    showGameInterface();
     
     // Copy room name to clipboard
     if (navigator.clipboard) {
@@ -4818,6 +4829,7 @@ function initializeModeratorUI(roomName) {
 // Function to show game interface inline
 function showGameInterface() {
     console.log('🎮 showGameInterface() called for room:', currentRoom);
+    console.log('🎮 Current state - gameActive:', gameActive, 'currentUserIsModerator:', window.currentUserIsModerator);
     
     // Only show game interface for non-Global rooms
     if (currentRoom === 'Global' || !currentRoom) {
@@ -4825,10 +4837,54 @@ function showGameInterface() {
         return;
     }
     
+    // FRESH ROOM CLEANUP: Reset all experiment UI elements to pre-experiment state
+    console.log('🧹 Resetting experiment UI to fresh room state...');
+    
+    // Hide all experiment phase containers
+    const lobbyPhase = document.getElementById('lobbyPhase');
+    const decisionPhase = document.getElementById('decisionPhase');
+    const resultsPhase = document.getElementById('resultsPhase');
+    const finalResults = document.getElementById('finalResults');
+    
+    if (lobbyPhase) lobbyPhase.style.display = 'block'; // Show lobby for new room
+    if (decisionPhase) decisionPhase.style.display = 'none'; // Hide decision interface
+    if (resultsPhase) resultsPhase.style.display = 'none'; // Hide results
+    if (finalResults) finalResults.style.display = 'none'; // Hide final results
+    
+    // Hide decision grid and related elements
+    const decisionGrid = document.getElementById('decisionGrid');
+    const selectionSection = document.getElementById('selectionSection');
+    const tokenConversion = document.getElementById('tokenConversionDisplay');
+    const currentTokenValue = document.getElementById('currentTokenValueDisplay');
+    
+    if (decisionGrid) decisionGrid.style.display = 'none';
+    if (selectionSection) selectionSection.style.display = 'none';
+    if (tokenConversion) tokenConversion.style.display = 'none';
+    if (currentTokenValue) currentTokenValue.style.display = 'none';
+    
+    // Hide turn display for turn-based games
+    const turnDisplay = document.getElementById('turnDisplay');
+    if (turnDisplay) turnDisplay.style.display = 'none';
+    
+    // Clear any experiment status text
+    const experimentStatus = document.getElementById('experimentStatus');
+    const blockDisplay = document.getElementById('blockDisplay');
+    if (experimentStatus) experimentStatus.textContent = '';
+    if (blockDisplay) blockDisplay.textContent = 'Block: --/--';
+    
+    // Hide moderator switchboard (will be shown when experiment starts)
+    const moderatorSwitchboard = document.getElementById('moderatorSwitchboard');
+    if (moderatorSwitchboard) moderatorSwitchboard.style.display = 'none';
+    
+    // Reset token pool display to default
+    updateTokenPoolDisplay(0, 0);
+    
+    console.log('✅ Fresh room state restored');
+    
     const gameDiv = document.getElementById('gameDiv');
     const landingPage = document.getElementById('landingPage');
     
-    console.log('gameDiv found:', !!gameDiv);
+    console.log('gameDiv found:', !!gameDiv, 'display:', gameDiv ? gameDiv.style.display : 'N/A');
     console.log('landingPage found:', !!landingPage);
     
     // Hide landing page if it exists
@@ -4838,8 +4894,9 @@ function showGameInterface() {
     }
     
     if (gameDiv) {
-        gameDiv.style.display = 'block';
-        console.log('✅ Game interface displayed');
+        // Important: Use inline-block to match expected state
+        gameDiv.style.display = 'inline-block';
+        console.log('✅ Game interface displayed as inline-block');
         
         // Don't automatically show buttons - wait for moderator check in playersInRoom handler
         console.log('⏳ Waiting for room state to determine button visibility');
@@ -5297,12 +5354,12 @@ socket.on('experimentEnded', function(data) {
     // Show retro-future neon stat screen with full experiment data
     showExperimentEndedModal(data);
     
-    // User will refresh by clicking "Return to Global Chat" button
+    // User will click "Return to Global Chat" to continue
     
     // Reset game state immediately and completely
     gameActive = false;
     document.body.classList.remove('game-active', 'experiment-running', 'lightning-active');
-    currentRoom = 'Global';
+    // DON'T set currentRoom = 'Global' here - let closeExperimentEndedModal handle it
     currentRoundNumber = 0;
     
     // Simple targeted cleanup
@@ -5321,6 +5378,10 @@ socket.on('experimentEnded', function(data) {
     if (typeof lockedInPlayers !== 'undefined' && lockedInPlayers instanceof Map) {
         lockedInPlayers.clear();
     }
+    
+    // IMPORTANT: Keep gameDiv visible so the modal appears properly
+    // The modal is shown over the game interface
+    // When user clicks "Return to Global", closeExperimentEndedModal will hide gameDiv
     
     // Update card visibility for global context
     updateCardVisibility();
@@ -5858,10 +5919,27 @@ socket.on('yourTurn', function(data) {
     
     // Reset row styles and restore selected row if applicable
     document.querySelectorAll('.clickable-row').forEach(row => {
-        row.style.opacity = '0.7';
+        const rowNumber = row.getAttribute('data-row');
+        const isTaken = data.takenRows && data.takenRows.includes(rowNumber);
+        
+        if (isTaken) {
+            // Disable rows that are already taken by other players
+            row.style.opacity = '0.3';
+            row.style.pointerEvents = 'none';
+            row.style.cursor = 'not-allowed';
+            row.style.filter = 'grayscale(70%)';
+            row.style.backgroundColor = 'rgba(255, 0, 0, 0.1)';
+        } else {
+            // Enable available rows
+            row.style.opacity = '0.7';
+            row.style.pointerEvents = 'auto';
+            row.style.cursor = 'pointer';
+            row.style.filter = 'none';
+            row.style.backgroundColor = 'transparent';
+        }
+        
         row.style.transform = 'scale(1)';
         row.style.boxShadow = 'none';
-        row.style.backgroundColor = 'transparent';
     });
     
     // Restore selected row highlighting if choice was restored
@@ -9803,13 +9881,27 @@ function updateRowInteractivity(turnData) {
         }
         
         rows.forEach((row, index) => {
+            const rowNumber = row.getAttribute('data-row');
+            const isTaken = turnData.takenRows && turnData.takenRows.includes(rowNumber);
+            
             if (turnData.turnBased) {
                 if (isMyTurn) {
-                    row.style.pointerEvents = 'auto';
-                    row.style.opacity = '1';
-                    row.style.cursor = 'pointer';
-                    row.classList.remove('disabled-turn');
-                    if (index === 0) console.log(`🔓 Enabled row interactions for ${currentUsername}'s turn`);
+                    if (isTaken) {
+                        // Disable taken rows even on your turn
+                        row.style.pointerEvents = 'none';
+                        row.style.opacity = '0.3';
+                        row.style.cursor = 'not-allowed';
+                        row.style.filter = 'grayscale(70%)';
+                        row.style.backgroundColor = 'rgba(255, 0, 0, 0.1)';
+                    } else {
+                        // Enable available rows on your turn
+                        row.style.pointerEvents = 'auto';
+                        row.style.opacity = '1';
+                        row.style.cursor = 'pointer';
+                        row.style.filter = 'none';
+                        row.classList.remove('disabled-turn');
+                        if (index === 0) console.log(`🔓 Enabled row interactions for ${currentUsername}'s turn`);
+                    }
                 } else {
                     row.style.pointerEvents = 'none';
                     row.style.opacity = '0.5';
