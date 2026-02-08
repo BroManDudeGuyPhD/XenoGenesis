@@ -8645,9 +8645,17 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Row choice - Selection phase for 8x8 grid system
     document.addEventListener('click', function(e) {
-        if (e.target.closest('.clickable-row') && e.target.closest('.clickable-row').style.pointerEvents !== 'none') {
-            e.preventDefault();
-            const row = e.target.closest('.clickable-row');
+        const clickedRow = e.target.closest('.clickable-row');
+        if (clickedRow) {
+                // Use computed style to determine if the row is interactive (covers CSS or inline styles)
+                const computed = window.getComputedStyle(clickedRow);
+                if (computed && computed.pointerEvents === 'none') {
+                    // Row is disabled/taken - ignore click
+                    console.log('🔒 Click ignored on taken/disabled row:', clickedRow.getAttribute('data-row'));
+                    return;
+                }
+                e.preventDefault();
+                const row = clickedRow;
             const rowNumber = row.getAttribute('data-row');
             
             console.log('🎯 Row clicked! Row number:', rowNumber, 'Previous selectedChoice:', selectedChoice);
@@ -8729,7 +8737,20 @@ document.addEventListener('DOMContentLoaded', function() {
                 e.stopPropagation();
                 
                 console.log('🔒 Lock-in processing started - selectedChoice:', selectedChoice);
-                
+                // Client-side guard: ensure the selected row isn't marked as taken
+                const selectedRowEl = document.querySelector(`.clickable-row[data-row="${selectedChoice}"]`);
+                if (selectedRowEl) {
+                    const comp = window.getComputedStyle(selectedRowEl);
+                    if (comp && comp.pointerEvents === 'none') {
+                        console.log('🚫 Attempted to lock in a taken row on client; aborting.');
+                        alert('That row was just taken by another player. Please select a different row.');
+                        // Re-enable UI for selection
+                        isLockedIn = false;
+                        if (lockInBtn) lockInBtn.disabled = true;
+                        return;
+                    }
+                }
+
                 // Mark as locked in
                 isLockedIn = true;
                 

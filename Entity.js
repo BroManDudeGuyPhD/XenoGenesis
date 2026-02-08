@@ -441,6 +441,14 @@ var AIPlayer = {
             // Make the AI decision
             AIPlayer.makeDecision(aiPlayer);
             
+            // Ensure takenRows exists and add AI's choice to it so clients know it's unavailable
+            if (gameSession) {
+                if (!gameSession.takenRows) gameSession.takenRows = [];
+                const aiChoiceStr = String(aiPlayer.currentChoice);
+                if (!gameSession.takenRows.includes(aiChoiceStr)) {
+                    gameSession.takenRows.push(aiChoiceStr);
+                }
+            }
             // Broadcast AI lock-in event to all players in the room for visual feedback
             const aiRoomPlayers = Object.values(Player.list).filter(p => p.room === room);
             const aiCurrentRoom = roomList.find(r => r.name === room);
@@ -457,7 +465,8 @@ var AIPlayer = {
                         currentTurnPlayer: gameSession.turnBased ? GameSession.getCurrentTurnPlayer(room) : null,
                         turnOrder: gameSession.turnOrder || [],
                         turnBased: gameSession.turnBased,
-                        column: gameSession.selectedColumn // Show selected column
+                        column: gameSession.selectedColumn, // Show selected column
+                        takenRows: gameSession.takenRows || []
                     });
                 }
             });
@@ -485,7 +494,8 @@ var AIPlayer = {
                             p.socket.emit('turnUpdate', {
                                 currentTurnPlayer: newCurrentPlayer,
                                 turnOrder: gameSession.turnOrder,
-                                turnBased: gameSession.turnBased
+                                turnBased: gameSession.turnBased,
+                                takenRows: gameSession.takenRows || []
                             });
                         }
                     });
@@ -3449,18 +3459,29 @@ Player.onGameStart = function(socket,username, progress, io, room, admin){
                 return;
             }
             
-            player.currentChoice = data.choice; // Row number 1-8
+            // Validate that the chosen row isn't already taken in this round
+            const gsSession = GameSessions[room];
+            if (!gsSession) {
+                socket.emit('error', { message: 'Game session not found' });
+                return;
+            }
+            if (!gsSession.takenRows) gsSession.takenRows = [];
+
+            const choiceStr = String(data.choice);
+            if (gsSession.takenRows.includes(choiceStr)) {
+                console.log(`🚫 ${player.username} attempted to select taken row ${choiceStr}`);
+                socket.emit('error', { message: 'That row has already been taken by another player' });
+                return;
+            }
+
+            // Accept and lock in the choice
+            player.currentChoice = choiceStr; // Row number 1-8 as string
             player.isLockedIn = true;
-            
+
             // Add this row to takenRows so other players can't select it
-            if (!gameSession.takenRows) {
-                gameSession.takenRows = [];
-            }
-            if (!gameSession.takenRows.includes(data.choice)) {
-                gameSession.takenRows.push(data.choice);
-            }
-            
-            console.log(`🔒 ${player.username} locked in choice: ${data.choice} - AFTER SETTING: currentChoice=${player.currentChoice}, isLockedIn=${player.isLockedIn}, takenRows=${JSON.stringify(gameSession.takenRows)}`);
+            gsSession.takenRows.push(choiceStr);
+
+            console.log(`🔒 ${player.username} locked in choice: ${choiceStr} - AFTER SETTING: currentChoice=${player.currentChoice}, isLockedIn=${player.isLockedIn}, takenRows=${JSON.stringify(gsSession.takenRows)}`);
             
             // Check for IMMEDIATE incentive bonus (Impulse or Self Control incentive)
             // This triggers the incentive token animation right away, not at end of round
