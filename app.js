@@ -64,6 +64,9 @@ app.use('/client', express.static(__dirname + '/client', {
     }
 }));
 
+// Parse JSON bodies for API endpoints (CSV content will be posted as text)
+app.use(express.json({ limit: '5mb' }));
+
 // Specific route for CSS files to ensure proper MIME type
 app.get('/css/style.css', function(req, res) {
     res.setHeader('Content-Type', 'text/css');
@@ -105,12 +108,138 @@ app.get('/', function(req, res) {
     } else {
         sessionData.hasActiveGame = false;
     }
+    // Determine whether current user is the room moderator (creator)
+    try {
+        const currentRoom = typeof roomList !== 'undefined' ? roomList.find(r => r.name === validatedRoom) : null;
+        sessionData.isModerator = req.session.username && currentRoom && currentRoom.creator === req.session.username;
+    } catch (e) {
+        sessionData.isModerator = false;
+    }
     
     console.log('🌐 HTTP request session data:', sessionData);
     
     res.render('login', { 
         sessionData: JSON.stringify(sessionData)
     });
+});
+
+// CSV evaluation endpoint — accepts JSON { room, filename, content }
+app.post('/api/evaluate-csv', function(req, res) {
+    const username = req.session.username;
+    if (!username) return res.status(401).json({ error: 'Not authenticated' });
+
+    // Only allow admins or room moderators
+    const room = req.body.room || req.session.room || 'Global';
+    const isAdmin = req.session.isAdmin;
+    const currentRoom = typeof roomList !== 'undefined' ? roomList.find(r => r.name === room) : null;
+    const isModerator = currentRoom && currentRoom.creator === username;
+    if (!isAdmin && !isModerator) return res.status(403).json({ error: 'Forbidden: moderator or admin required' });
+
+    const content = req.body.content || '';
+    if (!content) return res.status(400).json({ error: 'No CSV content provided' });
+
+    try {
+        // Parse CSV (simple split, assumes no complex quoting)
+        const lines = content.split(/\r?\n/).filter(Boolean);
+        const header = lines.shift().split(',').map(h => h.trim());
+        const rows = lines.map(l => {
+            const cols = l.split(',');
+            const obj = {};
+            header.forEach((h,i) => obj[h]= (cols[i] !== undefined ? cols[i].trim() : ''));
+            return obj;
+        });
+
+        // Group rows by block
+        const blocks = {};
+        rows.forEach(r => {
+            const b = parseInt(r['Block_Number'],10) || 0;
+            if (!blocks[b]) blocks[b]=[];
+            blocks[b].push(r);
+        });
+
+        const conditions = ['High Culturant','High Operant','Equal Culturant-Operant','Equal Culturant–Operant'];
+        const incentSC = ['Self Control Incentive','Self Control Incentive'];
+
+        const report = {};
+
+        Object.entries(blocks).forEach(([blockNum, rowsInBlock]) => {
+            const blockReport = { ok: true, errors: [], recipients: {}, noneCount: 0 };
+
+            // Normalizers
+            const canonicalCondition = (c) => (c||'').replace(/–/g,'-').trim();
+            const canonicalIncentive = (i) => (i||'').trim();
+
+            // Collect recipients including 'None'
+            const recipientsSet = new Set();
+            rowsInBlock.forEach(r => {
+                const recip = (r['Incentive_Recipient'] || r['Incentive Recipient'] || 'None') || 'None';
+                recipientsSet.add(recip);
+            });
+
+            const recipients = Array.from(recipientsSet);
+
+            // Base conditions expected (normalize to use hyphen)
+            const baseConds = ['High Culturant','High Operant','Equal Culturant-Operant'].map(c => canonicalCondition(c));
+            const expectedKeys = [];
+            baseConds.forEach(c => {
+                expectedKeys.push(`${c}::Self Control Incentive`);
+                expectedKeys.push(`${c}::Impulse Incentive`);
+            });
+
+            // Build per-recipient seen counts
+            recipients.forEach(recipient => {
+                const seen = {};
+                let localNoneCount = 0;
+                rowsInBlock.forEach(r => {
+                    const recip = (r['Incentive_Recipient'] || r['Incentive Recipient'] || 'None') || 'None';
+                    if (recip !== recipient) return;
+                    const condRaw = r['Condition'] || r['Condition'] || '';
+                    const cond = canonicalCondition(condRaw);
+                    const inc = canonicalIncentive(r['Incentive_Type'] || r['Incentive Type'] || r['Incentive'] || '');
+
+                    if (!inc || inc.toLowerCase() === 'none' || inc.toLowerCase() === 'no incentive') {
+                        localNoneCount++;
+                        return;
+                    }
+
+                    const key = `${cond}::${inc}`;
+                    seen[key] = (seen[key] || 0) + 1;
+                });
+
+                blockReport.recipients[recipient] = { combos: seen, noneCount: localNoneCount };
+            });
+
+            // Verify each non-None recipient has exactly the expected combos once
+            recipients.filter(r => r !== 'None').forEach(recipient => {
+                const data = blockReport.recipients[recipient] || { combos: {} };
+                expectedKeys.forEach(k => {
+                    const count = data.combos[k] || 0;
+                    if (count !== 1) {
+                        blockReport.ok = false;
+                        blockReport.errors.push(`Recipient ${recipient} has ${count} occurrences of ${k} in block ${blockNum}`);
+                    }
+                });
+            });
+
+            // Count NONE rounds for this block (rows where incentive is None)
+            const noneCount = rowsInBlock.reduce((acc, r) => {
+                const inc = (r['Incentive_Type'] || r['Incentive Type'] || r['Incentive'] || '').toString().toLowerCase();
+                return acc + ((inc === 'none' || inc === 'no incentive' || inc === '') ? 1 : 0);
+            }, 0);
+            blockReport.noneCount = noneCount;
+            if (noneCount !== 3) {
+                blockReport.ok = false;
+                blockReport.errors.push(`Block ${blockNum} has ${noneCount} NONE rounds (expected 3)`);
+            }
+
+            report[blockNum] = blockReport;
+        });
+
+        return res.json({ success: true, report });
+    } catch (err) {
+        console.error('Error evaluating CSV:', err);
+        return res.status(500).json({ error: err.message });
+    }
 });
 
 // Add session check endpoint

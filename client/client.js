@@ -85,6 +85,8 @@ function updateCardVisibility() {
     
     // Update invite visibility
     updateInviteVisibility();
+    // Update evaluate visibility (moderator-only card)
+    updateEvaluateVisibility();
 }
 
 // Function to update invite card visibility based on admin status only
@@ -14015,4 +14017,32 @@ function updateRoundResultsPanel(roundData) {
     roundTotals.forEach(element => {
         element.style.display = 'none';
     });
+}
+
+// Function to update Evaluate card visibility based on moderator/admin status
+function updateEvaluateVisibility() {
+    const evaluateCard = document.getElementById('evaluate-card');
+    const menuContext = getMenuContext();
+
+    let shouldShowEvaluate = false;
+
+    if ((isCurrentRoomModerator() || isGlobalAdmin) && (menuContext.isInRoomLobby || menuContext.isInGlobalChat)) {
+        shouldShowEvaluate = true;
+    }
+
+    if (evaluateCard) {
+        if (shouldShowEvaluate) {
+            evaluateCard.classList.remove('evaluate-hidden');
+            evaluateCard.classList.add('evaluate-visible');
+            evaluateCard.style.display = 'block';
+            evaluateCard.style.visibility = 'visible';
+            evaluateCard.style.opacity = '1';
+        } else {
+            evaluateCard.classList.remove('evaluate-visible');
+            evaluateCard.classList.add('evaluate-hidden');
+            evaluateCard.style.display = 'none';
+            evaluateCard.style.visibility = 'hidden';
+            evaluateCard.style.opacity = '0';
+        }
+    }
 }

@@ -1,0 +1,5 @@
+[2026-02-11T03:15:47.632Z] [ERROR] ❌ Error in lightning test round 189: ReferenceError: Cannot access 'aiPlayers' before initialization
+    at startLightningTestRound (C:\Users\andre\Documents\Programming\XenoGenesis\Entity.js:5494:13)
+    at Timeout._onTimeout (C:\Users\andre\Documents\Programming\XenoGenesis\Entity.js:5619:13)
+    at listOnTimeout (node:internal/timers:573:17)
+    at process.processTimers (node:internal/timers:514:7)

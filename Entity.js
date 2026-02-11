@@ -1153,13 +1153,13 @@ GameSession = {
         const mapSchedulerPlayerToName = (schedulerPlayer, roomPlayersList) => {
             // Handle null/undefined player assignment (e.g., no assignment rounds)
             if (!schedulerPlayer) {
-                return 'None';
+                return null;
             }
-            
-            // Special case: If this is a no incentive round, force None
+
+            // Special case: If this is a no incentive round, treat as no recipient
             if (conditionInfo.incentive === 'No Incentive') {
-                console.log(`🔍 Forcing None assignment for round with no incentive`);
-                return 'None';
+                console.log(`🔍 Forcing null assignment for round with no incentive`);
+                return null;
             }
             
             // Include both human and AI players, but exclude moderator
@@ -1182,8 +1182,8 @@ GameSession = {
         const actualPlayerName = mapSchedulerPlayerToName(conditionInfo.player, playersInRoom);
         
         // IMPORTANT: Update session.currentPlayer to the actual player name (not scheduler letter)
-        // This ensures yourTurn events and other places reading from session get the correct name
-        session.currentPlayer = actualPlayerName;
+        // Use null to indicate no incentive recipient for this round
+        session.currentPlayer = actualPlayerName || null;
         
         console.log(`🔍 Player mapping debug:`);
         console.log(`   conditionInfo.player: "${conditionInfo.player}" (type: ${typeof conditionInfo.player})`);
@@ -1215,7 +1215,7 @@ GameSession = {
                     condition: conditionInfo.conditionName,
                     incentive: conditionInfo.incentive,
                     incentiveDisplay: incentiveDisplayName,
-                    player: actualPlayerName, // Always send actual player name for proper targeting
+                    player: actualPlayerName || null, // null if no recipient this round
                     blockNumber: conditionInfo.blockNumber,
                     phase: conditionInfo.phase,
                     tokenValues: {
@@ -1241,7 +1241,7 @@ GameSession = {
                 p.socket.emit('conditionUpdate', conditionUpdateData);
                 
                 // Also send targeted incentiveChanged event to the specific player
-                if (p.username === actualPlayerName && conditionInfo.incentive && conditionInfo.incentive !== 'No Incentive') {
+                if (actualPlayerName && p.username === actualPlayerName && conditionInfo.incentive && conditionInfo.incentive !== 'No Incentive') {
                     console.log(`🎯 Sending targeted incentiveChanged to ${p.username}: ${incentiveDisplayName}`);
                     
                     // Set the player's active incentive on the server side
@@ -5537,16 +5537,20 @@ function startLightningTestRound(room, gameSession, io) {
         console.log(`⚡ [Lightning Round ${gameSession.currentRound}] Using schedule at index ${gameSession.conditionsRoundIndex}`);
         console.log(`⚡ Schedule: Player=${roundInfo.player}, Condition=${roundInfo.condition}, Incentive=${roundInfo.incentive}`);
         
-        // Map scheduler player (A, B, C) to actual AI player
-        const playerIndex = roundInfo.player.charCodeAt(0) - 65; // A=0, B=1, C=2
-        const targetPlayer = aiPlayers[playerIndex];
+        // Map scheduler player (A, B, C) to actual AI player (handle null for no-recipient rounds)
+        let targetPlayer = null;
+        if (roundInfo.player) {
+            const playerIndex = roundInfo.player.charCodeAt(0) - 65; // A=0, B=1, C=2
+            targetPlayer = aiPlayers[playerIndex];
+        }
         
         // Directly set game session condition from schedule (bypass updateConditionForRound)
         const condition = ExperimentManager.mapConditionNameToObject(roundInfo.condition);
         gameSession.currentCondition = condition;
         gameSession.currentConditionName = roundInfo.condition;
         gameSession.currentIncentive = roundInfo.incentive;
-        gameSession.currentPlayer = targetPlayer ? targetPlayer.username : 'None';
+        // Use null when there is no incentive recipient
+        gameSession.currentPlayer = targetPlayer ? targetPlayer.username : null;
         gameSession.currentBlockNumber = roundInfo.blockNumber;
         
         // Simulate AI choices instantly

@@ -737,6 +737,19 @@ body:not(.game-active) #join-card {
 	opacity: 0 !important;
 }
 
+/* Evaluate card visibility classes */
+.evaluate-visible {
+	display: block !important;
+	visibility: visible !important;
+	opacity: 1 !important;
+}
+
+.evaluate-hidden {
+	display: none !important;
+	visibility: hidden !important;
+	opacity: 0 !important;
+}
+
 /* Show invite card for moderators even in game context */
 body.game-active .invite-card.invite-visible {
 	display: block !important;
@@ -783,6 +796,15 @@ body.game-active .action-cards-container {
 
 /* Exception: Show invite card even in game context if marked visible */
 body.game-active .action-cards-container .invite-card.invite-visible {
+	display: block !important;
+	visibility: visible !important;
+	opacity: 1 !important;
+	position: relative !important;
+	z-index: 1000 !important;
+}
+
+/* Exception: Show evaluate card even in game context if marked visible */
+body.game-active .action-cards-container .evaluate-card.evaluate-visible {
 	display: block !important;
 	visibility: visible !important;
 	opacity: 1 !important;
