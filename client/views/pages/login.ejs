@@ -2888,7 +2888,6 @@
     <script>
         // Render a detailed evaluation modal showing block health and grids
         function showEvaluationModal(report) {
-            // Remove existing modal if any
             const existing = document.getElementById('evalModal');
             if (existing) existing.remove();
 
@@ -2896,76 +2895,231 @@
             modal.id = 'evalModal';
             modal.style.position = 'fixed';
             modal.style.left = '0';
-            modal.style.top = '0';
-            modal.style.width = '100%';
-            modal.style.height = '100%';
-            modal.style.background = 'rgba(0,0,0,0.7)';
+            // Keep header unblurred: offset modal below header if present
+            try {
+                const headerEl = document.querySelector('.header');
+                const headerH = headerEl ? headerEl.offsetHeight : 0;
+                modal.style.top = headerH + 'px';
+                modal.style.width = '100%';
+                modal.style.height = 'calc(100% - ' + headerH + 'px)';
+            } catch (e) {
+                modal.style.top = '0';
+                modal.style.width = '100%';
+                modal.style.height = '100%';
+            }
+            modal.style.background = 'rgba(6,8,16,0.82)';
             modal.style.zIndex = 20000;
             modal.style.display = 'flex';
             modal.style.alignItems = 'center';
             modal.style.justifyContent = 'center';
+            modal.style.backdropFilter = 'blur(18px)';
 
             const panel = document.createElement('div');
-            panel.style.width = '920px';
-            panel.style.maxHeight = '80%';
-            panel.style.overflow = 'auto';
-            panel.style.background = '#151521';
-            panel.style.border = '1px solid rgba(255,255,255,0.06)';
+            panel.style.width = '96%';
+            panel.style.maxWidth = '1000px';
+            panel.style.height = '72vh';
+            panel.style.overflow = 'hidden';
+            panel.style.background = 'linear-gradient(135deg, rgba(12,14,22,0.9), rgba(30,24,48,0.75))';
+            panel.style.backdropFilter = 'blur(22px) saturate(160%)';
+            panel.style.border = '1px solid rgba(102,122,255,0.12)';
             panel.style.borderRadius = '12px';
             panel.style.padding = '18px';
             panel.style.color = '#e6e6e6';
+            panel.style.fontSize = '18px';
+            panel.style.boxShadow = '0 10px 60px rgba(8,10,30,0.75), 0 0 40px rgba(102,122,255,0.06), inset 0 1px 0 rgba(255,255,255,0.02)';
+
+            const titleRow = document.createElement('div');
+            titleRow.style.display = 'flex';
+            titleRow.style.justifyContent = 'space-between';
+            titleRow.style.alignItems = 'center';
+            titleRow.style.marginBottom = '8px';
 
             const title = document.createElement('h2');
             title.textContent = 'CSV Evaluation — Block Health';
-            title.style.marginTop = '0';
-            panel.appendChild(title);
+            title.style.margin = '0';
+            title.style.fontFamily = 'Segoe UI, Roboto, sans-serif';
+            title.style.fontSize = '24px';
+            title.style.fontWeight = '700';
+            title.style.color = '#f3f8ff';
+            title.style.textShadow = '0 2px 14px rgba(100,120,255,0.28), 0 0 30px rgba(80,200,180,0.04)';
 
-            // Summary area
-            const summary = document.createElement('div');
-            summary.style.marginBottom = '12px';
-            Object.keys(report).sort((a,b)=>a-b).forEach(bk => {
-                const br = report[bk];
-                const row = document.createElement('div');
-                row.style.display = 'flex';
-                row.style.justifyContent = 'space-between';
-                row.style.padding = '6px 8px';
-                row.style.borderBottom = '1px dashed rgba(255,255,255,0.03)';
+            titleRow.appendChild(title);
+            panel.appendChild(titleRow);
 
-                const left = document.createElement('div');
-                left.textContent = `Block ${bk}`;
-                const right = document.createElement('div');
-                right.textContent = br.ok ? 'OK' : `FAIL (${br.errors.length})`;
-                right.style.color = br.ok ? '#7fffd4' : '#ff9a9a';
-
-                row.appendChild(left);
-                row.appendChild(right);
-                summary.appendChild(row);
+            // Compute stable recipient order across all blocks (exclude 'None' then append it)
+            const allRecipientsSet = new Set();
+            Object.values(report).forEach(b => {
+                Object.keys(b.recipients || {}).forEach(r => { if (r !== 'None') allRecipientsSet.add(r); });
             });
-            panel.appendChild(summary);
+            const stableRecipients = Array.from(allRecipientsSet).sort((a,b)=>a.localeCompare(b));
+            stableRecipients.push('None');
 
-            // Controls: choose block
-            const blockSelect = document.createElement('select');
-            blockSelect.style.margin = '8px 0 16px 0';
-            Object.keys(report).sort((a,b)=>a-b).forEach(bk => {
-                const opt = document.createElement('option');
-                opt.value = bk;
-                opt.textContent = `Block ${bk}`;
-                blockSelect.appendChild(opt);
-            });
-            panel.appendChild(blockSelect);
+            // Top tab strip for blocks (compact, horizontal)
+            const tabs = document.createElement('div');
+            tabs.style.display = 'flex';
+            tabs.style.gap = '8px';
+            tabs.style.marginBottom = '14px';
+            tabs.style.flexWrap = 'nowrap';
+            tabs.style.overflowX = 'auto';
+            tabs.style.paddingBottom = '8px';
 
-            const gridContainer = document.createElement('div');
-            panel.appendChild(gridContainer);
+            const blockKeys = Object.keys(report).sort((a,b)=>a-b);
+            // Overview tab first
+            const tabKeys = ['overview'].concat(blockKeys);
+            let selectedBlock = 'overview';
 
-            function renderBlock(bk) {
-                gridContainer.innerHTML = '';
-                const br = report[bk];
+            function renderTabs() {
+                tabs.innerHTML = '';
+                tabKeys.forEach(key => {
+                    const t = document.createElement('button');
+                    if (key === 'overview') {
+                        t.textContent = 'Overview';
+                        t.dataset.block = 'overview';
+                    } else {
+                        // show numeric selector only
+                        t.textContent = String(key);
+                        t.dataset.block = key;
+                    }
+                    t.style.padding = '8px 12px';
+                    t.style.borderRadius = '8px';
+                    t.style.border = '1px solid rgba(255,255,255,0.06)';
+                    t.style.background = (key===selectedBlock) ? 'linear-gradient(90deg,#6a7bff,#34e0b0)' : 'transparent';
+                    t.style.color = (key===selectedBlock) ? '#061219' : '#e6e6e6';
+                    t.style.cursor = 'pointer';
+                    t.style.fontSize = '16px';
+                    t.style.minWidth = '64px';
+                    t.style.fontWeight = '600';
+                    t.addEventListener('click', () => { selectedBlock = key; renderBody(); renderTabs(); });
+                    // mark tab red if block has issues (skip overview)
+                    if (key !== 'overview') {
+                        const br = report[key];
+                        if (br && br.ok === false) {
+                            t.style.background = 'linear-gradient(90deg,#ff6b6b,#ff3b3b)';
+                            t.style.color = '#0f0f0f';
+                        }
+                    }
+                    tabs.appendChild(t);
+                });
+            }
+
+            panel.appendChild(tabs);
+
+            const bodyArea = document.createElement('div');
+            panel.appendChild(bodyArea);
+
+            function renderBody() {
+                bodyArea.innerHTML = '';
+                // Ensure bodyArea scroll region
+                bodyArea.style.overflow = 'auto';
+                bodyArea.style.maxHeight = 'calc(80vh - 160px)';
+
+                if (selectedBlock === 'overview') {
+                    // Overview aggregates
+                    const overview = document.createElement('div');
+                    overview.style.display = 'flex';
+                    overview.style.flexDirection = 'column';
+                    overview.style.gap = '12px';
+
+                    // Aggregate totals
+                    let totalEarningsAll = 0;
+                    let totalCulturantAll = 0;
+                    let totalNoneAll = 0;
+                    let totalRoundsAll = 0;
+                    const recipientSet = new Set();
+                    Object.values(report).forEach(b => {
+                        totalEarningsAll += Number(b.totalEarnings) || 0;
+                        totalCulturantAll += Number(b.culturantCount) || 0;
+                        totalNoneAll += Number(b.noneCount) || 0;
+                        const rounds = Object.values(b.recipients||{}).reduce((acc, r) => acc + (Object.values(r.combos||{}).reduce((a,b)=>a+b,0) + (r.noneCount||0)), 0);
+                        totalRoundsAll += rounds;
+                        Object.keys(b.recipients||{}).forEach(r => recipientSet.add(r));
+                    });
+
+                    const overviewStats = [
+                        ['Total Earnings', Number(totalEarningsAll).toFixed(2)],
+                        ['Total Culturant Rows', totalCulturantAll],
+                        ['Total None Rounds', totalNoneAll],
+                        ['Total Rounds', totalRoundsAll],
+                        ['Unique Recipients', recipientSet.size]
+                    ];
+
+                    const statsRow = document.createElement('div');
+                    statsRow.style.display = 'flex';
+                    statsRow.style.gap = '12px';
+                    statsRow.style.flexWrap = 'wrap';
+                    overviewStats.forEach(([k,v]) => {
+                        const s = document.createElement('div');
+                        s.style.padding = '12px 14px';
+                        s.style.background = 'rgba(0,0,0,0.12)';
+                        s.style.borderRadius = '10px';
+                        s.style.minWidth = '140px';
+                        s.innerHTML = `<strong style="display:block; font-size:18px; color:#f0f7ff;">${v}</strong><span style="font-size:13px; color:rgba(230,230,230,0.85);">${k}</span>`;
+                        statsRow.appendChild(s);
+                    });
+                    overview.appendChild(statsRow);
+
+                    // Per-block mini summaries
+                    const mini = document.createElement('div');
+                    mini.style.display = 'grid';
+                    mini.style.gridTemplateColumns = 'repeat(auto-fit, minmax(180px, 1fr))';
+                    mini.style.gap = '10px';
+                    Object.keys(report).sort((a,b)=>a-b).forEach(bk=>{
+                        const br = report[bk];
+                        const card = document.createElement('div');
+                        card.style.padding = '8px';
+                        card.style.borderRadius = '8px';
+                        card.style.background = 'rgba(0,0,0,0.08)';
+                        const title = document.createElement('div');
+                        title.textContent = `Block ${bk}`;
+                        title.style.fontWeight = '600';
+                        title.style.marginBottom = '6px';
+                        const lines = document.createElement('div');
+                        lines.innerHTML = `Earnings: <strong style="font-size:18px; color:#f8fbff;">${Number(br.totalEarnings || 0).toFixed(2)}</strong><br/>Culturant: <strong style="font-size:18px;">${Number(br.culturantCount || 0)}</strong><br/>None: <strong style="font-size:18px;">${Number(br.noneCount || 0)}</strong>`;
+                        card.appendChild(title);
+                        card.appendChild(lines);
+                        if (br.ok===false) card.style.boxShadow = 'inset 0 0 0 2px rgba(255,100,100,0.12)';
+                        mini.appendChild(card);
+                    });
+                    overview.appendChild(mini);
+
+                    bodyArea.appendChild(overview);
+                    return;
+                }
+
+                const br = report[selectedBlock];
                 if (!br) return;
 
-                // Per-recipient grid
+                // Block summary stats
+                const stats = document.createElement('div');
+                stats.style.display = 'flex';
+                stats.style.gap = '12px';
+                stats.style.flexWrap = 'wrap';
+                stats.style.marginBottom = '12px';
+
+                const totalRounds = Object.values(br.recipients||{}).reduce((acc, r) => acc + (Object.values(r.combos||{}).reduce((a,b)=>a+b,0) + (r.noneCount||0)), 0);
+                const statItems = [
+                    [`Total Rounds`, totalRounds],
+                    [`None Rounds`, br.noneCount || 0],
+                    [`Recipients`, Object.keys(br.recipients||{}).length],
+                    [`Total Earnings`, (br.totalEarnings != null ? Number(br.totalEarnings).toFixed(2) : '0.00')],
+                    [`Culturant Rows`, br.culturantCount || 0]
+                ];
+                statItems.forEach(([k,v]) => {
+                    const s = document.createElement('div');
+                    s.style.padding = '10px 12px';
+                    s.style.background = 'rgba(0,0,0,0.15)';
+                    s.style.borderRadius = '8px';
+                    s.innerHTML = `<strong style="display:block; font-size:18px; color:#f0f7ff;">${v}</strong><span style="font-size:13px; color:rgba(230,230,230,0.85);">${k}</span>`;
+                    stats.appendChild(s);
+                });
+                bodyArea.appendChild(stats);
+
+                // Grid table
                 const table = document.createElement('table');
                 table.style.width = '100%';
                 table.style.borderCollapse = 'collapse';
+                table.style.fontSize = '18px';
+                table.style.marginTop = '8px';
 
                 const headerRow = document.createElement('tr');
                 const headers = ['Recipient','NoneCount','High Culturant (SC)','High Culturant (Imp)','High Operant (SC)','High Operant (Imp)','Equal (SC)','Equal (Imp)'];
@@ -2973,25 +3127,37 @@
                     const th = document.createElement('th');
                     th.textContent = h;
                     th.style.textAlign = 'left';
-                    th.style.padding = '8px';
+                    th.style.padding = '12px';
                     th.style.borderBottom = '1px solid rgba(255,255,255,0.06)';
-                    th.style.fontSize = '13px';
+                    th.style.fontSize = '17px';
                     headerRow.appendChild(th);
                 });
                 table.appendChild(headerRow);
 
-                Object.keys(br.recipients || {}).forEach(rec => {
-                    const data = br.recipients[rec];
+                // Render rows in stable order (None last)
+                stableRecipients.forEach(rec => {
+                    const data = br.recipients[rec] || { combos: {}, noneCount: 0 };
                     const tr = document.createElement('tr');
+                    tr.style.borderBottom = '1px solid rgba(255,255,255,0.02)';
+
                     const tdRec = document.createElement('td');
                     tdRec.textContent = rec;
-                    tdRec.style.padding = '8px';
+                    tdRec.style.padding = '10px';
+                    tdRec.style.fontSize = '16px';
                     tr.appendChild(tdRec);
 
                     const tdNone = document.createElement('td');
                     tdNone.textContent = data.noneCount || 0;
-                    tdNone.style.padding = '8px';
-                    tdNone.style.color = (data.noneCount===3) ? '#7fffd4' : '#ff9a9a';
+                    tdNone.style.padding = '10px';
+                    tdNone.style.fontSize = '16px';
+                    // highlight NONE cell when incorrect (expected 3)
+                    if ((data.noneCount || 0) !== 3) {
+                        tdNone.style.background = 'linear-gradient(90deg, rgba(255,90,90,0.10), rgba(255,60,60,0.06))';
+                        tdNone.style.color = '#ffdddd';
+                        tdNone.title = `Expected 3 NONE rounds, found ${data.noneCount || 0}`;
+                    } else {
+                        tdNone.style.color = '#7fffd4';
+                    }
                     tr.appendChild(tdNone);
 
                     const combos = [
@@ -3008,18 +3174,26 @@
                         const cnt = (data.combos && data.combos[key]) || 0;
                         const td = document.createElement('td');
                         td.textContent = cnt;
-                        td.style.padding = '8px';
+                        td.style.padding = '10px';
                         td.style.textAlign = 'center';
-                        td.style.color = (cnt===1) ? '#7fffd4' : '#ff9a9a';
+                        td.style.fontSize = '16px';
+                        // highlight combo cells that are incorrect (expected exactly 1)
+                        if (cnt !== 1) {
+                            td.style.background = 'linear-gradient(90deg, rgba(255,90,90,0.10), rgba(255,60,60,0.06))';
+                            td.style.color = '#ffdddd';
+                            td.title = `Expected 1 occurrence of "${key}", found ${cnt}`;
+                        } else {
+                            td.style.color = '#7fffd4';
+                        }
                         tr.appendChild(td);
                     });
 
                     table.appendChild(tr);
                 });
 
-                gridContainer.appendChild(table);
+                bodyArea.appendChild(table);
 
-                // Errors list
+                // Error details
                 if (br.errors && br.errors.length) {
                     const errBox = document.createElement('div');
                     errBox.style.marginTop = '12px';
@@ -3036,19 +3210,17 @@
                         ul.appendChild(li);
                     });
                     errBox.appendChild(ul);
-                    gridContainer.appendChild(errBox);
+                    bodyArea.appendChild(errBox);
                 }
             }
 
-            blockSelect.addEventListener('change', (e) => renderBlock(e.target.value));
-            // Render initial block
-            if (blockSelect.options.length) renderBlock(blockSelect.options[0].value);
+            renderTabs();
+            renderBody();
 
-            const closeBtn = document.createElement('button');
-            closeBtn.textContent = 'Close';
-            closeBtn.style.marginTop = '12px';
-            closeBtn.addEventListener('click', () => modal.remove());
-            panel.appendChild(closeBtn);
+            // Close when clicking outside the panel
+            modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
+            // Prevent clicks inside panel from closing
+            panel.addEventListener('click', (e) => e.stopPropagation());
 
             modal.appendChild(panel);
             document.body.appendChild(modal);

@@ -34,6 +34,8 @@
     "socket.io-client": "^4.7.5",
     "three": "^0.180.0",
     "unique-names-generator": "^4.7.1"
+    ,
+    "csv-parse": "^5.4.0"
   },
   
   "devDependencies": {

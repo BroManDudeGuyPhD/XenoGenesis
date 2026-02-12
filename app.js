@@ -52,6 +52,9 @@ io.use(sharedsession(sessionMiddleware, {
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, '/client/views/pages'));
 
+// CSV parsing utility (sync)
+const { parse } = require('csv-parse/sync');
+
 // Configure static file serving with proper MIME types
 app.use('/client', express.static(__dirname + '/client', {
     setHeaders: (res, path) => {
@@ -139,15 +142,9 @@ app.post('/api/evaluate-csv', function(req, res) {
     if (!content) return res.status(400).json({ error: 'No CSV content provided' });
 
     try {
-        // Parse CSV (simple split, assumes no complex quoting)
-        const lines = content.split(/\r?\n/).filter(Boolean);
-        const header = lines.shift().split(',').map(h => h.trim());
-        const rows = lines.map(l => {
-            const cols = l.split(',');
-            const obj = {};
-            header.forEach((h,i) => obj[h]= (cols[i] !== undefined ? cols[i].trim() : ''));
-            return obj;
-        });
+        // Parse CSV using robust CSV parser (handles quotes, commas)
+        const records = parse(content, { columns: true, skip_empty_lines: true, trim: true });
+        const rows = records;
 
         // Group rows by block
         const blocks = {};
@@ -231,6 +228,53 @@ app.post('/api/evaluate-csv', function(req, res) {
                 blockReport.ok = false;
                 blockReport.errors.push(`Block ${blockNum} has ${noneCount} NONE rounds (expected 3)`);
             }
+
+            // Compute total earnings and culturant counts for the block if present
+            let totalEarnings = 0;
+            let culturantCount = 0;
+            const earningKeys = ['Round_Earnings','Round Earnings','Earnings','Player_Earnings','Player Earnings','RoundEarnings','Earning'];
+            rowsInBlock.forEach(r => {
+                // earnings: detect common single-field names OR per-player round earnings like Player_A_Round_Earnings
+                let added = false;
+                for (const k of earningKeys) {
+                    if (r[k] !== undefined && r[k] !== '') {
+                        const v = parseFloat((r[k] + '').replace(/[^0-9.\-]/g, ''));
+                        if (!isNaN(v)) {
+                            totalEarnings += v;
+                            added = true;
+                            break;
+                        }
+                    }
+                }
+
+                if (!added) {
+                    // Fallback: scan all columns for any that look like per-player round earnings
+                    for (const colKey of Object.keys(r)) {
+                        const lk = (colKey || '').toString().toLowerCase();
+                        if (lk.includes('round') && lk.includes('earning')) {
+                            const v = parseFloat((r[colKey] + '').replace(/[^0-9.\-]/g, ''));
+                            if (!isNaN(v)) {
+                                totalEarnings += v;
+                                added = true;
+                                // do not break — there may be multiple player round earnings per row; continue summing
+                            }
+                        }
+                        // also consider columns like 'player_a_total_payout' or 'player_a_total' if needed
+                        if (lk.includes('total') && lk.includes('payout')) {
+                            const v = parseFloat((r[colKey] + '').replace(/[^0-9.\-]/g, ''));
+                            if (!isNaN(v)) {
+                                // skip adding total payout to avoid double-counting across rounds
+                            }
+                        }
+                    }
+                }
+
+                // culturant condition
+                const cond = (r['Condition'] || r['Condition'] || '').toString().toLowerCase();
+                if (cond.indexOf('culturant') !== -1) culturantCount++;
+            });
+            blockReport.totalEarnings = totalEarnings;
+            blockReport.culturantCount = culturantCount;
 
             report[blockNum] = blockReport;
         });
