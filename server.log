@@ -1,0 +1,17 @@
+[2026-02-12T00:38:40.797Z] [DEBUG] 🔍 Attempting to connect to MongoDB on ironman...
+[2026-02-12T00:38:41.207Z] [DEBUG] ------------ Server started on port 2000 ------------
+[2026-02-12T00:38:41.264Z] [DEBUG] ✅ Connected to MongoDB on ironman
+[2026-02-12T00:38:43.209Z] [DEBUG] 🔄 Updating invite code schema...
+[2026-02-12T00:38:43.216Z] [DEBUG] ✅ Invite code schema update completed
+[2026-02-12T00:38:43.217Z] [DEBUG] 🔄 Invite code schema update completed
+[2026-02-12T00:38:43.221Z] [DEBUG] 🧹 Startup cleanup of used invite codes completed
+[2026-02-12T00:38:43.229Z] [DEBUG] 📋 All invite codes in database:
+[2026-02-12T00:38:43.229Z] [DEBUG] 1. DRBROMAN - ✅ AVAILABLE
+[2026-02-12T00:38:43.230Z] [DEBUG] 2. ZVXFX5M0 - ✅ AVAILABLE
+[2026-02-12T00:38:43.230Z] [DEBUG] 3. Y97FZNM5 - ✅ AVAILABLE
+[2026-02-12T00:38:43.231Z] [DEBUG] 4. QBS11NEE - ✅ AVAILABLE
+[2026-02-12T00:38:43.231Z] [DEBUG] 5. D969F4RI - ✅ AVAILABLE
+[2026-02-12T00:38:43.231Z] [DEBUG] 6. VTWNUEDB - ✅ AVAILABLE
+[2026-02-12T00:38:43.232Z] [DEBUG] 7. YF7TQUNJ - ✅ AVAILABLE
+[2026-02-12T00:38:43.232Z] [DEBUG] 8. WNBBXYW9 - ✅ AVAILABLE
+[2026-02-12T00:38:43.232Z] [DEBUG] 📊 Found 8 total invite codes in database

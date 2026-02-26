@@ -737,6 +737,19 @@ body:not(.game-active) #join-card {
 	opacity: 0 !important;
 }
 
+/* Evaluate card visibility classes */
+.evaluate-visible {
+	display: block !important;
+	visibility: visible !important;
+	opacity: 1 !important;
+}
+
+.evaluate-hidden {
+	display: none !important;
+	visibility: hidden !important;
+	opacity: 0 !important;
+}
+
 /* Show invite card for moderators even in game context */
 body.game-active .invite-card.invite-visible {
 	display: block !important;
@@ -783,6 +796,15 @@ body.game-active .action-cards-container {
 
 /* Exception: Show invite card even in game context if marked visible */
 body.game-active .action-cards-container .invite-card.invite-visible {
+	display: block !important;
+	visibility: visible !important;
+	opacity: 1 !important;
+	position: relative !important;
+	z-index: 1000 !important;
+}
+
+/* Exception: Show evaluate card even in game context if marked visible */
+body.game-active .action-cards-container .evaluate-card.evaluate-visible {
 	display: block !important;
 	visibility: visible !important;
 	opacity: 1 !important;
@@ -1593,22 +1615,18 @@ a {
 	position: relative;
 }
 
-/* HIDE ALL DUPLICATE LOGIN ELEMENTS - KEEP ONLY FINAL PINK RECTANGLE */
-#emergencyLoginButton,
-.nav-item:nth-child(1) #loginNav,
-.nav-menu li:nth-child(1) button {
+/* HIDE emergency login button duplicate only */
+#emergencyLoginButton {
 	display: none !important;
 	visibility: hidden !important;
 }
 
-/* Ensure FINAL login button is visible when logged out */
-#loginNav:last-of-type,
-.nav-item:last-child #loginNav {
+/* Ensure login button is visible when logged out */
+#loginNav {
 	visibility: visible !important;
 	opacity: 1 !important;
 	z-index: 200 !important;
 	position: relative !important;
-	display: block !important;
 }
 
 .nav-link {
@@ -1827,12 +1845,6 @@ body:not(.login-page) .nav-logo:hover::before {
 
 	.nav-item {
 		margin-left: 1rem; /* Reduced margin for mobile */
-	}
-
-	/* HIDE DUPLICATE LOGIN BUTTONS - Only keep the final pink rectangle */
-	#loginNav:nth-child(1),
-	#loginNav:nth-of-type(1) {
-		display: none !important;
 	}
 	
 	/* Mobile login button - final pink rectangle version */
@@ -3333,6 +3345,44 @@ span.psw a:hover {
     box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.5);
 }
 
+/* Faint color hints for off-state indicating what the LED will represent */
+.led-item[data-incentive="none"] .led-indicator.off {
+	background: rgba(255, 255, 255, 0.06);
+}
+.led-item[data-incentive="sc"] .led-indicator.off {
+	background: rgba(0, 255, 65, 0.04);
+}
+.led-item[data-incentive="imp"] .led-indicator.off {
+	background: rgba(255, 210, 77, 0.04);
+}
+
+/* Halo effect for current player/condition */
+.led-player-group.halo {
+	transition: box-shadow 0.4s ease, transform 0.4s ease;
+	transform: translateY(-2px);
+}
+.led-player-group.halo .led-group-label {
+	text-shadow: 0 0 10px rgba(255,255,255,0.06);
+}
+.led-player-group.halo .led-row .led-indicator {
+	box-shadow: 0 0 18px rgba(255,255,255,0.15), inset 0 1px 2px rgba(255,255,255,0.15);
+}
+.led-player-group.halo-green .led-row .led-indicator {
+	box-shadow: 0 0 18px rgba(0,255,65,0.35), inset 0 1px 2px rgba(0,255,65,0.15);
+}
+.led-player-group.halo-yellow .led-row .led-indicator {
+	box-shadow: 0 0 18px rgba(255,210,77,0.35), inset 0 1px 2px rgba(255,210,77,0.15);
+}
+.led-player-group.halo-white .led-row .led-indicator {
+	box-shadow: 0 0 18px rgba(255,255,255,0.35), inset 0 1px 2px rgba(255,255,255,0.15);
+}
+
+/* Fade out class when removing halo */
+.led-player-group.halo-fade .led-row .led-indicator {
+	transition: box-shadow 0.8s ease, transform 0.8s ease;
+	box-shadow: none !important;
+}
+
 .led-indicator.green {
     background: radial-gradient(circle, #00ff41 20%, #00cc33 80%);
     border-color: #00ff41;
@@ -3355,26 +3405,26 @@ span.psw a:hover {
     z-index: -1;
 }
 
-.led-indicator.red {
-    background: radial-gradient(circle, #ff4444 20%, #cc1111 80%);
-    border-color: #ff4444;
-    box-shadow: 
-        0 0 12px rgba(255, 68, 68, 0.8),
-        0 0 6px rgba(255, 68, 68, 0.6),
-        inset 0 1px 2px rgba(255, 255, 255, 0.4);
-    animation: pulse-red 1.5s infinite ease-in-out;
+.led-indicator.yellow {
+	background: radial-gradient(circle, #ffd24d 20%, #ffcf33 80%);
+	border-color: #ffd24d;
+	box-shadow: 
+		0 0 12px rgba(255, 210, 77, 0.8),
+		0 0 6px rgba(255, 210, 77, 0.6),
+		inset 0 1px 2px rgba(255, 255, 255, 0.4);
+	animation: pulse-yellow 1.5s infinite ease-in-out;
 }
 
-.led-indicator.red::before {
-    content: '';
-    position: absolute;
-    top: -4px;
-    left: -4px;
-    right: -4px;
-    bottom: -4px;
-    background: radial-gradient(circle, rgba(255, 68, 68, 0.3) 0%, transparent 70%);
-    border-radius: 4px;
-    z-index: -1;
+.led-indicator.yellow::before {
+	content: '';
+	position: absolute;
+	top: -4px;
+	left: -4px;
+	right: -4px;
+	bottom: -4px;
+	background: radial-gradient(circle, rgba(255,210,77,0.3) 0%, transparent 70%);
+	border-radius: 4px;
+	z-index: -1;
 }
 
 .led-label {
@@ -3430,15 +3480,15 @@ span.psw a:hover {
     }
 }
 
-@keyframes pulse-red {
-    0%, 100% {
-        opacity: 1;
-        transform: scale(1);
-    }
-    50% {
-        opacity: 0.7;
-        transform: scale(1.1);
-    }
+@keyframes pulse-yellow {
+	0%, 100% {
+		opacity: 1;
+		transform: scale(1);
+	}
+	50% {
+		opacity: 0.7;
+		transform: scale(1.1);
+	}
 }
 
 /* Responsive adjustments for LED array */
@@ -3528,4 +3578,12 @@ span.psw a:hover {
     font-size: 11px;
     margin-top: 4px;
     font-family: 'Inter', 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Roboto', sans-serif;
+}
+
+.led-indicator.white {
+	background: radial-gradient(circle, #ffffff 20%, #dddddd 80%);
+	border-color: #ffffff;
+	box-shadow:
+		0 0 8px rgba(255, 255, 255, 0.6),
+		inset 0 1px 2px rgba(255, 255, 255, 0.6);
 }

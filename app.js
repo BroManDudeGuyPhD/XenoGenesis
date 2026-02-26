@@ -52,6 +52,9 @@ io.use(sharedsession(sessionMiddleware, {
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, '/client/views/pages'));
 
+// CSV parsing utility (sync)
+const { parse } = require('csv-parse/sync');
+
 // Configure static file serving with proper MIME types
 app.use('/client', express.static(__dirname + '/client', {
     setHeaders: (res, path) => {
@@ -63,6 +66,9 @@ app.use('/client', express.static(__dirname + '/client', {
         }
     }
 }));
+
+// Parse JSON bodies for API endpoints (CSV content will be posted as text)
+app.use(express.json({ limit: '5mb' }));
 
 // Specific route for CSS files to ensure proper MIME type
 app.get('/css/style.css', function(req, res) {
@@ -105,12 +111,179 @@ app.get('/', function(req, res) {
     } else {
         sessionData.hasActiveGame = false;
     }
+    // Determine whether current user is the room moderator (creator)
+    try {
+        const currentRoom = typeof roomList !== 'undefined' ? roomList.find(r => r.name === validatedRoom) : null;
+        sessionData.isModerator = req.session.username && currentRoom && currentRoom.creator === req.session.username;
+    } catch (e) {
+        sessionData.isModerator = false;
+    }
     
     console.log('🌐 HTTP request session data:', sessionData);
     
     res.render('login', { 
         sessionData: JSON.stringify(sessionData)
     });
+});
+
+// CSV evaluation endpoint — accepts JSON { room, filename, content }
+app.post('/api/evaluate-csv', function(req, res) {
+    const username = req.session.username;
+    if (!username) return res.status(401).json({ error: 'Not authenticated' });
+
+    // Only allow admins or room moderators
+    const room = req.body.room || req.session.room || 'Global';
+    const isAdmin = req.session.isAdmin;
+    const currentRoom = typeof roomList !== 'undefined' ? roomList.find(r => r.name === room) : null;
+    const isModerator = currentRoom && currentRoom.creator === username;
+    if (!isAdmin && !isModerator) return res.status(403).json({ error: 'Forbidden: moderator or admin required' });
+
+    const content = req.body.content || '';
+    if (!content) return res.status(400).json({ error: 'No CSV content provided' });
+
+    try {
+        // Parse CSV using robust CSV parser (handles quotes, commas)
+        const records = parse(content, { columns: true, skip_empty_lines: true, trim: true });
+        const rows = records;
+
+        // Group rows by block
+        const blocks = {};
+        rows.forEach(r => {
+            const b = parseInt(r['Block_Number'],10) || 0;
+            if (!blocks[b]) blocks[b]=[];
+            blocks[b].push(r);
+        });
+
+        const conditions = ['High Culturant','High Operant','Equal Culturant-Operant','Equal Culturant–Operant'];
+        const incentSC = ['Self Control Incentive','Self Control Incentive'];
+
+        const report = {};
+
+        Object.entries(blocks).forEach(([blockNum, rowsInBlock]) => {
+            const blockReport = { ok: true, errors: [], recipients: {}, noneCount: 0 };
+
+            // Normalizers
+            const canonicalCondition = (c) => (c||'').replace(/–/g,'-').trim();
+            const canonicalIncentive = (i) => (i||'').trim();
+
+            // Collect recipients including 'None'
+            const recipientsSet = new Set();
+            rowsInBlock.forEach(r => {
+                const recip = (r['Incentive_Recipient'] || r['Incentive Recipient'] || 'None') || 'None';
+                recipientsSet.add(recip);
+            });
+
+            const recipients = Array.from(recipientsSet);
+
+            // Base conditions expected (normalize to use hyphen)
+            const baseConds = ['High Culturant','High Operant','Equal Culturant-Operant'].map(c => canonicalCondition(c));
+            const expectedKeys = [];
+            baseConds.forEach(c => {
+                expectedKeys.push(`${c}::Self Control Incentive`);
+                expectedKeys.push(`${c}::Impulse Incentive`);
+            });
+
+            // Build per-recipient seen counts
+            recipients.forEach(recipient => {
+                const seen = {};
+                let localNoneCount = 0;
+                rowsInBlock.forEach(r => {
+                    const recip = (r['Incentive_Recipient'] || r['Incentive Recipient'] || 'None') || 'None';
+                    if (recip !== recipient) return;
+                    const condRaw = r['Condition'] || r['Condition'] || '';
+                    const cond = canonicalCondition(condRaw);
+                    const inc = canonicalIncentive(r['Incentive_Type'] || r['Incentive Type'] || r['Incentive'] || '');
+
+                    if (!inc || inc.toLowerCase() === 'none' || inc.toLowerCase() === 'no incentive') {
+                        localNoneCount++;
+                        return;
+                    }
+
+                    const key = `${cond}::${inc}`;
+                    seen[key] = (seen[key] || 0) + 1;
+                });
+
+                blockReport.recipients[recipient] = { combos: seen, noneCount: localNoneCount };
+            });
+
+            // Verify each non-None recipient has exactly the expected combos once
+            recipients.filter(r => r !== 'None').forEach(recipient => {
+                const data = blockReport.recipients[recipient] || { combos: {} };
+                expectedKeys.forEach(k => {
+                    const count = data.combos[k] || 0;
+                    if (count !== 1) {
+                        blockReport.ok = false;
+                        blockReport.errors.push(`Recipient ${recipient} has ${count} occurrences of ${k} in block ${blockNum}`);
+                    }
+                });
+            });
+
+            // Count NONE rounds for this block (rows where incentive is None)
+            const noneCount = rowsInBlock.reduce((acc, r) => {
+                const inc = (r['Incentive_Type'] || r['Incentive Type'] || r['Incentive'] || '').toString().toLowerCase();
+                return acc + ((inc === 'none' || inc === 'no incentive' || inc === '') ? 1 : 0);
+            }, 0);
+            blockReport.noneCount = noneCount;
+            if (noneCount !== 3) {
+                blockReport.ok = false;
+                blockReport.errors.push(`Block ${blockNum} has ${noneCount} NONE rounds (expected 3)`);
+            }
+
+            // Compute total earnings and culturant counts for the block if present
+            let totalEarnings = 0;
+            let culturantCount = 0;
+            const earningKeys = ['Round_Earnings','Round Earnings','Earnings','Player_Earnings','Player Earnings','RoundEarnings','Earning'];
+            rowsInBlock.forEach(r => {
+                // earnings: detect common single-field names OR per-player round earnings like Player_A_Round_Earnings
+                let added = false;
+                for (const k of earningKeys) {
+                    if (r[k] !== undefined && r[k] !== '') {
+                        const v = parseFloat((r[k] + '').replace(/[^0-9.\-]/g, ''));
+                        if (!isNaN(v)) {
+                            totalEarnings += v;
+                            added = true;
+                            break;
+                        }
+                    }
+                }
+
+                if (!added) {
+                    // Fallback: scan all columns for any that look like per-player round earnings
+                    for (const colKey of Object.keys(r)) {
+                        const lk = (colKey || '').toString().toLowerCase();
+                        if (lk.includes('round') && lk.includes('earning')) {
+                            const v = parseFloat((r[colKey] + '').replace(/[^0-9.\-]/g, ''));
+                            if (!isNaN(v)) {
+                                totalEarnings += v;
+                                added = true;
+                                // do not break — there may be multiple player round earnings per row; continue summing
+                            }
+                        }
+                        // also consider columns like 'player_a_total_payout' or 'player_a_total' if needed
+                        if (lk.includes('total') && lk.includes('payout')) {
+                            const v = parseFloat((r[colKey] + '').replace(/[^0-9.\-]/g, ''));
+                            if (!isNaN(v)) {
+                                // skip adding total payout to avoid double-counting across rounds
+                            }
+                        }
+                    }
+                }
+
+                // culturant condition
+                const cond = (r['Condition'] || r['Condition'] || '').toString().toLowerCase();
+                if (cond.indexOf('culturant') !== -1) culturantCount++;
+            });
+            blockReport.totalEarnings = totalEarnings;
+            blockReport.culturantCount = culturantCount;
+
+            report[blockNum] = blockReport;
+        });
+
+        return res.json({ success: true, report });
+    } catch (err) {
+        console.error('Error evaluating CSV:', err);
+        return res.status(500).json({ error: err.message });
+    }
 });
 
 // Add session check endpoint
@@ -248,6 +421,66 @@ app.get('/about', function(req, res) {
     res.render('about');
 });
 
+// Invite link route - redirects to login with invite code pre-filled
+app.get('/invite', function(req, res) {
+    const inviteCode = req.query.code;
+    
+    if (!inviteCode) {
+        console.log('⚠️ Invite link accessed without code parameter');
+        return res.redirect('/');
+    }
+    
+    // Sanitize the invite code
+    const sanitizedCode = inviteCode.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+    
+    if (sanitizedCode.length < 3) {
+        console.log('⚠️ Invalid invite code in link:', inviteCode);
+        return res.redirect('/');
+    }
+    
+    console.log(`🔗 Invite link accessed with code: ${sanitizedCode}`);
+    
+    // Look up invite code details to get target room
+    Database.getInviteCodeDetails(sanitizedCode, function(inviteDetails) {
+        // Get session data same as main route
+        let validatedRoom = req.session.room || 'Global';
+        
+        if (req.session.room && typeof roomList !== 'undefined') {
+            const roomIndex = roomList.findIndex(room => 
+                room.name.toLowerCase() === req.session.room.toLowerCase()
+            );
+            if (roomIndex === -1) {
+                validatedRoom = 'Global';
+            }
+        }
+        
+        const sessionData = {
+            isLoggedIn: !!req.session.username,
+            username: req.session.username || null,
+            room: validatedRoom,
+            inviteCode: sanitizedCode,  // Pass the invite code to pre-fill
+            targetRoom: inviteDetails ? inviteDetails.targetRoom : null  // Room to auto-join after signup
+        };
+        
+        if (inviteDetails && inviteDetails.targetRoom) {
+            console.log(`🔗 Invite code ${sanitizedCode} has target room: ${inviteDetails.targetRoom}`);
+        }
+        
+        // Check for active game
+        if (req.session.username && validatedRoom && validatedRoom !== 'Global') {
+            const Entity = require('./Entity.js');
+            const hasActiveGame = Entity.hasActiveGameSession && Entity.hasActiveGameSession(validatedRoom);
+            sessionData.hasActiveGame = hasActiveGame;
+        } else {
+            sessionData.hasActiveGame = false;
+        }
+        
+        res.render('login', { 
+            sessionData: JSON.stringify(sessionData)
+        });
+    });
+});
+
 // Remove game route - game interface should be embedded in main page
 
 app.get('/globalChat', function(req, res) {
@@ -279,8 +512,10 @@ app.get('/debug/test-led-tracker', function(req, res) {
     });
 });
 
-server.listen(2000, () => {
-    console.log("------------ Server started ------------");
+const LISTEN_PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 2000;
+
+server.listen(LISTEN_PORT, () => {
+    console.log(`------------ Server started on port ${LISTEN_PORT} ------------`);
     
     // Update invite code schema and clean up on startup
     setTimeout(() => {
@@ -357,6 +592,15 @@ io.on('connection', (socket) => {
                 const hasActiveGame = Entity.hasActiveGameSession && Entity.hasActiveGameSession(targetRoom);
                 console.log(`🎮 Checking for active game in room "${targetRoom}": ${hasActiveGame}`);
                 
+                // Get stored player position if available
+                let playerPosition = null;
+                if (hasActiveGame) {
+                    const gameSession = Entity.GameSession.get(targetRoom);
+                    if (gameSession && gameSession.playerPositions) {
+                        playerPosition = gameSession.playerPositions[socket.handshake.session.username];
+                    }
+                }
+                
                 // Emit session restore event with validated room and game status
                 socket.emit('sessionRestored', { 
                     success: true, 
@@ -364,7 +608,8 @@ io.on('connection', (socket) => {
                     room: targetRoom,
                     roomRestored: roomExists,
                     hasActiveGame: hasActiveGame,
-                    isAdmin: admin
+                    isAdmin: admin,
+                    playerPosition: playerPosition
                 });
             });
         } else {
@@ -431,6 +676,13 @@ io.on('connection', (socket) => {
                                 });
                                 console.log('✅ Sign in response sent to client');
                                 
+                                // Get stored player position if available
+                                let playerPosition = null;
+                                const gameSession = Entity.GameSession.get(restorationData.room);
+                                if (gameSession && gameSession.playerPositions) {
+                                    playerPosition = gameSession.playerPositions[data.username];
+                                }
+                                
                                 // Trigger session restoration event for room restoration
                                 socket.emit('sessionRestored', { 
                                     success: true, 
@@ -438,7 +690,8 @@ io.on('connection', (socket) => {
                                     room: restorationData.room,
                                     roomRestored: true,
                                     hasActiveGame: true,
-                                    isAdmin: admin
+                                    isAdmin: admin,
+                                    playerPosition: playerPosition
                                 });
                             });
                         });
@@ -522,6 +775,40 @@ io.on('connection', (socket) => {
                 });
             }
         });
+    });
+
+    // Client can request a session restore explicitly (useful after reconnect)
+    socket.on('requestSessionRestore', function(req) {
+        console.log('🔁 requestSessionRestore received from socket', socket.id, 'for', req && req.room ? req.room : 'n/a');
+        // Use existing session data to build the same response as on initial connect
+        if (socket.handshake.session && socket.handshake.session.username) {
+            let targetRoom = socket.handshake.session.room || 'Global';
+            let roomExists = false;
+
+            if (typeof roomList !== 'undefined') {
+                const roomIndex = roomList.findIndex(r => r.name.toLowerCase() === (targetRoom || 'Global').toLowerCase());
+                roomExists = roomIndex !== -1;
+                if (!roomExists) targetRoom = 'Global';
+            } else {
+                targetRoom = 'Global';
+            }
+
+            const Entity = require('./Entity.js');
+            const hasActiveGame = Entity.hasActiveGameSession && Entity.hasActiveGameSession(targetRoom);
+
+            Database.isAdmin({ username: socket.handshake.session.username }, function(admin) {
+                socket.emit('sessionRestored', {
+                    success: true,
+                    username: socket.handshake.session.username,
+                    room: targetRoom,
+                    roomRestored: roomExists,
+                    hasActiveGame: hasActiveGame,
+                    isAdmin: admin
+                });
+            });
+        } else {
+            socket.emit('sessionInvalid', { message: 'Session expired, please log in again' });
+        }
     });
 
     socket.on('signUp', function(data) {
@@ -670,7 +957,11 @@ io.on('connection', (socket) => {
                 });
             } else {
                 // Generate random single-use code
-                Database.generateInviteCode(username, function(inviteCode) {
+                // Check if mod is in an active room (not Global)
+                const currentRoom = socket.handshake.session.room;
+                const targetRoom = (currentRoom && currentRoom !== 'Global') ? currentRoom : null;
+                
+                Database.generateInviteCode(username, targetRoom, function(inviteCode, room) {
                     if (!inviteCode) {
                         console.log('❌ Failed to generate invite code for admin:', username);
                         return socket.emit('inviteCodeResponse', { 
@@ -679,12 +970,13 @@ io.on('connection', (socket) => {
                         });
                     }
                     
-                    console.log('✅ Admin generated random invite code:', { admin: username, code: inviteCode });
+                    console.log('✅ Admin generated random invite code:', { admin: username, code: inviteCode, targetRoom: room });
                     socket.emit('inviteCodeResponse', { 
                         success: true, 
                         inviteCode: inviteCode,
                         isPermanent: false,
-                        message: 'Random invite code generated successfully!' 
+                        targetRoom: room,
+                        message: room ? `Invite code generated for room "${room}"!` : 'Random invite code generated successfully!'
                     });
                 });
             }

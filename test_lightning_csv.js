@@ -20,7 +20,7 @@ const mockLightningDataLog = [
             { username: 'AI_Player_Gamma', choice: '6', whiteTokens: 1, blackTokens: 0, earnings: 0.10, isAI: true, isModerator: false }
         ],
         culturantProduced: true,
-        whiteTokensRemaining: 2500
+        whiteTokensRemaining: 1250
     },
     {
         timestamp: new Date().toISOString(),
@@ -36,7 +36,7 @@ const mockLightningDataLog = [
             { username: 'AI_Player_Gamma', choice: '7', whiteTokens: 1, blackTokens: 0, earnings: 0.10, isAI: true, isModerator: false }
         ],
         culturantProduced: false,
-        whiteTokensRemaining: 2500
+        whiteTokensRemaining: 1250
     },
     {
         timestamp: new Date().toISOString(),

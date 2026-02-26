@@ -131,35 +131,6 @@
     </style>
     <% } %>
     
-    <!-- Ultra-early login button hiding script -->
-    <script>
-        // This script runs immediately when parsed, before DOM ready
-        <% if (isLoggedIn) { %>
-        console.log('🚫 ULTRA-EARLY: Hiding login button before DOM ready');
-        
-        // Create a style element to force-hide login button
-        const earlyStyle = document.createElement('style');
-        earlyStyle.textContent = `
-            #loginNav { 
-                display: none !important; 
-                visibility: hidden !important; 
-                opacity: 0 !important; 
-                position: absolute !important;
-                left: -9999px !important;
-            }
-        `;
-        document.head.appendChild(earlyStyle);
-        
-        // Also try to hide it if it already exists
-        const existingLoginButton = document.getElementById('loginNav');
-        if (existingLoginButton) {
-            existingLoginButton.style.setProperty('display', 'none', 'important');
-            existingLoginButton.hidden = true;
-            console.log('🚫 ULTRA-EARLY: Found and hid existing login button');
-        }
-        <% } %>
-    </script>
-    
     <title>MetaMatching</title>
     <link rel="icon" type="image/x-icon" href="../client/img/favicon.png">
 </head>
@@ -168,17 +139,6 @@
 
     <!-- Loading overlay to prevent FOUC -->
     <div id="pageLoadOverlay"></div>
-
-
-
-
-    <!-- Old login buttons - REMOVED to prevent duplicates
-    <div id="signDiv" class="signIn">
-        Username: <input id="signDiv-username" type="text"></input><br>
-        Password: <input id="signDiv-password" type="password"></input><br>
-        <button id="signDiv-signIn">Sign In</button>
-        <button id="signDiv-signUp">Sign Up</button>
-    </div> -->
 
     <header class="header">
         <nav class="navbar">
@@ -191,7 +151,7 @@
                     <a href="#" class="nav-link">About</a>
                 </li> -->
                 <li class="nav-item">
-                    <button id="loginNav"><span>Login</span></button>
+                    <button id="loginNav" style="position: relative; z-index: 100000;" onclick="document.getElementById('id01').style.display='block';" ontouchend="document.getElementById('id01').style.display='block';"><span>Login</span></button>
                 </li>
                 <li class="nav-item profile-menu-container" style="display: none; position: relative;">
                     <button id="profileMenuBtn" style="
@@ -461,7 +421,7 @@
                 </div>
 
                 <div style="display: flex; gap: 12px; justify-content: center; margin-bottom: 20px;">
-                    <button type="button" id="signIn" style="
+                    <button type="button" id="signIn" onclick="handleSignIn(event)" ontouchend="handleSignIn(event)" style="
                         background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%) !important;
                         color: white !important;
                         padding: 16px 24px;
@@ -1028,8 +988,6 @@
                 <div class="status-card" style="background-color: #40444b; padding: 15px; border-radius: 5px; flex: 1; text-align: center;">
                     <h3 style="color: #ffffff; margin: 0; font-size: 18px;">Round</h3>
                     <span id="currentRound" style="color: #7289da; font-size: 24px; font-weight: bold;">0</span>
-                    <span style="color: #b9bbbe;"> / </span>
-                    <span id="maxRounds" style="color: #b9bbbe; font-size: 18px;">500</span>
                 </div>
                 <div class="status-card" style="background-color: #40444b; padding: 15px; border-radius: 5px; flex: 1; text-align: center;">
                     <h3 style="color: #ffffff; margin: 0; font-size: 18px;">White Tokens</h3>
@@ -1062,52 +1020,14 @@
                     </div>
                 </div>
                 
-                <!-- Cooperation Counter -->
-                <div style="text-align: center; margin-top: 10px;">
-                    <span style="color: #b9bbbe; margin-right: 10px;">Cooperation Events:</span>
-                    <span id="culturantCount" style="color: #7289da; font-size: 16px; font-weight: bold;">0</span>
-                </div>
             </div>
 
-            <!-- Poker Table Container -->
-            <div id="pokerTable" style="position: relative; width: 100%; height: 400px; background-color: #2c2f33; border-radius: 10px; margin-bottom: 20px;">
+            <!-- Game Content Wrapper: Side-by-side on wide screens, stacked on narrow -->
+            <div id="gameContentWrapper">
                 
-                <div id="leftPlayer" class="poker-seat" style="position: absolute; left: 20px; top: 50%; transform: translateY(-50%); width: 120px; height: 80px; background-color: #36393f; border: 2px solid #7289da; border-radius: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center;">
-                    <div class="player-name" style="color: #ffffff; font-size: 16px; font-weight: bold;"></div>
-                    <div class="player-status" style="color: #b9bbbe; font-size: 14px;"></div>
-                    <div class="ai-indicator" style="color: #faa61a; font-size: 12px; display: none;">🤖 AI</div>
-                    <div class="player-wallet" style="color: #43b581; font-size: 12px; margin-top: 2px;"></div>
-                </div>
-                
-                <div id="topPlayer" class="poker-seat" style="position: absolute; top: 20px; left: 50%; transform: translateX(-50%); width: 120px; height: 80px; background-color: #36393f; border: 2px solid #7289da; border-radius: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center;">
-                    <div class="player-name" style="color: #ffffff; font-size: 16px; font-weight: bold;"></div>
-                    <div class="player-status" style="color: #b9bbbe; font-size: 14px;"></div>
-                    <div class="ai-indicator" style="color: #faa61a; font-size: 12px; display: none;">🤖 AI</div>
-                    <div class="player-wallet" style="color: #43b581; font-size: 12px; margin-top: 2px;"></div>
-                </div>
-                
-                <div id="rightPlayer" class="poker-seat" style="position: absolute; right: 20px; top: 50%; transform: translateY(-50%); width: 120px; height: 80px; background-color: #36393f; border: 2px solid #7289da; border-radius: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center;">
-                    <div class="player-name" style="color: #ffffff; font-size: 16px; font-weight: bold;"></div>
-                    <div class="player-status" style="color: #b9bbbe; font-size: 14px;"></div>
-                    <div class="ai-indicator" style="color: #faa61a; font-size: 12px; display: none;">🤖 AI</div>
-                    <div class="player-wallet" style="color: #43b581; font-size: 12px; margin-top: 2px;"></div>
-                </div>
-                
-                <!-- Moderator Position -->
-                <div id="moderatorPosition" class="moderator-seat" style="position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); width: 120px; height: 70px; background-color: #2c2f33; border: 2px solid #9b59b6; border-radius: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center;">
-                    <div class="moderator-name" style="color: #9b59b6; font-size: 13px; font-weight: bold;">Waiting for Moderator...</div>
-                    <div style="color: #9b59b6; font-size: 12px; font-weight: bold;">Moderator</div>
-                    <div style="color: #b9bbbe; font-size: 9px;">Game Host</div>
-                </div>
-                
-                <!-- Table Center -->
-                <div id="tableCenter" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 100px; height: 60px; background-color: #2c2f33; border: 2px solid #72767d; border-radius: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center;">
-                    <div style="color: #ffffff; font-size: 12px; font-weight: bold;">Round</div>
-                    <div id="tableRound" style="color: #7289da; font-size: 16px;">0</div>
-                </div>
-            </div>
-
-            <!-- Main Game Area -->
+                <!-- Game Board Section (left side on wide screens) -->
+                <div id="gameBoardSection">
+                    <!-- Main Game Area -->
             <div id="gameArea" style="background-color: #40444b; padding: 20px; border-radius: 5px; margin-bottom: 20px; min-height: 400px;">
                 
                 <!-- Lobby Phase -->
@@ -1126,97 +1046,8 @@
                     <!-- Decision Grid and Results Container -->
                     <div id="decisionGridContainer" style="display: flex; gap: 30px; margin: 30px auto; justify-content: center; align-items: flex-start; flex-wrap: wrap;">
                         
-                        <!-- Left Side: Round Results Panel -->
-                        <div style="flex: 0 0 auto; min-width: 300px; max-width: 350px; align-self: flex-start;">
-                            
-                            <!-- Lock In Section - positioned above Round Results -->
-                            <div id="selectionSection" style="display: none; margin-bottom: 20px;">
-                                <div style="background: rgba(54, 57, 63, 0.8); backdrop-filter: blur(12px); border-radius: 8px; padding: 14px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2); border: 1px solid rgba(114, 118, 125, 0.2); width: 100%;">
-                                    <div style="display: flex; align-items: center; justify-content: center; gap: 6px; margin-bottom: 10px;">
-                                        <div style="width: 4px; height: 4px; background-color: #7289da; border-radius: 50%; animation: subtlePulse 2s infinite;"></div>
-                                        <div id="selectedChoice" style="color: #dcddde; font-size: 13px; font-weight: 500;">No selection made</div>
-                                        <div style="width: 4px; height: 4px; background-color: #7289da; border-radius: 50%; animation: subtlePulse 2s infinite;"></div>
-                                    </div>
-                                    
-                                    <button id="lockInBtn" style="
-                                        background: linear-gradient(135deg, #5865f2, #4752c4);
-                                        color: white;
-                                        padding: 8px 16px;
-                                        font-size: 12px;
-                                        font-weight: 500;
-                                        border: none;
-                                        border-radius: 6px;
-                                        cursor: pointer;
-                                        position: relative;
-                                        overflow: hidden;
-                                        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-                                        box-shadow: 0 2px 6px rgba(88, 101, 242, 0.25);
-                                        letter-spacing: 0.3px;
-                                        width: 100%;
-                                    " disabled onmouseover="
-                                        if (!this.disabled) {
-                                            this.style.transform = 'translateY(-1px)';
-                                            this.style.boxShadow = '0 4px 12px rgba(88, 101, 242, 0.35)';
-                                        }
-                                    " onmouseout="
-                                        if (!this.disabled) {
-                                            this.style.transform = 'translateY(0)';
-                                            this.style.boxShadow = '0 2px 6px rgba(88, 101, 242, 0.25)';
-                                        }
-                                    ">
-                                        <span id="lockInText" style="position: relative; z-index: 1;">🔒 Lock In Choice</span>
-                                    </button>
-                                </div>
-                            </div>
-                            
-                            <!-- Token Conversion Rate Display -->
-                            <div id="tokenConversionDisplay" style="display: none; margin-bottom: 15px;">
-                                <div style="background: rgba(54, 57, 63, 0.9); backdrop-filter: blur(12px); border-radius: 6px; padding: 12px; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15); border: 1px solid rgba(114, 118, 125, 0.3);">
-                                    <div style="color: #faa61a; font-size: 12px; font-weight: 600; margin-bottom: 8px; text-align: center; opacity: 0.8;">Current Token Values</div>
-                                    <div style="display: flex; align-items: center; justify-content: space-around; gap: 12px;">
-                                        <div style="display: flex; align-items: center; gap: 6px;">
-                                            <span style="font-size: 14px;">⚪</span>
-                                            <span id="whiteTokenValue" style="color: #ffffff; font-size: 13px; font-weight: 500;">$0.01</span>
-                                        </div>
-                                        <div style="display: flex; align-items: center; gap: 6px;">
-                                            <span style="font-size: 14px;">⚫</span>
-                                            <span id="blackTokenValue" style="color: #ffffff; font-size: 13px; font-weight: 500;">$0.05</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <!-- Round Results Phase -->
-                            <div id="resultsPhase" style="display: block; width: 100%;">
-                                <div style="background: rgba(64, 68, 75, 0.8); backdrop-filter: blur(12px); border-radius: 8px; padding: 16px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2); border: 1px solid rgba(114, 118, 125, 0.2); height: 480px; overflow-y: auto;">
-                                    <h4 id="roundResultsTitle" style="color: #ffffff; margin: 0 0 12px 0; font-size: 16px;">Experiment Ready</h4>
-                                    <div id="roundResults" style="color: #b9bbbe; margin-bottom: 12px; font-size: 14px;">Waiting for first round to begin...</div>
-                                    
-                                    <!-- Round Results Details Panel -->
-                                    <div id="roundResultsPanel" style="display: none;">
-                                        <div id="roundSummary" style="color: #43b581; font-size: 14px; margin-bottom: 12px; font-weight: 500;"></div>
-                                        <div id="playerResultsTable" style="margin-bottom: 16px;"></div>
-                                        <div id="conversionRateInfo" style="color: #7289da; font-size: 13px; margin-bottom: 12px;"></div>
-                                        <div id="roundTotals" style="color: #faa61a; font-size: 13px; border-top: 1px solid rgba(114, 118, 125, 0.3); padding-top: 12px;"></div>
-                                    </div>
-                                    
-                                    <div id="tokenUpdate" style="color: #43b581; font-size: 15px; margin-bottom: 8px; font-weight: 500;"></div>
-                                    <div id="roundEarnings" style="color: #43b581; font-size: 14px; margin-bottom: 10px; font-weight: 500;"></div>
-                                    <div id="culturantStatus" style="color: #7289da; font-size: 13px;"></div>
-                                    <div id="activeIncentive" style="color: #faa61a; font-size: 12px; margin-top: 8px;"></div>
-                                    <div id="baselineExitNotification" style="display: none; background: linear-gradient(135deg, #43b581, #5bc0de); color: #ffffff; font-size: 12px; font-weight: 600; margin-top: 8px; padding: 8px 12px; border-radius: 6px; cursor: pointer; box-shadow: 0 2px 8px rgba(67, 181, 129, 0.3); border: 1px solid rgba(255, 255, 255, 0.2); transition: all 0.3s ease;" onclick="this.style.display='none';" onmouseover="this.style.transform='scale(1.02)'; this.style.boxShadow='0 4px 16px rgba(67, 181, 129, 0.5)';" onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='0 2px 8px rgba(67, 181, 129, 0.3)';">
-                                        <div style="display: flex; align-items: center; gap: 8px;">
-                                            <span style="font-size: 16px;">🎯</span>
-                                            <span id="baselineExitText">Baseline condition exited on turn X</span>
-                                            <span style="font-size: 11px; opacity: 0.8; margin-left: auto;">(click to dismiss)</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <!-- Right Side: 8x8 Decision Grid -->
-                        <div id="decisionGrid" style="flex: 0 0 auto;">                        
+                        <!-- Left Side: 8x8 Decision Grid -->
+                        <div id="decisionGrid" style="flex: 0 0 auto; order: 1;">                        
                             <!-- Grid container with row headers and cells -->
                             <div style="display: flex;">
                                 <!-- Row headers (numbers 1-8) -->
@@ -1247,13 +1078,122 @@
                                     </div>
                                     
                                     <!-- 8x8 Grid with clickable rows -->
-                                    <div id="grid8x8" style="border: 2px solid #72767d; background-color: #2c2f33; width: 400px; box-sizing: border-box;">
+                                    <div id="grid8x8" style="background-color: #2c2f33; width: 400px; box-sizing: border-box;">
                                         <!-- Grid will be populated dynamically by JavaScript -->
                                     </div>
                                 </div>
                             </div>
                         </div>
                         
+                        <!-- Right Side: Lock In Section and Token Displays -->
+                        <div style="flex: 0 0 auto; min-width: 300px; max-width: 350px; align-self: flex-start; order: 2;">
+                            
+                            <!-- Token Conversion Rate Display (for narrow screens) -->
+                            <div id="tokenConversionDisplayLeft" class="token-conversion-narrow" style="display: none; margin-bottom: 15px;">
+                                <div style="background: rgba(54, 57, 63, 0.9); backdrop-filter: blur(12px); border-radius: 6px; padding: 12px; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15); border: 1px solid rgba(114, 118, 125, 0.3);">
+                                    <div style="color: #faa61a; font-size: 12px; font-weight: 600; margin-bottom: 8px; text-align: center; opacity: 0.8;">Current Token Values</div>
+                                    <div style="display: flex; align-items: center; justify-content: space-around; gap: 12px;">
+                                        <div style="display: flex; align-items: center; gap: 6px;">
+                                            <span style="font-size: 14px;">⚪</span>
+                                            <span class="whiteTokenValue" style="color: #ffffff; font-size: 13px; font-weight: 500;">$0.01</span>
+                                        </div>
+                                        <div style="display: flex; align-items: center; gap: 6px;">
+                                            <span style="font-size: 14px;">⚫</span>
+                                            <span class="blackTokenValue" style="color: #ffffff; font-size: 13px; font-weight: 500;">$0.05</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Round Results Phase (for narrow screens) -->
+                            <div id="resultsPhaseLeft" class="results-narrow" style="display: block; width: 100%;">
+                                <div style="background: rgba(64, 68, 75, 0.8); backdrop-filter: blur(12px); border-radius: 8px; padding: 16px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2); border: 1px solid rgba(114, 118, 125, 0.2); height: 480px; overflow-y: auto;">
+                                    <h4 class="roundResultsTitle" style="color: #ffffff; margin: 0 0 12px 0; font-size: 16px;">Experiment Ready</h4>
+                                    <div class="roundResults" style="color: #b9bbbe; margin-bottom: 12px; font-size: 14px;">Waiting for first round to begin...</div>
+                                    
+                                    <!-- Round Results Details Panel -->
+                                    <div class="roundResultsPanel" style="display: none;">
+                                        <div class="roundSummary" style="color: #43b581; font-size: 14px; margin-bottom: 12px; font-weight: 500;"></div>
+                                        <div class="playerResultsTable" style="margin-bottom: 16px;"></div>
+                                        <div class="conversionRateInfo" style="color: #7289da; font-size: 13px; margin-bottom: 12px;"></div>
+                                        <div class="roundTotals" style="color: #faa61a; font-size: 13px; border-top: 1px solid rgba(114, 118, 125, 0.3); padding-top: 12px;"></div>
+                                    </div>
+                                    
+                                    <div class="tokenUpdate" style="color: #43b581; font-size: 15px; margin-bottom: 8px; font-weight: 500;"></div>
+                                    <div class="roundEarnings" style="color: #43b581; font-size: 14px; margin-bottom: 10px; font-weight: 500;"></div>
+                                    <div class="culturantStatus" style="color: #7289da; font-size: 13px;"></div>
+                                    <div class="activeIncentive" style="color: #faa61a; font-size: 12px; margin-top: 8px;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                    </div>
+                    <!-- End of decisionGridContainer -->
+                    
+                    <!-- Current Token Value Display (above lock-in button) -->
+                    <div id="currentTokenValueDisplay" style="display: none; margin-top: 10px; margin-bottom: 8px; max-width: 280px; margin-left: calc(50% - 230px); margin-right: auto;">
+                        <div style="background: rgba(54, 57, 63, 0.8); backdrop-filter: blur(12px); border-radius: 8px; padding: 10px 16px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2); border: 1px solid rgba(114, 118, 125, 0.2);">
+                            <div style="color: #b9bbbe; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; text-align: center;">Current Token Value</div>
+                            <div style="display: flex; align-items: center; justify-content: center; gap: 20px;">
+                                <div style="display: flex; align-items: center; gap: 6px;">
+                                    <span style="font-size: 14px;">⚪</span>
+                                    <span id="currentWhiteTokenValue" style="color: #43b581; font-size: 13px; font-weight: 600;">$0.10</span>
+                                </div>
+                                <div style="width: 1px; height: 16px; background: rgba(255, 255, 255, 0.1);"></div>
+                                <div style="display: flex; align-items: center; gap: 6px;">
+                                    <span style="font-size: 14px;">⚫</span>
+                                    <span id="currentBlackTokenValue" style="color: #e74c3c; font-size: 13px; font-weight: 600;">$0.02</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Lock In Section (below token value display) -->
+                    <div id="selectionSection" style="display: none; margin-top: 5px; max-width: 120px; margin-left: calc(50% - 150px); margin-right: auto;">
+                        <div style="background: rgba(54, 57, 63, 0.8); backdrop-filter: blur(12px); border-radius: 8px; padding: 10px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2); border: 1px solid rgba(114, 118, 125, 0.2);">
+                            <div style="display: flex; align-items: center; justify-content: center; gap: 4px; margin-bottom: 8px;">
+                                <div style="width: 3px; height: 3px; background-color: #7289da; border-radius: 50%; animation: subtlePulse 2s infinite;"></div>
+                                <div id="selectedChoice" style="color: #dcddde; font-size: 11px; font-weight: 500;">No selection</div>
+                                <div style="width: 3px; height: 3px; background-color: #7289da; border-radius: 50%; animation: subtlePulse 2s infinite;"></div>
+                            </div>
+                            
+                            <button id="lockInBtn" style="
+                                background: linear-gradient(135deg, #5865f2, #4752c4);
+                                color: white;
+                                padding: 6px 12px;
+                                font-size: 11px;
+                                font-weight: 500;
+                                border: none;
+                                border-radius: 6px;
+                                cursor: pointer;
+                                position: relative;
+                                overflow: hidden;
+                                transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+                                box-shadow: 0 2px 6px rgba(88, 101, 242, 0.25);
+                                letter-spacing: 0.3px;
+                                width: 100%;
+                            " disabled onmouseover="
+                                if (!this.disabled) {
+                                    this.style.transform = 'translateY(-1px)';
+                                    this.style.boxShadow = '0 4px 12px rgba(88, 101, 242, 0.35)';
+                                }
+                            " onmouseout="
+                                if (!this.disabled) {
+                                    this.style.transform = 'translateY(0)';
+                                    this.style.boxShadow = '0 2px 6px rgba(88, 101, 242, 0.25)';
+                                }
+                            ">
+                                <span id="lockInText" style="position: relative; z-index: 1;">Lock in</span>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Moderator-Only Cumulative Earnings (below lock-in button/checkerboard) -->
+                    <div id="resultsPhaseBottom" style="display: none; margin-top: 15px; max-width: 400px; margin-left: calc(50% - 290px);">
+                        <!-- Cumulative Results Details Panel -->
+                        <div class="roundResultsPanel" style="display: none;">
+                            <div class="playerResultsTable"></div>
+                        </div>
                     </div>
                         
                         <style>
@@ -1289,24 +1229,140 @@
                                 box-shadow: inset 0 0 3px rgba(114, 137, 218, 0.3) !important;
                             }
                         </style>
+                    
+                    </div>
+                    <!-- End of decisionPhase -->
+                    
+                </div>
+                <!-- End of gameArea -->
+                
+                </div>
+                <!-- End of gameBoardSection -->
+                
+                <!-- Poker Table Section (right side on wide screens) -->
+                <div id="pokerTableSection">
+                    <!-- Poker Table Container -->
+                    <div id="pokerTable" style="position: relative; width: 100%; height: 400px; background-color: #2c2f33; border-radius: 10px; margin-bottom: 20px;">
+                        
+                        <div id="leftPlayer" class="poker-seat" style="position: absolute; left: 20px; top: 50%; transform: translateY(-50%); width: 120px; height: 80px; background-color: #36393f; border: 2px solid #7289da; border-radius: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center;">
+                            <div class="player-name" style="color: #ffffff; font-size: 16px; font-weight: bold;"></div>
+                            <div class="player-status" style="color: #b9bbbe; font-size: 14px;"></div>
+                            <div class="ai-indicator" style="color: #faa61a; font-size: 12px; display: none;">🤖 AI</div>
+                            <div class="player-wallet" style="color: #43b581; font-size: 12px; margin-top: 2px;"></div>
+                        </div>
+                        
+                        <div id="topPlayer" class="poker-seat" style="position: absolute; top: 20px; left: 50%; transform: translateX(-50%); width: 120px; height: 80px; background-color: #36393f; border: 2px solid #7289da; border-radius: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center;">
+                            <div class="player-name" style="color: #ffffff; font-size: 16px; font-weight: bold;"></div>
+                            <div class="player-status" style="color: #b9bbbe; font-size: 14px;"></div>
+                            <div class="ai-indicator" style="color: #faa61a; font-size: 12px; display: none;">🤖 AI</div>
+                            <div class="player-wallet" style="color: #43b581; font-size: 12px; margin-top: 2px; display: none;"></div>
+                        </div>
+                        
+                        <div id="rightPlayer" class="poker-seat" style="position: absolute; right: 20px; top: 50%; transform: translateY(-50%); width: 120px; height: 80px; background-color: #36393f; border: 2px solid #7289da; border-radius: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center;">
+                            <div class="player-name" style="color: #ffffff; font-size: 16px; font-weight: bold;"></div>
+                            <div class="player-status" style="color: #b9bbbe; font-size: 14px;"></div>
+                            <div class="ai-indicator" style="color: #faa61a; font-size: 12px; display: none;">🤖 AI</div>
+                            <div class="player-wallet" style="color: #43b581; font-size: 12px; margin-top: 2px; display: none;"></div>
+                        </div>
+                        
+                        <!-- Moderator Position -->
+                        <div id="moderatorPosition" class="moderator-seat" style="position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); width: 120px; height: 70px; background-color: #2c2f33; border: 2px solid #9b59b6; border-radius: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center;">
+                            <div class="moderator-name" style="color: #9b59b6; font-size: 13px; font-weight: bold;">Waiting for Moderator...</div>
+                            <div style="color: #9b59b6; font-size: 12px; font-weight: bold;">Moderator</div>
+                            <div style="color: #b9bbbe; font-size: 9px;">Game Host</div>
+                        </div>
+                        
+                        <!-- Table Center -->
+                        <div id="tableCenter" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 100px; height: 60px; background-color: #2c2f33; border: 2px solid #72767d; border-radius: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center;">
+                            <div style="color: #ffffff; font-size: 12px; font-weight: bold;">Round</div>
+                            <div id="tableRound" style="color: #7289da; font-size: 16px;">0</div>
+                        </div>
+                    </div>
+                    <!-- End of pokerTable -->
+                    
+                    <!-- Token Conversion Rate Display (below poker table on wide screens) -->
+                    <div id="tokenConversionDisplayRight" class="token-conversion-wide" style="display: none;">
+                        <div style="background: rgba(54, 57, 63, 0.9); backdrop-filter: blur(12px); border-radius: 6px; padding: 12px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15); border: 1px solid rgba(114, 118, 125, 0.3);">
+                            <div style="color: #faa61a; font-size: 12px; font-weight: 600; margin-bottom: 8px; text-align: center; opacity: 0.8;">Current Token Values</div>
+                            <div style="display: flex; align-items: center; justify-content: space-around; gap: 12px;">
+                                <div style="display: flex; align-items: center; gap: 6px;">
+                                    <span style="font-size: 14px;">⚪</span>
+                                    <span class="whiteTokenValue" style="color: #ffffff; font-size: 13px; font-weight: 500;">$0.01</span>
+                                </div>
+                                <div style="display: flex; align-items: center; gap: 6px;">
+                                    <span style="font-size: 14px;">⚫</span>
+                                    <span class="blackTokenValue" style="color: #ffffff; font-size: 13px; font-weight: 500;">$0.05</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Round Results Phase (below token conversion on wide screens) -->
+                    <div id="resultsPhaseRight" class="results-wide" style="display: block; width: 100%;">
+                        <div style="background: rgba(64, 68, 75, 0.8); backdrop-filter: blur(12px); border-radius: 8px; padding: 16px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2); border: 1px solid rgba(114, 118, 125, 0.2); max-height: 400px; overflow-y: auto;">
+                            <h4 class="roundResultsTitle" style="color: #ffffff; margin: 0 0 12px 0; font-size: 16px;">Experiment Ready</h4>
+                            <div class="roundResults" style="color: #b9bbbe; margin-bottom: 12px; font-size: 14px;">Waiting for first round to begin...</div>
+                            
+                            <!-- Round Results Details Panel -->
+                            <div class="roundResultsPanel" style="display: none;">
+                                <div class="roundSummary" style="color: #43b581; font-size: 14px; margin-bottom: 12px; font-weight: 500;"></div>
+                                <div class="playerResultsTable" style="margin-bottom: 16px;"></div>
+                                <div class="conversionRateInfo" style="color: #7289da; font-size: 13px; margin-bottom: 12px;"></div>
+                                <div class="roundTotals" style="color: #faa61a; font-size: 13px; border-top: 1px solid rgba(114, 118, 125, 0.3); padding-top: 12px;"></div>
+                            </div>
+                            
+                            <div class="tokenUpdate" style="color: #43b581; font-size: 15px; margin-bottom: 8px; font-weight: 500;"></div>
+                            <div class="roundEarnings" style="color: #43b581; font-size: 14px; margin-bottom: 10px; font-weight: 500;"></div>
+                            <div class="culturantStatus" style="color: #7289da; font-size: 13px;"></div>
+                            <div class="activeIncentive" style="color: #faa61a; font-size: 12px; margin-top: 8px;"></div>
+                            <div class="baselineExitNotification" style="display: none; background: linear-gradient(135deg, #43b581, #5bc0de); color: #ffffff; font-size: 12px; font-weight: 600; margin-top: 8px; padding: 8px 12px; border-radius: 6px; cursor: pointer; box-shadow: 0 2px 8px rgba(67, 181, 129, 0.3); border: 1px solid rgba(255, 255, 255, 0.2); transition: all 0.3s ease;" onclick="this.style.display='none';" onmouseover="this.style.transform='scale(1.02)'; this.style.boxShadow='0 4px 16px rgba(67, 181, 129, 0.5)';" onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='0 2px 8px rgba(67, 181, 129, 0.3)';">
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <span style="font-size: 16px;">🎯</span>
+                                    <span class="baselineExitText">Baseline condition exited on turn X</span>
+                                    <span style="font-size: 11px; opacity: 0.8; margin-left: auto;">(click to dismiss)</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Round Results (below poker table - shown to everyone) -->
+                    <div id="roundResultsPokerTable" style="display: none; margin-top: 20px; max-width: 480px; margin-left: auto; margin-right: auto;">
+                        <div class="conversionRateInfo"></div>
+                    </div>
+                    
+                </div>
+                <!-- End of pokerTableSection -->
+                
+            </div>
+            <!-- End of gameContentWrapper -->
                         
                         <!-- Unified Moderator Switchboard Control (only visible to moderator) -->
                         <div id="moderatorSwitchboard" style="display: none; margin: 20px auto 0 auto; padding: 0; width: 1200px; box-sizing: border-box;">
                             <!-- Switchboard Header -->
-                            <div class="switchboard-header">
+                            <div class="switchboard-header" id="switchboardHeader" style="cursor: pointer; position: relative;">
                                 <div class="header-lights">
                                     <div class="status-light power-light"></div>
                                     <div class="status-light experiment-light"></div>
                                     <div class="status-light testing-light"></div>
                                 </div>
                                 <h3 class="switchboard-title">MODERATOR CONTROL PANEL</h3>
-                                <div class="header-display">
+                                <div class="header-display" style="margin-right: 30px;">
                                     <span id="switchboardClock"></span>
                                 </div>
+                                <div class="collapse-indicator" id="collapseIndicator" style="
+                                    position: absolute;
+                                    right: 20px;
+                                    top: 50%;
+                                    transform: translateY(-50%);
+                                    font-size: 24px;
+                                    color: #00ff88;
+                                    transition: transform 0.3s ease, text-shadow 0.3s ease;
+                                    text-shadow: 0 0 10px #00ff88, 0 0 20px #00ff88;
+                                ">▼</div>
                             </div>
                             
                             <!-- Main Control Grid -->
-                            <div class="switchboard-grid">
+                            <div class="switchboard-grid" id="switchboardGrid">
                                 <!-- Left Column: Game Controls -->
                                 <div class="control-column left-column">
                                     <div class="section-header">
@@ -1384,20 +1440,16 @@
                                         <span class="section-title">EXPERIMENT CONTROLS</span>
                                     </div>
                                     
-                                    <!-- Current Experiment Status - Fixed Phase Info Panel -->
+                                    <!-- Current Experiment Status - Fixed Info Panel -->
                                     <div class="control-group">
                                         <div class="control-label">
                                             Current Experiment Status 
-                                            <button class="info-btn mini" data-info="experiment-status" title="Current phase, condition, and round information">i</button>
+                                            <button class="info-btn mini" data-info="experiment-status" title="Current condition and round information">i</button>
                                         </div>
                                         <div id="experimentStatusDisplay" class="status-display-panel">
                                             <div class="status-row">
-                                                <span class="status-label">Phase:</span>
-                                                <span id="currentPhaseDisplay" class="status-value">Baseline</span>
-                                            </div>
-                                            <div class="status-row">
                                                 <span class="status-label">Condition:</span>
-                                                <span id="currentConditionDisplay" class="status-value">Baseline</span>
+                                                <span id="currentConditionDisplay" class="status-value">Not Started</span>
                                             </div>
                                             <div class="status-row">
                                                 <span class="status-label">Round:</span>
@@ -1405,196 +1457,136 @@
                                             </div>
                                             <div class="status-row">
                                                 <span class="status-label">Incentive Player:</span>
-                                                <span id="currentIncentivePlayerDisplay" class="status-value">None</span>
+                                                <span id="currentIncentivePlayerDisplay" class="status-value">NONE</span>
                                             </div>
                                             <div class="status-row">
                                                 <span class="status-label">Block:</span>
-                                                <span id="currentBlockDisplay" class="status-value">N/A</span>
+                                                <span id="currentBlockDisplay" class="status-value">0/9</span>
                                             </div>
                                         </div>
                                     </div>
                                     
-                                    <!-- Condition Tracker LED Array -->
+                                    <!-- Player Progress Tracker LED Array -->
                                     <div class="control-group">
                                         <div class="control-label">
-                                            Condition Tracker 
-                                            <button class="info-btn mini" data-info="condition-tracker" title="Quality control tracker - each condition should occur exactly once per round position within each block. Red LEDs indicate scheduling errors.">i</button>
+                                            Player Progress Tracker 
+                                            <button class="info-btn mini" data-info="player-tracker" title="Tracks each player's incentive assignments within the current block. Each player gets 7 assignments per block: 1 None (white), 3 Self Control (green), 3 Impulse (red). LEDs light up as assignments occur. Resets every 21 rounds.">i</button>
                                         </div>
-                                        <div id="conditionLEDArray" class="led-array-container">
+                                        <div id="playerLEDArray" class="led-array-container">
                                             <div class="led-array-header">
                                                 <div class="led-legend">
                                                     <span class="led-legend-item">
-                                                        <span class="led-indicator green"></span> Normal occurrence
+                                                        <span class="led-indicator white"></span> None
                                                     </span>
                                                     <span class="led-legend-item">
-                                                        <span class="led-indicator red"></span> ERROR - Duplicate!
+                                                        <span class="led-indicator green"></span> Self Control
                                                     </span>
                                                     <span class="led-legend-item">
-                                                        <span class="led-indicator off"></span> Not yet occurred
+                                                        <span class="led-indicator yellow"></span> Impulse
+                                                    </span>
+                                                    <span class="led-legend-item">
+                                                        <span class="led-indicator off"></span> Not yet assigned
                                                     </span>
                                                 </div>
                                             </div>
                                             <div class="led-grid">
-                                                <!-- High Culturant Condition (7 LEDs) -->
-                                                <div class="led-condition-group">
-                                                    <div class="led-group-label">High Culturant</div>
+                                                <!-- Player A (7 LEDs: 1 None + 3 SC + 3 Imp) -->
+                                                <div class="led-player-group">
+                                                    <div class="led-group-label">Player A</div>
                                                     <div class="led-row">
-                                                        <span class="led-item" data-condition="HIGH_CULTURANT" data-round="1" title="High Culturant - Round 1">
+                                                        <!-- Self Control (green) - 3 slots -->
+                                                        <span class="led-item" data-player="A" data-incentive="sc" data-slot="1" title="Player A - Self Control 1">
                                                             <span class="led-indicator off"></span>
-                                                            <span class="led-label">1</span>
                                                         </span>
-                                                        <span class="led-item" data-condition="HIGH_CULTURANT" data-round="2" title="High Culturant - Round 2">
+                                                        <span class="led-item" data-player="A" data-incentive="sc" data-slot="2" title="Player A - Self Control 2">
                                                             <span class="led-indicator off"></span>
-                                                            <span class="led-label">2</span>
                                                         </span>
-                                                        <span class="led-item" data-condition="HIGH_CULTURANT" data-round="3" title="High Culturant - Round 3">
+                                                        <span class="led-item" data-player="A" data-incentive="sc" data-slot="3" title="Player A - Self Control 3">
                                                             <span class="led-indicator off"></span>
-                                                            <span class="led-label">3</span>
                                                         </span>
-                                                        <span class="led-item" data-condition="HIGH_CULTURANT" data-round="4" title="High Culturant - Round 4">
+                                                        <!-- Impulse (yellow) - 3 slots -->
+                                                        <span class="led-item" data-player="A" data-incentive="imp" data-slot="1" title="Player A - Impulse 1">
                                                             <span class="led-indicator off"></span>
-                                                            <span class="led-label">4</span>
                                                         </span>
-                                                        <span class="led-item" data-condition="HIGH_CULTURANT" data-round="5" title="High Culturant - Round 5">
+                                                        <span class="led-item" data-player="A" data-incentive="imp" data-slot="2" title="Player A - Impulse 2">
                                                             <span class="led-indicator off"></span>
-                                                            <span class="led-label">5</span>
                                                         </span>
-                                                        <span class="led-item" data-condition="HIGH_CULTURANT" data-round="6" title="High Culturant - Round 6">
+                                                        <span class="led-item" data-player="A" data-incentive="imp" data-slot="3" title="Player A - Impulse 3">
                                                             <span class="led-indicator off"></span>
-                                                            <span class="led-label">6</span>
                                                         </span>
-                                                        <span class="led-item" data-condition="HIGH_CULTURANT" data-round="7" title="High Culturant - Round 7">
-                                                            <span class="led-indicator off"></span>
-                                                            <span class="led-label">7</span>
-                                                        </span>
-                                                    </div>
-                                                    <div class="player-counter-row">
-                                                        <span class="player-counter" data-player="None" data-condition="HIGH_CULTURANT" title="Rounds with no player incentive">None:<span class="count">0</span></span>
-                                                        <span class="player-counter dynamic-player" data-condition="HIGH_CULTURANT" title="Player A assignments will appear here" style="display: none;"></span>
-                                                        <span class="player-counter dynamic-player" data-condition="HIGH_CULTURANT" title="Player B assignments will appear here" style="display: none;"></span>
-                                                        <span class="player-counter dynamic-player" data-condition="HIGH_CULTURANT" title="Player C assignments will appear here" style="display: none;"></span>
                                                     </div>
                                                 </div>
                                                 
-                                                <!-- High Operant Condition (7 LEDs) -->
-                                                <div class="led-condition-group">
-                                                    <div class="led-group-label">High Operant</div>
+                                                <!-- Player B (7 LEDs: 1 None + 3 SC + 3 Imp) -->
+                                                <div class="led-player-group">
+                                                    <div class="led-group-label">Player B</div>
                                                     <div class="led-row">
-                                                        <span class="led-item" data-condition="HIGH_OPERANT" data-round="1" title="High Operant - Round 1">
+                                                        <!-- Self Control (green) - 3 slots -->
+                                                        <span class="led-item" data-player="B" data-incentive="sc" data-slot="1" title="Player B - Self Control 1">
                                                             <span class="led-indicator off"></span>
-                                                            <span class="led-label">1</span>
                                                         </span>
-                                                        <span class="led-item" data-condition="HIGH_OPERANT" data-round="2" title="High Operant - Round 2">
+                                                        <span class="led-item" data-player="B" data-incentive="sc" data-slot="2" title="Player B - Self Control 2">
                                                             <span class="led-indicator off"></span>
-                                                            <span class="led-label">2</span>
                                                         </span>
-                                                        <span class="led-item" data-condition="HIGH_OPERANT" data-round="3" title="High Operant - Round 3">
+                                                        <span class="led-item" data-player="B" data-incentive="sc" data-slot="3" title="Player B - Self Control 3">
                                                             <span class="led-indicator off"></span>
-                                                            <span class="led-label">3</span>
                                                         </span>
-                                                        <span class="led-item" data-condition="HIGH_OPERANT" data-round="4" title="High Operant - Round 4">
+                                                        <!-- Impulse (yellow) - 3 slots -->
+                                                        <span class="led-item" data-player="B" data-incentive="imp" data-slot="1" title="Player B - Impulse 1">
                                                             <span class="led-indicator off"></span>
-                                                            <span class="led-label">4</span>
                                                         </span>
-                                                        <span class="led-item" data-condition="HIGH_OPERANT" data-round="5" title="High Operant - Round 5">
+                                                        <span class="led-item" data-player="B" data-incentive="imp" data-slot="2" title="Player B - Impulse 2">
                                                             <span class="led-indicator off"></span>
-                                                            <span class="led-label">5</span>
                                                         </span>
-                                                        <span class="led-item" data-condition="HIGH_OPERANT" data-round="6" title="High Operant - Round 6">
+                                                        <span class="led-item" data-player="B" data-incentive="imp" data-slot="3" title="Player B - Impulse 3">
                                                             <span class="led-indicator off"></span>
-                                                            <span class="led-label">6</span>
                                                         </span>
-                                                        <span class="led-item" data-condition="HIGH_OPERANT" data-round="7" title="High Operant - Round 7">
-                                                            <span class="led-indicator off"></span>
-                                                            <span class="led-label">7</span>
-                                                        </span>
-                                                    </div>
-                                                    <div class="player-counter-row">
-                                                        <span class="player-counter" data-player="None" data-condition="HIGH_OPERANT" title="Rounds with no player incentive">None:<span class="count">0</span></span>
-                                                        <span class="player-counter dynamic-player" data-condition="HIGH_OPERANT" title="Player A assignments will appear here" style="display: none;"></span>
-                                                        <span class="player-counter dynamic-player" data-condition="HIGH_OPERANT" title="Player B assignments will appear here" style="display: none;"></span>
-                                                        <span class="player-counter dynamic-player" data-condition="HIGH_OPERANT" title="Player C assignments will appear here" style="display: none;"></span>
                                                     </div>
                                                 </div>
                                                 
-                                                <!-- Equal Culturant-Operant Condition (7 LEDs) -->
-                                                <div class="led-condition-group">
-                                                    <div class="led-group-label">Equal C-O</div>
+                                                <!-- Player C (7 LEDs: 1 None + 3 SC + 3 Imp) -->
+                                                <div class="led-player-group">
+                                                    <div class="led-group-label">Player C</div>
                                                     <div class="led-row">
-                                                        <span class="led-item" data-condition="EQUAL_CULTURANT_OPERANT" data-round="1" title="Equal Culturant-Operant - Round 1">
+                                                        <!-- Self Control (green) - 3 slots -->
+                                                        <span class="led-item" data-player="C" data-incentive="sc" data-slot="1" title="Player C - Self Control 1">
                                                             <span class="led-indicator off"></span>
-                                                            <span class="led-label">1</span>
                                                         </span>
-                                                        <span class="led-item" data-condition="EQUAL_CULTURANT_OPERANT" data-round="2" title="Equal Culturant-Operant - Round 2">
+                                                        <span class="led-item" data-player="C" data-incentive="sc" data-slot="2" title="Player C - Self Control 2">
                                                             <span class="led-indicator off"></span>
-                                                            <span class="led-label">2</span>
                                                         </span>
-                                                        <span class="led-item" data-condition="EQUAL_CULTURANT_OPERANT" data-round="3" title="Equal Culturant-Operant - Round 3">
+                                                        <span class="led-item" data-player="C" data-incentive="sc" data-slot="3" title="Player C - Self Control 3">
                                                             <span class="led-indicator off"></span>
-                                                            <span class="led-label">3</span>
                                                         </span>
-                                                        <span class="led-item" data-condition="EQUAL_CULTURANT_OPERANT" data-round="4" title="Equal Culturant-Operant - Round 4">
+                                                        <!-- Impulse (yellow) - 3 slots -->
+                                                        <span class="led-item" data-player="C" data-incentive="imp" data-slot="1" title="Player C - Impulse 1">
                                                             <span class="led-indicator off"></span>
-                                                            <span class="led-label">4</span>
                                                         </span>
-                                                        <span class="led-item" data-condition="EQUAL_CULTURANT_OPERANT" data-round="5" title="Equal Culturant-Operant - Round 5">
+                                                        <span class="led-item" data-player="C" data-incentive="imp" data-slot="2" title="Player C - Impulse 2">
                                                             <span class="led-indicator off"></span>
-                                                            <span class="led-label">5</span>
                                                         </span>
-                                                        <span class="led-item" data-condition="EQUAL_CULTURANT_OPERANT" data-round="6" title="Equal Culturant-Operant - Round 6">
+                                                        <span class="led-item" data-player="C" data-incentive="imp" data-slot="3" title="Player C - Impulse 3">
                                                             <span class="led-indicator off"></span>
-                                                            <span class="led-label">6</span>
-                                                        </span>
-                                                        <span class="led-item" data-condition="EQUAL_CULTURANT_OPERANT" data-round="7" title="Equal Culturant-Operant - Round 7">
-                                                            <span class="led-indicator off"></span>
-                                                            <span class="led-label">7</span>
                                                         </span>
                                                     </div>
-                                                    <div class="player-counter-row">
-                                                        <span class="player-counter" data-player="None" data-condition="EQUAL_CULTURANT_OPERANT" title="Rounds with no player incentive">None:<span class="count">0</span></span>
-                                                        <span class="player-counter dynamic-player" data-condition="EQUAL_CULTURANT_OPERANT" title="Player A assignments will appear here" style="display: none;"></span>
-                                                        <span class="player-counter dynamic-player" data-condition="EQUAL_CULTURANT_OPERANT" title="Player B assignments will appear here" style="display: none;"></span>
-                                                        <span class="player-counter dynamic-player" data-condition="EQUAL_CULTURANT_OPERANT" title="Player C assignments will appear here" style="display: none;"></span>
+                                                </div>
+                                                <!-- NONE row moved to bottom -->
+                                                <div class="led-player-group" data-player="NONE">
+                                                    <div class="led-group-label">NONE</div>
+                                                    <div class="led-row">
+                                                        <span class="led-item" data-player="NONE" data-incentive="none" data-slot="1" title="NONE - No Incentive">
+                                                            <span class="led-indicator off"></span>
+                                                        </span>
+                                                        <span class="led-item" data-player="NONE" data-incentive="none" data-slot="2" title="NONE - No Incentive">
+                                                            <span class="led-indicator off"></span>
+                                                        </span>
+                                                        <span class="led-item" data-player="NONE" data-incentive="none" data-slot="3" title="NONE - No Incentive">
+                                                            <span class="led-indicator off"></span>
+                                                        </span>
                                                     </div>
                                                 </div>
                                             </div>
                                         </div>
-                                    </div>
-                                    
-                                    <!-- Experimental Condition -->
-                                    <div class="control-group">
-                                        <div class="control-label">
-                                            Experimental Condition 
-                                            <button class="info-btn mini" data-info="conditions" title="Payment structure conditions">i</button>
-                                        </div>
-                                        <select id="experimentalConditionSwitch" class="switchboard-select">
-                                            <option value="BASELINE">Baseline ($0.01/$0.05)</option>
-                                            <option value="HIGH_CULTURANT">High Culturant ($0.02/$0.07)</option>
-                                            <option value="HIGH_OPERANT">High Operant ($0.03/$0.04)</option>
-                                            <option value="EQUAL_CULTURANT_OPERANT">Equal C-O ($0.01/$0.02)</option>
-                                        </select>
-                                        <button onclick="setCondition()" class="switchboard-btn apply-btn">APPLY CONDITION</button>
-                                        <div id="conditionStatusSwitch" class="status-indicator">Current: Baseline</div>
-                                    </div>
-                                    
-                                    <!-- Player Incentives -->
-                                    <div class="control-group">
-                                        <div class="control-label">
-                                            Player Incentives 
-                                            <button class="info-btn mini" data-info="incentives" title="Set bonus conditions for specific players">i</button>
-                                        </div>
-                                        <div class="incentive-controls">
-                                            <select id="incentivePlayerSwitch" class="switchboard-select">
-                                                <option value="">Select Player...</option>
-                                            </select>
-                                            <select id="incentiveTypeSwitch" class="switchboard-select">
-                                                <option value="">No Incentive</option>
-                                                <option value="Impulse Incentive">Impulse Incentive: Choose Odd Rows (1,3,5,7)</option>
-                                                <option value="Self Control Incentive">Self Control Incentive: Choose Even Rows (2,4,6,8)</option>
-                                            </select>
-                                            <button onclick="setPlayerIncentive()" class="switchboard-btn incentive-btn">SET INCENTIVE</button>
-                                        </div>
-                                        <div id="incentiveStatusSwitch" class="status-indicator">No active incentives</div>
                                     </div>
                                 </div>
                                 
@@ -1680,7 +1672,90 @@
                             justify-content: space-between;
                             box-shadow: 
                                 0 0 20px rgba(0, 255, 255, 0.3),
-                                inset 0 1px 0 rgba(255, 255, 255, 0.1);
+                                inset 0 1px 0 rgba(255, 255, 255, 0.1),
+                                0 0 40px rgba(0, 255, 255, 0.2),
+                                0 0 80px rgba(0, 255, 255, 0.1);
+                            transition: all 0.3s ease;
+                            user-select: none;
+                        }
+                        
+                        .switchboard-header:hover {
+                            background: linear-gradient(135deg, #1a1a2e 0%, #3d3d54 50%, #1a1a2e 100%);
+                            box-shadow: 
+                                0 0 30px rgba(0, 255, 255, 0.5),
+                                inset 0 1px 0 rgba(255, 255, 255, 0.2),
+                                0 0 50px rgba(0, 255, 255, 0.3),
+                                0 0 100px rgba(0, 255, 255, 0.15);
+                        }
+                        
+                        .switchboard-header:hover .collapse-indicator {
+                            transform: translateY(-50%) scale(1.2);
+                            text-shadow: 0 0 15px #00ff88, 0 0 30px #00ff88, 0 0 45px #00ff88;
+                        }
+                        
+                        .switchboard-grid {
+                            max-height: 2000px;
+                            overflow: hidden;
+                            transition: max-height 0.5s cubic-bezier(0.4, 0, 0.2, 1), 
+                                        opacity 0.4s ease,
+                                        transform 0.4s ease;
+                            transform-origin: top;
+                            opacity: 1;
+                        }
+                        
+                        .switchboard-grid.collapsed {
+                            max-height: 0;
+                            opacity: 0;
+                            transform: scaleY(0.95);
+                        }
+                        
+                        @keyframes cyberScanDown {
+                            0% {
+                                clip-path: inset(0 0 100% 0);
+                                filter: brightness(1.5) hue-rotate(0deg);
+                            }
+                            50% {
+                                filter: brightness(2) hue-rotate(20deg);
+                            }
+                            100% {
+                                clip-path: inset(0 0 0 0);
+                                filter: brightness(1) hue-rotate(0deg);
+                            }
+                        }
+                        
+                        @keyframes cyberScanUp {
+                            0% {
+                                clip-path: inset(0 0 0 0);
+                                filter: brightness(1) hue-rotate(0deg);
+                            }
+                            50% {
+                                filter: brightness(2) hue-rotate(-20deg);
+                            }
+                            100% {
+                                clip-path: inset(0 0 100% 0);
+                                filter: brightness(1.5) hue-rotate(0deg);
+                            }
+                        }
+                        
+                        .switchboard-grid.expanding {
+                            animation: cyberScanDown 0.5s ease-out forwards;
+                        }
+                        
+                        .switchboard-grid.collapsing {
+                            animation: cyberScanUp 0.4s ease-in forwards;
+                        }
+                        
+                        .collapse-indicator {
+                            animation: indicatorPulse 2s ease-in-out infinite;
+                        }
+                        
+                        @keyframes indicatorPulse {
+                            0%, 100% {
+                                opacity: 0.8;
+                            }
+                            50% {
+                                opacity: 1;
+                            }
                         }
                         
                         .header-lights {
@@ -2294,26 +2369,158 @@
                     </div>
                     
                     <style>
+                        /* When gameDiv is visible (inline-block from JS), force it to block to maintain layout */
+                        #gameDiv[style*="inline-block"] {
+                            display: block !important;
+                        }
+                        
+                        /* Main layout wrapper for game board and poker table */
+                        #gameContentWrapper {
+                            display: grid;
+                            grid-template-columns: minmax(0, auto) minmax(0, auto);
+                            gap: 60px;
+                            margin: 0 auto;
+                            max-width: 1600px;
+                            padding: 0 20px;
+                            width: fit-content;
+                            justify-content: center;
+                            align-items: start;
+                        }
+                        
+                        /* Game board section (left side on wide screens) */
+                        #gameBoardSection {
+                            justify-self: center;
+                        }
+                        
+                        /* Center the gameArea within gameBoardSection */
+                        #gameArea {
+                            margin: 0 auto !important;
+                            max-width: 900px !important;
+                            background-color: transparent !important;
+                        }
+                        
+                        /* Keep decision phase centered with text-align */
+                        #decisionPhase {
+                            text-align: center !important;
+                            padding-left: 130px !important;
+                            margin-top: -40px !important;
+                        }
+                        
+                        /* Poker table section (right side on wide screens) */
+                        #pokerTableSection {
+                            width: 600px;
+                            display: flex;
+                            flex-direction: column;
+                            gap: 20px;
+                            justify-self: center;
+                        }
+                        
+                        /* Hide poker section initially, show as grid item when visible */
+                        #pokerTableSection:empty {
+                            display: none;
+                        }
+                        
+                        /* When poker table section has content, ensure grid adjusts */
+                        #pokerTableSection:not(:empty) {
+                            display: flex;
+                        }
+                        
+                        /* Make poker table wider */
+                        #pokerTable {
+                            width: 100% !important;
+                            height: 450px !important;
+                        }
+                        
+                        /* Center decision grid container - use inline-flex to keep it centered */
+                        #decisionGridContainer {
+                            display: inline-flex !important;
+                            justify-content: center !important;
+                            align-items: flex-start !important;
+                            margin: 30px auto !important;
+                            flex-wrap: wrap !important;
+                        }
+                        
                         /* Responsive design for decision grid and results */
-                        @media (max-width: 1100px) {
+                        @media (min-width: 1200px) {
+                            /* Wide screens: side-by-side layout */
                             #decisionGridContainer {
+                                flex-direction: row !important;
+                                gap: 30px !important;
+                                flex-wrap: nowrap !important;
+                            }
+                            
+                            /* Hide all old results sections - use new bottom one */
+                            .token-conversion-wide,
+                            .results-wide,
+                            .token-conversion-narrow,
+                            .results-narrow {
+                                display: none !important;
+                            }
+                            
+                            /* Show bottom results section */
+                            #resultsPhaseBottom {
+                                display: block !important;
+                            }
+                        }
+                        
+                        @media (max-width: 1199px) {
+                            /* Narrower screens (half-screen): original stacked layout */
+                            #gameContentWrapper {
                                 flex-direction: column !important;
                                 align-items: center !important;
                                 gap: 20px !important;
                             }
                             
-                            #decisionGridContainer > div:first-child {
-                                min-width: 100% !important;
-                                max-width: 600px !important;
-                                order: 2 !important;
+                            #gameBoardSection {
+                                width: 100% !important;
                             }
                             
-                            #decisionGridContainer > div:last-child {
+                            #gameArea {
+                                max-width: 100% !important;
+                            }
+                            
+                            #pokerTableSection {
+                                width: 100% !important;
+                                max-width: none !important;
+                                order: -1; /* Put poker table before game board like original */
+                            }
+                            
+                            #pokerTable {
+                                width: 100% !important;
+                                height: 400px !important;
+                                margin-bottom: 20px !important;
+                            }
+                            
+                            /* Stack decision grid normally */
+                            #decisionGridContainer {
+                                flex-direction: column !important;
+                                align-items: center !important;
+                                gap: 20px !important;
+                                flex-wrap: nowrap !important;
+                            }
+                            
+                            /* Restore original order */
+                            #decisionGridContainer > div:first-child {
+                                width: 100% !important;
+                                max-width: 350px !important;
                                 order: 1 !important;
                             }
                             
-                            #resultsPhase > div {
-                                height: 220px !important;
+                            #decisionGridContainer > div:last-child {
+                                order: 2 !important;
+                            }
+                            
+                            /* Hide all old results sections - use new bottom one */
+                            .token-conversion-narrow,
+                            .results-narrow,
+                            .token-conversion-wide,
+                            .results-wide {
+                                display: none !important;
+                            }
+                            
+                            /* Show bottom results section */
+                            #resultsPhaseBottom {
+                                display: block !important;
                             }
                         }
                         
@@ -2334,14 +2541,37 @@
                                 max-width: 100% !important;
                             }
                             
-                            #resultsPhase > div {
-                                height: 180px !important;
+                            #pokerTable {
+                                height: 350px !important;
                             }
                         }
                         
                         /* Ensure nice alignment */
                         #decisionGridContainer > div {
                             margin-bottom: 0;
+                        }
+                        
+                        /* Moderator controls always centered below everything */
+                        #moderatorSwitchboard {
+                            margin: 30px auto 0 auto !important;
+                            margin-left: calc(50% - 595px) !important;
+                            text-align: center;
+                            clear: both;
+                        }
+                        
+                        /* Fix lock in button animations */
+                        #lockInBtn {
+                            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+                        }
+                        
+                        #lockInBtn:hover:not(:disabled) {
+                            transform: translateY(-1px) !important;
+                            box-shadow: 0 4px 12px rgba(88, 101, 242, 0.35) !important;
+                        }
+                        
+                        #lockInBtn:active:not(:disabled) {
+                            transform: translateY(0) scale(0.98) !important;
+                            box-shadow: 0 2px 6px rgba(88, 101, 242, 0.25) !important;
                         }
                     </style>
                     
@@ -2568,6 +2798,21 @@
                     </div>
                     <div class="card-glow invite-glow"></div>
                 </div>
+
+                <div class="action-card evaluate-card evaluate-hidden" id="evaluate-card" data-tooltip="Evaluate experiment CSV (Moderator only)" style="display:none;">
+                    <div class="card-icon evaluate-icon">
+                        <i class="fas fa-file-csv"></i>
+                    </div>
+                    <div class="card-content">
+                        <h3 class="card-title">Evaluate CSV</h3>
+                        <p class="card-description">Upload experiment CSV for block validation</p>
+                        <div style="margin-top:10px;">
+                            <button type="button" id="evaluateCsvBtn" style="display:none; padding:8px 12px; background:linear-gradient(90deg,#5dd6a1,#3bb27f); border:none; color:#062517; border-radius:8px; cursor:pointer;">Evaluate CSV</button>
+                            <input type="file" id="evaluateCsvFile" accept=".csv,text/csv" style="position:absolute; left:-9999px; width:1px; height:1px; opacity:0;" />
+                        </div>
+                    </div>
+                    <div class="card-glow evaluate-glow"></div>
+                </div>
                 
                 <div class="action-card leave-card" id="leave-card" style="display:none;" data-tooltip="Leave current room and return to global chat">
                     <div class="card-icon leave-icon">
@@ -2635,15 +2880,351 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qs/6.9.2/qs.min.js"
         integrity="sha256-TDxXjkAUay70ae/QJBEpGKkpVslXaHHayklIVglFRT4=" crossorigin="anonymous"></script>
     
-    <!-- React CDN for dither effect -->
-    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/three@0.155.0/build/three.min.js"></script>
     <script src="/client/DitherEffect.js"></script>
     
     <script src="/socket.io/socket.io.js"></script>
     <script src="/client/Inventory.js"></script>
     <script>
+        // Render a detailed evaluation modal showing block health and grids
+        function showEvaluationModal(report) {
+            const existing = document.getElementById('evalModal');
+            if (existing) existing.remove();
+
+            const modal = document.createElement('div');
+            modal.id = 'evalModal';
+            modal.style.position = 'fixed';
+            modal.style.left = '0';
+            // Keep header unblurred: offset modal below header if present
+            try {
+                const headerEl = document.querySelector('.header');
+                const headerH = headerEl ? headerEl.offsetHeight : 0;
+                modal.style.top = headerH + 'px';
+                modal.style.width = '100%';
+                modal.style.height = 'calc(100% - ' + headerH + 'px)';
+            } catch (e) {
+                modal.style.top = '0';
+                modal.style.width = '100%';
+                modal.style.height = '100%';
+            }
+            modal.style.background = 'rgba(6,8,16,0.82)';
+            modal.style.zIndex = 20000;
+            modal.style.display = 'flex';
+            modal.style.alignItems = 'center';
+            modal.style.justifyContent = 'center';
+            modal.style.backdropFilter = 'blur(18px)';
+
+            const panel = document.createElement('div');
+            panel.style.width = '96%';
+            panel.style.maxWidth = '1000px';
+            panel.style.height = '72vh';
+            panel.style.overflow = 'hidden';
+            panel.style.background = 'linear-gradient(135deg, rgba(12,14,22,0.9), rgba(30,24,48,0.75))';
+            panel.style.backdropFilter = 'blur(22px) saturate(160%)';
+            panel.style.border = '1px solid rgba(102,122,255,0.12)';
+            panel.style.borderRadius = '12px';
+            panel.style.padding = '18px';
+            panel.style.color = '#e6e6e6';
+            panel.style.fontSize = '18px';
+            panel.style.boxShadow = '0 10px 60px rgba(8,10,30,0.75), 0 0 40px rgba(102,122,255,0.06), inset 0 1px 0 rgba(255,255,255,0.02)';
+
+            const titleRow = document.createElement('div');
+            titleRow.style.display = 'flex';
+            titleRow.style.justifyContent = 'space-between';
+            titleRow.style.alignItems = 'center';
+            titleRow.style.marginBottom = '8px';
+
+            const title = document.createElement('h2');
+            title.textContent = 'CSV Evaluation — Block Health';
+            title.style.margin = '0';
+            title.style.fontFamily = 'Segoe UI, Roboto, sans-serif';
+            title.style.fontSize = '24px';
+            title.style.fontWeight = '700';
+            title.style.color = '#f3f8ff';
+            title.style.textShadow = '0 2px 14px rgba(100,120,255,0.28), 0 0 30px rgba(80,200,180,0.04)';
+
+            titleRow.appendChild(title);
+            panel.appendChild(titleRow);
+
+            // Compute stable recipient order across all blocks (exclude 'None' then append it)
+            const allRecipientsSet = new Set();
+            Object.values(report).forEach(b => {
+                Object.keys(b.recipients || {}).forEach(r => { if (r !== 'None') allRecipientsSet.add(r); });
+            });
+            const stableRecipients = Array.from(allRecipientsSet).sort((a,b)=>a.localeCompare(b));
+            stableRecipients.push('None');
+
+            // Top tab strip for blocks (compact, horizontal)
+            const tabs = document.createElement('div');
+            tabs.style.display = 'flex';
+            tabs.style.gap = '8px';
+            tabs.style.marginBottom = '14px';
+            tabs.style.flexWrap = 'nowrap';
+            tabs.style.overflowX = 'auto';
+            tabs.style.paddingBottom = '8px';
+
+            const blockKeys = Object.keys(report).sort((a,b)=>a-b);
+            // Overview tab first
+            const tabKeys = ['overview'].concat(blockKeys);
+            let selectedBlock = 'overview';
+
+            function renderTabs() {
+                tabs.innerHTML = '';
+                tabKeys.forEach(key => {
+                    const t = document.createElement('button');
+                    if (key === 'overview') {
+                        t.textContent = 'Overview';
+                        t.dataset.block = 'overview';
+                    } else {
+                        // show numeric selector only
+                        t.textContent = String(key);
+                        t.dataset.block = key;
+                    }
+                    t.style.padding = '8px 12px';
+                    t.style.borderRadius = '8px';
+                    t.style.border = '1px solid rgba(255,255,255,0.06)';
+                    t.style.background = (key===selectedBlock) ? 'linear-gradient(90deg,#6a7bff,#34e0b0)' : 'transparent';
+                    t.style.color = (key===selectedBlock) ? '#061219' : '#e6e6e6';
+                    t.style.cursor = 'pointer';
+                    t.style.fontSize = '16px';
+                    t.style.minWidth = '64px';
+                    t.style.fontWeight = '600';
+                    t.addEventListener('click', () => { selectedBlock = key; renderBody(); renderTabs(); });
+                    // mark tab red if block has issues (skip overview)
+                    if (key !== 'overview') {
+                        const br = report[key];
+                        if (br && br.ok === false) {
+                            t.style.background = 'linear-gradient(90deg,#ff6b6b,#ff3b3b)';
+                            t.style.color = '#0f0f0f';
+                        }
+                    }
+                    tabs.appendChild(t);
+                });
+            }
+
+            panel.appendChild(tabs);
+
+            const bodyArea = document.createElement('div');
+            panel.appendChild(bodyArea);
+
+            function renderBody() {
+                bodyArea.innerHTML = '';
+                // Ensure bodyArea scroll region
+                bodyArea.style.overflow = 'auto';
+                bodyArea.style.maxHeight = 'calc(80vh - 160px)';
+
+                if (selectedBlock === 'overview') {
+                    // Overview aggregates
+                    const overview = document.createElement('div');
+                    overview.style.display = 'flex';
+                    overview.style.flexDirection = 'column';
+                    overview.style.gap = '12px';
+
+                    // Aggregate totals
+                    let totalEarningsAll = 0;
+                    let totalCulturantAll = 0;
+                    let totalNoneAll = 0;
+                    let totalRoundsAll = 0;
+                    const recipientSet = new Set();
+                    Object.values(report).forEach(b => {
+                        totalEarningsAll += Number(b.totalEarnings) || 0;
+                        totalCulturantAll += Number(b.culturantCount) || 0;
+                        totalNoneAll += Number(b.noneCount) || 0;
+                        const rounds = Object.values(b.recipients||{}).reduce((acc, r) => acc + (Object.values(r.combos||{}).reduce((a,b)=>a+b,0) + (r.noneCount||0)), 0);
+                        totalRoundsAll += rounds;
+                        Object.keys(b.recipients||{}).forEach(r => recipientSet.add(r));
+                    });
+
+                    const overviewStats = [
+                        ['Total Earnings', Number(totalEarningsAll).toFixed(2)],
+                        ['Total Culturant Rows', totalCulturantAll],
+                        ['Total None Rounds', totalNoneAll],
+                        ['Total Rounds', totalRoundsAll],
+                        ['Unique Recipients', recipientSet.size]
+                    ];
+
+                    const statsRow = document.createElement('div');
+                    statsRow.style.display = 'flex';
+                    statsRow.style.gap = '12px';
+                    statsRow.style.flexWrap = 'wrap';
+                    overviewStats.forEach(([k,v]) => {
+                        const s = document.createElement('div');
+                        s.style.padding = '12px 14px';
+                        s.style.background = 'rgba(0,0,0,0.12)';
+                        s.style.borderRadius = '10px';
+                        s.style.minWidth = '140px';
+                        s.innerHTML = `<strong style="display:block; font-size:18px; color:#f0f7ff;">${v}</strong><span style="font-size:13px; color:rgba(230,230,230,0.85);">${k}</span>`;
+                        statsRow.appendChild(s);
+                    });
+                    overview.appendChild(statsRow);
+
+                    // Per-block mini summaries
+                    const mini = document.createElement('div');
+                    mini.style.display = 'grid';
+                    mini.style.gridTemplateColumns = 'repeat(auto-fit, minmax(180px, 1fr))';
+                    mini.style.gap = '10px';
+                    Object.keys(report).sort((a,b)=>a-b).forEach(bk=>{
+                        const br = report[bk];
+                        const card = document.createElement('div');
+                        card.style.padding = '8px';
+                        card.style.borderRadius = '8px';
+                        card.style.background = 'rgba(0,0,0,0.08)';
+                        const title = document.createElement('div');
+                        title.textContent = `Block ${bk}`;
+                        title.style.fontWeight = '600';
+                        title.style.marginBottom = '6px';
+                        const lines = document.createElement('div');
+                        lines.innerHTML = `Earnings: <strong style="font-size:18px; color:#f8fbff;">${Number(br.totalEarnings || 0).toFixed(2)}</strong><br/>Culturant: <strong style="font-size:18px;">${Number(br.culturantCount || 0)}</strong><br/>None: <strong style="font-size:18px;">${Number(br.noneCount || 0)}</strong>`;
+                        card.appendChild(title);
+                        card.appendChild(lines);
+                        if (br.ok===false) card.style.boxShadow = 'inset 0 0 0 2px rgba(255,100,100,0.12)';
+                        mini.appendChild(card);
+                    });
+                    overview.appendChild(mini);
+
+                    bodyArea.appendChild(overview);
+                    return;
+                }
+
+                const br = report[selectedBlock];
+                if (!br) return;
+
+                // Block summary stats
+                const stats = document.createElement('div');
+                stats.style.display = 'flex';
+                stats.style.gap = '12px';
+                stats.style.flexWrap = 'wrap';
+                stats.style.marginBottom = '12px';
+
+                const totalRounds = Object.values(br.recipients||{}).reduce((acc, r) => acc + (Object.values(r.combos||{}).reduce((a,b)=>a+b,0) + (r.noneCount||0)), 0);
+                const statItems = [
+                    [`Total Rounds`, totalRounds],
+                    [`None Rounds`, br.noneCount || 0],
+                    [`Recipients`, Object.keys(br.recipients||{}).length],
+                    [`Total Earnings`, (br.totalEarnings != null ? Number(br.totalEarnings).toFixed(2) : '0.00')],
+                    [`Culturant Rows`, br.culturantCount || 0]
+                ];
+                statItems.forEach(([k,v]) => {
+                    const s = document.createElement('div');
+                    s.style.padding = '10px 12px';
+                    s.style.background = 'rgba(0,0,0,0.15)';
+                    s.style.borderRadius = '8px';
+                    s.innerHTML = `<strong style="display:block; font-size:18px; color:#f0f7ff;">${v}</strong><span style="font-size:13px; color:rgba(230,230,230,0.85);">${k}</span>`;
+                    stats.appendChild(s);
+                });
+                bodyArea.appendChild(stats);
+
+                // Grid table
+                const table = document.createElement('table');
+                table.style.width = '100%';
+                table.style.borderCollapse = 'collapse';
+                table.style.fontSize = '18px';
+                table.style.marginTop = '8px';
+
+                const headerRow = document.createElement('tr');
+                const headers = ['Recipient','NoneCount','High Culturant (SC)','High Culturant (Imp)','High Operant (SC)','High Operant (Imp)','Equal (SC)','Equal (Imp)'];
+                headers.forEach(h => {
+                    const th = document.createElement('th');
+                    th.textContent = h;
+                    th.style.textAlign = 'left';
+                    th.style.padding = '12px';
+                    th.style.borderBottom = '1px solid rgba(255,255,255,0.06)';
+                    th.style.fontSize = '17px';
+                    headerRow.appendChild(th);
+                });
+                table.appendChild(headerRow);
+
+                // Render rows in stable order (None last)
+                stableRecipients.forEach(rec => {
+                    const data = br.recipients[rec] || { combos: {}, noneCount: 0 };
+                    const tr = document.createElement('tr');
+                    tr.style.borderBottom = '1px solid rgba(255,255,255,0.02)';
+
+                    const tdRec = document.createElement('td');
+                    tdRec.textContent = rec;
+                    tdRec.style.padding = '10px';
+                    tdRec.style.fontSize = '16px';
+                    tr.appendChild(tdRec);
+
+                    const tdNone = document.createElement('td');
+                    tdNone.textContent = data.noneCount || 0;
+                    tdNone.style.padding = '10px';
+                    tdNone.style.fontSize = '16px';
+                    // highlight NONE cell when incorrect (expected 3)
+                    if ((data.noneCount || 0) !== 3) {
+                        tdNone.style.background = 'linear-gradient(90deg, rgba(255,90,90,0.10), rgba(255,60,60,0.06))';
+                        tdNone.style.color = '#ffdddd';
+                        tdNone.title = `Expected 3 NONE rounds, found ${data.noneCount || 0}`;
+                    } else {
+                        tdNone.style.color = '#7fffd4';
+                    }
+                    tr.appendChild(tdNone);
+
+                    const combos = [
+                        ['High Culturant','Self Control Incentive'],
+                        ['High Culturant','Impulse Incentive'],
+                        ['High Operant','Self Control Incentive'],
+                        ['High Operant','Impulse Incentive'],
+                        ['Equal Culturant-Operant','Self Control Incentive'],
+                        ['Equal Culturant-Operant','Impulse Incentive']
+                    ];
+
+                    combos.forEach(([c,i]) => {
+                        const key = `${c}::${i}`;
+                        const cnt = (data.combos && data.combos[key]) || 0;
+                        const td = document.createElement('td');
+                        td.textContent = cnt;
+                        td.style.padding = '10px';
+                        td.style.textAlign = 'center';
+                        td.style.fontSize = '16px';
+                        // highlight combo cells that are incorrect (expected exactly 1)
+                        if (cnt !== 1) {
+                            td.style.background = 'linear-gradient(90deg, rgba(255,90,90,0.10), rgba(255,60,60,0.06))';
+                            td.style.color = '#ffdddd';
+                            td.title = `Expected 1 occurrence of "${key}", found ${cnt}`;
+                        } else {
+                            td.style.color = '#7fffd4';
+                        }
+                        tr.appendChild(td);
+                    });
+
+                    table.appendChild(tr);
+                });
+
+                bodyArea.appendChild(table);
+
+                // Error details
+                if (br.errors && br.errors.length) {
+                    const errBox = document.createElement('div');
+                    errBox.style.marginTop = '12px';
+                    errBox.style.padding = '10px';
+                    errBox.style.background = 'rgba(255,0,0,0.03)';
+                    errBox.style.border = '1px solid rgba(255,0,0,0.06)';
+                    const h = document.createElement('strong');
+                    h.textContent = 'Errors:';
+                    errBox.appendChild(h);
+                    const ul = document.createElement('ul');
+                    br.errors.forEach(e => {
+                        const li = document.createElement('li');
+                        li.textContent = e;
+                        ul.appendChild(li);
+                    });
+                    errBox.appendChild(ul);
+                    bodyArea.appendChild(errBox);
+                }
+            }
+
+            renderTabs();
+            renderBody();
+
+            // Close when clicking outside the panel
+            modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
+            // Prevent clicks inside panel from closing
+            panel.addEventListener('click', (e) => e.stopPropagation());
+
+            modal.appendChild(panel);
+            document.body.appendChild(modal);
+        }
         // Pass session data to client
         window.sessionData = <%- sessionData %>;
         
@@ -2652,6 +3233,452 @@
         if (window.sessionData) {
             console.log('🚀 IMMEDIATE: isLoggedIn =', window.sessionData.isLoggedIn);
             console.log('🚀 IMMEDIATE: username =', window.sessionData.username);
+            
+            // Check if user arrived via invite link
+            if (window.sessionData.inviteCode) {
+                console.log('🔗 IMMEDIATE: Invite code from link:', window.sessionData.inviteCode);
+            }
+        }
+        
+        // Pre-fill invite code if user arrived via invite link
+        function prefillInviteCode() {
+            if (window.sessionData && window.sessionData.inviteCode && !window.sessionData.isLoggedIn) {
+                const inviteCodeInput = document.getElementById('signupInviteCode');
+                if (inviteCodeInput) {
+                    inviteCodeInput.value = window.sessionData.inviteCode;
+                    console.log('🔗 Pre-filled invite code:', window.sessionData.inviteCode);
+                    
+                    // Store target room for auto-join after signup
+                    if (window.sessionData.targetRoom) {
+                        window.inviteTargetRoom = window.sessionData.targetRoom;
+                        console.log('🔗 Target room for auto-join:', window.sessionData.targetRoom);
+                    }
+                    
+                    // Show welcome animation, then open signup modal
+                    showInviteWelcomeAnimation(window.sessionData.inviteCode, window.sessionData.targetRoom);
+                }
+            }
+        }
+        
+        // Welcome animation for invite links - Retro-Future Neon Design
+        function showInviteWelcomeAnimation(inviteCode, targetRoom) {
+            console.log('🎉 Showing welcome animation for invite link', targetRoom ? `(room: ${targetRoom})` : '');
+            
+            // Determine what to show in the code area
+            const showRoom = targetRoom && targetRoom !== 'Global';
+            const codeLabel = showRoom ? 'JOINING ROOM' : 'ACCESS CODE';
+            const codeValue = showRoom ? targetRoom : inviteCode;
+            const subtitle = showRoom ? '// ROOM INVITE RECEIVED //' : '// TRANSMISSION RECEIVED //';
+            const statusText = showRoom ? 'PREPARING ROOM ENTRY' : 'INITIALIZING PORTAL';
+            
+            // Create welcome overlay
+            const welcomeOverlay = document.createElement('div');
+            welcomeOverlay.id = 'inviteWelcomeOverlay';
+            welcomeOverlay.innerHTML = `
+                <div class="neon-grid"></div>
+                <div class="scanlines"></div>
+                <div class="welcome-content">
+                    <div class="neon-border-top"></div>
+                    <div class="welcome-icon">
+                        <i class="fas ${showRoom ? 'fa-door-open' : 'fa-satellite-dish'}"></i>
+                    </div>
+                    <div class="title-container">
+                        <h1 class="welcome-title">WELCOME</h1>
+                        <h1 class="welcome-title-glitch welcome-title-glitch-1">WELCOME</h1>
+                        <h1 class="welcome-title-glitch welcome-title-glitch-2">WELCOME</h1>
+                    </div>
+                    <p class="welcome-subtitle">${subtitle}</p>
+                    <div class="welcome-code">
+                        <div class="code-bracket left">[</div>
+                        <div class="code-inner">
+                            <span class="code-label">${codeLabel}</span>
+                            <span class="code-value">${codeValue}</span>
+                        </div>
+                        <div class="code-bracket right">]</div>
+                    </div>
+                    <div class="status-line">
+                        <span class="status-dot"></span>
+                        <span class="status-text">${statusText}</span>
+                    </div>
+                    <div class="neon-border-bottom"></div>
+                </div>
+            `;
+            
+            // Add styles for the retro-future neon animation
+            const style = document.createElement('style');
+            style.textContent = `
+                #inviteWelcomeOverlay {
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    width: 100%;
+                    height: 100%;
+                    background: rgba(5, 5, 15, 0.7);
+                    display: flex;
+                    justify-content: center;
+                    align-items: center;
+                    z-index: 100000;
+                    opacity: 0;
+                    animation: welcomeFadeIn 0.5s ease forwards;
+                    overflow: hidden;
+                }
+                
+                #inviteWelcomeOverlay * {
+                    box-sizing: border-box;
+                }
+                
+                /* Animated grid background */
+                .neon-grid {
+                    position: absolute;
+                    top: 0;
+                    left: 0;
+                    width: 100%;
+                    height: 100%;
+                    background-image: 
+                        linear-gradient(rgba(0, 255, 255, 0.05) 1px, transparent 1px),
+                        linear-gradient(90deg, rgba(0, 255, 255, 0.05) 1px, transparent 1px);
+                    background-size: 50px 50px;
+                    animation: gridMove 20s linear infinite;
+                }
+                
+                @keyframes gridMove {
+                    0% { background-position: 0 0; }
+                    100% { background-position: 50px 50px; }
+                }
+                
+                /* Scanlines effect */
+                .scanlines {
+                    position: absolute;
+                    top: 0;
+                    left: 0;
+                    width: 100%;
+                    height: 100%;
+                    background: repeating-linear-gradient(
+                        0deg,
+                        rgba(0, 0, 0, 0.15) 0px,
+                        rgba(0, 0, 0, 0.15) 1px,
+                        transparent 1px,
+                        transparent 3px
+                    );
+                    pointer-events: none;
+                }
+                
+                @keyframes welcomeFadeIn {
+                    to { opacity: 1; }
+                }
+                
+                @keyframes welcomeFadeOut {
+                    to { opacity: 0; }
+                }
+                
+                .welcome-content {
+                    text-align: center;
+                    animation: welcomeSlideUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.2s both;
+                    position: relative;
+                    padding: 40px 30px;
+                    max-width: 90vw;
+                }
+                
+                @keyframes welcomeSlideUp {
+                    from {
+                        opacity: 0;
+                        transform: translateY(40px) scale(0.9);
+                    }
+                    to {
+                        opacity: 1;
+                        transform: translateY(0) scale(1);
+                    }
+                }
+                
+                /* Neon borders */
+                .neon-border-top, .neon-border-bottom {
+                    position: absolute;
+                    left: 50%;
+                    transform: translateX(-50%);
+                    width: 80%;
+                    max-width: 500px;
+                    height: 2px;
+                    background: linear-gradient(90deg, 
+                        transparent, 
+                        #ff00ff, 
+                        #00ffff, 
+                        #ff00ff, 
+                        transparent);
+                    box-shadow: 
+                        0 0 10px #ff00ff,
+                        0 0 20px #00ffff,
+                        0 0 40px #ff00ff;
+                    animation: borderGlow 2s ease infinite;
+                }
+                
+                .neon-border-top { top: 0; }
+                .neon-border-bottom { bottom: 0; }
+                
+                @keyframes borderGlow {
+                    0%, 100% { opacity: 0.8; filter: hue-rotate(0deg); }
+                    50% { opacity: 1; filter: hue-rotate(30deg); }
+                }
+                
+                .welcome-icon {
+                    font-size: clamp(48px, 10vw, 72px);
+                    margin-bottom: 20px;
+                    animation: iconGlow 1.5s ease infinite, iconFloat 3s ease-in-out infinite;
+                    color: #00ffff;
+                    text-shadow: 
+                        0 0 10px #00ffff,
+                        0 0 20px #00ffff,
+                        0 0 40px #00ffff,
+                        0 0 80px #0088ff;
+                }
+                
+                @keyframes iconGlow {
+                    0%, 100% { 
+                        color: #00ffff;
+                        text-shadow: 
+                            0 0 10px #00ffff,
+                            0 0 20px #00ffff,
+                            0 0 40px #00ffff,
+                            0 0 80px #0088ff;
+                    }
+                    50% { 
+                        color: #ff00ff;
+                        text-shadow: 
+                            0 0 20px #ff00ff,
+                            0 0 40px #ff00ff,
+                            0 0 60px #ff00ff,
+                            0 0 100px #ff0088;
+                    }
+                }
+                
+                @keyframes iconFloat {
+                    0%, 100% { transform: translateY(0); }
+                    50% { transform: translateY(-10px); }
+                }
+                
+                /* Title with glitch effect using separate elements */
+                .title-container {
+                    position: relative;
+                    display: inline-block;
+                    margin-bottom: 10px;
+                }
+                
+                .welcome-title,
+                .welcome-title-glitch {
+                    font-size: clamp(36px, 12vw, 72px);
+                    font-weight: 900;
+                    font-family: 'Arial Black', Arial, sans-serif;
+                    color: #fff;
+                    margin: 0;
+                    letter-spacing: clamp(5px, 2vw, 15px);
+                    text-transform: uppercase;
+                    text-shadow: 
+                        0 0 10px #fff,
+                        0 0 20px #ff00ff,
+                        0 0 40px #ff00ff,
+                        0 0 80px #ff00ff;
+                }
+                
+                .welcome-title-glitch {
+                    position: absolute;
+                    top: 0;
+                    left: 0;
+                    width: 100%;
+                    opacity: 0.8;
+                }
+                
+                .welcome-title-glitch-1 {
+                    color: #00ffff;
+                    text-shadow: none;
+                    animation: glitch1 3s infinite;
+                    clip-path: polygon(0 0, 100% 0, 100% 45%, 0 45%);
+                }
+                
+                .welcome-title-glitch-2 {
+                    color: #ff00ff;
+                    text-shadow: none;
+                    animation: glitch2 3s infinite;
+                    clip-path: polygon(0 55%, 100% 55%, 100% 100%, 0 100%);
+                }
+                
+                @keyframes glitch1 {
+                    0%, 90%, 100% { transform: translate(0); opacity: 0; }
+                    91% { transform: translate(-4px, -2px); opacity: 0.8; }
+                    92% { transform: translate(4px, 2px); opacity: 0.8; }
+                    93% { transform: translate(-2px, 1px); opacity: 0.8; }
+                    94% { transform: translate(0); opacity: 0; }
+                }
+                
+                @keyframes glitch2 {
+                    0%, 90%, 100% { transform: translate(0); opacity: 0; }
+                    91% { transform: translate(4px, 2px); opacity: 0.8; }
+                    92% { transform: translate(-4px, -2px); opacity: 0.8; }
+                    93% { transform: translate(2px, -1px); opacity: 0.8; }
+                    94% { transform: translate(0); opacity: 0; }
+                }
+                
+                .welcome-subtitle {
+                    font-size: clamp(12px, 3vw, 16px);
+                    font-family: 'Courier New', monospace;
+                    color: #00ffff;
+                    margin: 0 0 40px 0;
+                    letter-spacing: clamp(2px, 0.5vw, 4px);
+                    text-shadow: 0 0 10px #00ffff;
+                    animation: subtitlePulse 2s ease infinite;
+                }
+                
+                @keyframes subtitlePulse {
+                    0%, 100% { opacity: 0.7; }
+                    50% { opacity: 1; }
+                }
+                
+                .welcome-code {
+                    display: inline-flex;
+                    align-items: center;
+                    gap: clamp(8px, 2vw, 15px);
+                    margin-bottom: 30px;
+                    flex-wrap: nowrap;
+                }
+                
+                .code-bracket {
+                    font-size: clamp(40px, 10vw, 80px);
+                    font-family: 'Courier New', monospace;
+                    color: #ff00ff;
+                    text-shadow: 
+                        0 0 10px #ff00ff,
+                        0 0 20px #ff00ff;
+                    animation: bracketPulse 1s ease infinite;
+                    line-height: 1;
+                }
+                
+                .code-bracket.left { animation-delay: 0s; }
+                .code-bracket.right { animation-delay: 0.5s; }
+                
+                @keyframes bracketPulse {
+                    0%, 100% { opacity: 0.6; transform: scale(1); }
+                    50% { opacity: 1; transform: scale(1.05); }
+                }
+                
+                .code-inner {
+                    display: flex;
+                    flex-direction: column;
+                    background: rgba(0, 255, 255, 0.05);
+                    border: 1px solid rgba(0, 255, 255, 0.3);
+                    border-radius: 4px;
+                    padding: clamp(10px, 2vw, 15px) clamp(15px, 4vw, 30px);
+                    position: relative;
+                    overflow: hidden;
+                }
+                
+                .code-inner::before {
+                    content: '';
+                    position: absolute;
+                    top: 0;
+                    left: -100%;
+                    width: 100%;
+                    height: 100%;
+                    background: linear-gradient(90deg, transparent, rgba(0, 255, 255, 0.2), transparent);
+                    animation: codeSweep 2s ease infinite;
+                }
+                
+                @keyframes codeSweep {
+                    0% { left: -100%; }
+                    100% { left: 100%; }
+                }
+                
+                .code-label {
+                    font-size: clamp(8px, 1.5vw, 10px);
+                    font-family: 'Courier New', monospace;
+                    color: #ff00ff;
+                    text-transform: uppercase;
+                    letter-spacing: clamp(1px, 0.5vw, 3px);
+                    margin-bottom: 5px;
+                    text-shadow: 0 0 5px #ff00ff;
+                }
+                
+                .code-value {
+                    font-family: 'Courier New', monospace;
+                    font-size: clamp(20px, 5vw, 36px);
+                    font-weight: bold;
+                    color: #00ffff;
+                    letter-spacing: clamp(3px, 1vw, 6px);
+                    text-shadow: 
+                        0 0 10px #00ffff,
+                        0 0 20px #00ffff,
+                        0 0 40px #0088ff;
+                    animation: codeFlicker 4s infinite;
+                }
+                
+                @keyframes codeFlicker {
+                    0%, 19.999%, 22%, 62.999%, 64%, 64.999%, 70%, 100% {
+                        opacity: 1;
+                    }
+                    20%, 21.999%, 63%, 63.999%, 65%, 69.999% {
+                        opacity: 0.7;
+                    }
+                }
+                
+                .status-line {
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    gap: 10px;
+                }
+                
+                .status-dot {
+                    width: 8px;
+                    height: 8px;
+                    background: #00ff00;
+                    border-radius: 50%;
+                    box-shadow: 0 0 10px #00ff00, 0 0 20px #00ff00;
+                    animation: statusBlink 1s ease infinite;
+                    flex-shrink: 0;
+                }
+                
+                @keyframes statusBlink {
+                    0%, 50%, 100% { opacity: 1; }
+                    25%, 75% { opacity: 0.3; }
+                }
+                
+                .status-text {
+                    font-family: 'Courier New', monospace;
+                    font-size: clamp(10px, 2vw, 12px);
+                    color: #00ff00;
+                    letter-spacing: clamp(1px, 0.5vw, 3px);
+                    text-shadow: 0 0 5px #00ff00;
+                }
+            `;
+            document.head.appendChild(style);
+            document.body.appendChild(welcomeOverlay);
+            
+            // After animation, fade out and open signup modal
+            setTimeout(() => {
+                welcomeOverlay.style.animation = 'welcomeFadeOut 0.5s ease forwards';
+                
+                setTimeout(() => {
+                    welcomeOverlay.remove();
+                    style.remove();
+                    
+                    // Open signup modal
+                    const signupModal = document.getElementById('signupModal');
+                    if (signupModal) {
+                        signupModal.style.display = 'block';
+                        console.log('🔗 Opened signup modal after welcome animation');
+                        
+                        // Focus on username field
+                        setTimeout(() => {
+                            const usernameInput = document.getElementById('signupUsername');
+                            if (usernameInput) usernameInput.focus();
+                        }, 100);
+                    }
+                }, 500);
+            }, 4000); // Show welcome for 4 seconds
+        }
+        
+        // Run prefill when DOM is ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', prefillInviteCode);
+        } else {
+            prefillInviteCode();
         }
         
         // Remove loading overlay once page is ready
@@ -2686,30 +3713,22 @@
         setTimeout(() => {
             const loginButton = document.getElementById('loginNav');
             if (loginButton && window.sessionData && window.sessionData.isLoggedIn) {
-                console.log('🔍 WATCHER: Setting up login button mutation observer for logged-in user');
-                
                 const observer = new MutationObserver((mutations) => {
                     mutations.forEach((mutation) => {
                         if (mutation.type === 'attributes' && mutation.attributeName === 'style') {
                             const currentDisplay = loginButton.style.display;
-                            console.log('🔍 WATCHER: Login button style changed to:', currentDisplay);
-                            
                             if (currentDisplay === 'block' || currentDisplay === '') {
-                                console.log('🔍 WATCHER: Someone tried to show login button! Overriding...');
                                 loginButton.style.setProperty('display', 'none', 'important');
                                 loginButton.hidden = true;
-                                console.log('🔍 WATCHER: Login button force-hidden again');
                             }
                         }
                     });
                 });
-                
+
                 observer.observe(loginButton, {
                     attributes: true,
                     attributeFilter: ['style', 'class']
                 });
-                
-                console.log('🔍 WATCHER: Mutation observer active for login button');
             }
         }, 50);
         
@@ -2734,12 +3753,67 @@
             if (inviteOptions && inviteOptions.style.display === 'block' && 
                 inviteCard && !inviteCard.contains(event.target)) {
                 inviteOptions.style.display = 'none';
-                console.log('📁 Closed invite options (clicked outside)');
             }
         });
     </script>
     <script type="text/javascript" src="/client/client.js?v=2025102401"></script>
+    <script>
+        // Show Evaluate CSV button for moderators/admins and wire upload
+        (function(){
+            try {
+                const evalBtn = document.getElementById('evaluateCsvBtn');
+                const evalFile = document.getElementById('evaluateCsvFile');
+                if (!evalBtn || !evalFile) return;
 
+                // Wire up the file picker; visibility is handled by client.js updateEvaluateVisibility
+                console.log('🔧 Wiring Evaluate CSV button');
+                evalBtn.addEventListener('click', (e) => { console.log('🔧 Evaluate button clicked'); e.stopPropagation(); evalFile.click(); });
+                // Also allow clicking the whole card to trigger file picker
+                const evaluateCard = document.getElementById('evaluate-card');
+                if (evaluateCard) {
+                    evaluateCard.addEventListener('click', (e) => { if (e.target.id !== 'evaluateCsvFile') { console.log('🔧 Evaluate card clicked, opening file picker'); evalFile.click(); } });
+                }
+
+                evalFile.addEventListener('change', (ev) => {
+                        const f = ev.target.files && ev.target.files[0];
+                        if (!f) return;
+                        const reader = new FileReader();
+                        reader.onload = function(e) {
+                            const text = e.target.result;
+                            fetch('/api/evaluate-csv', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ content: text, room: window.sessionData && window.sessionData.room })
+                            }).then(r => r.json()).then(result => {
+                                if (!result) return alert('No response from server');
+                                if (result.error) return alert('Error: ' + result.error);
+                                // Simple presentation of block report
+                                const report = result.report || {};
+                                showEvaluationModal(report);
+                            }).catch(err=>{
+                                console.error('Evaluation error', err);
+                                alert('Evaluation failed: '+ err.message);
+                            });
+                        };
+                        reader.readAsText(f);
+                    });
+            } catch (err) {
+                console.error('Evaluate CSV wiring failed', err);
+            }
+        })();
+    </script>
+    <script>
+        // Ensure `handleSignIn` is available globally for inline handlers.
+        (function(){
+            try {
+                if (typeof handleSignIn === 'function') {
+                    window.handleSignIn = handleSignIn;
+                }
+            } catch (err) {
+                // If handleSignIn cannot be exposed, fail silently — rely on default browser behavior
+            }
+        })();
+    </script>
     <script>
         // Animation control variables
         let starInterval = null;
@@ -2956,7 +4030,7 @@
                         document.getElementById('signupConfirmPassword').value = '';
                         document.getElementById('signupInviteCode').value = '';
                         
-                        showGlassmorphismAlert('Creating Account...', 'Please wait while we validate your invite code and create your account.', 'info');
+                        // Note: Neon welcome/room-join alert will be shown on successful response
                     } else {
                         showGlassmorphismAlert('Connection Error', 'Unable to connect to server. Please refresh and try again.', 'error');
                     }

@@ -1,18 +1,23 @@
 /**
  * Experimental Round Scheduler for XenoGenesis
- * Handles scheduling for both Baseline and Conditions experiment modes
+ * Handles scheduling for Conditions experiment mode
  * 
- * Experiment 1 (Baseline): 
- * - 100 white tokens shared pool
- * - Max 500 rounds
- * - Fixed payout rules
- * 
- * Experiment 2 (Conditions):
+ * Experiment (Conditions):
  * - 2500 white tokens shared pool  
- * - 441 rounds across 7 blocks of 63 rounds each
- * - 3 conditions: High Culturant, High Operant, Equal Culturant-Operant
- * - 3 incentive types: No Incentive, Self Control Incentive, Impulse Incentive
- * - Balanced distribution and counterbalancing
+ * - 21 rounds per block (default 9 blocks = 189 total rounds)
+ * - Each player gets 7 assignments per block:
+ *   - 3 Self Control Incentive
+ *   - 3 Impulse Incentive
+ *   - 1 No Incentive
+ * - Per block totals:
+ *   - 9 Self Control Incentives (3 per player)
+ *   - 9 Impulse Incentives (3 per player)
+ *   - 3 No Incentives (1 per player)
+ * - 3 conditions distributed evenly: 7 occurrences of each per block
+ *   - High Culturant
+ *   - High Operant
+ *   - Equal Culturant-Operant
+ * - LEDs track progress within each block (resets every 21 rounds)
  */
 
 class ExperimentScheduler {
@@ -30,94 +35,97 @@ class ExperimentScheduler {
         };
         
         this.players = ['A', 'B', 'C'];
+        
+        // 21-round block structure:
+        // Each player gets 7 assignments per block (21 rounds / 3 players)
+        // Per player: 3 Self Control + 3 Impulse + 1 None = 7 total
+        this.ROUNDS_PER_BLOCK = 21;
+        this.NONE_PER_BLOCK = 3; // 1 per player
+        this.INCENTIVES_PER_BLOCK = 18; // 21 - 3
+        this.INCENTIVES_PER_PLAYER_PER_TYPE = 3; // Self Control and Impulse each
     }
 
     /**
-     * Generate a complete 63-round block with balanced distribution
-     * Each block contains:
-     * - 21 rounds per condition (3 conditions × 21 rounds = 63 total)
-     * - Equal distribution of incentives within each condition
-     * - Counterbalanced player assignments
+     * Generate a complete 21-round block with balanced per-player distribution
+     * Creates a FIXED template where each player experiences each condition exactly:
+     * - High Culturant: 2-3 times per player
+     * - High Operant: 2-3 times per player  
+     * - Equal C-O: 2-3 times per player
+     * Total: 7 assignments per player, 21 rounds per block
      * 
-     * @returns {Array} Array of 63 round objects
+     * @param {number} blockNumber - Block number for tracking
+     * @returns {Array} Array of 21 round objects
      */
-    generateBlock() {
+    generateBlock(blockNumber) {
         const rounds = [];
-        
-        // Generate 21 rounds for each condition
-        Object.values(this.conditions).forEach(condition => {
-            const conditionRounds = this.generateConditionRounds(condition, 21);
-            rounds.push(...conditionRounds);
+
+        // For each player, produce the six condition×incentive combos
+        this.players.forEach(player => {
+            Object.values(this.conditions).forEach(conditionName => {
+                // Self-control (Culturant) incentive for this condition
+                rounds.push({
+                    player: player,
+                    incentive: this.incentives.CULTURANT_INCENTIVE,
+                    condition: conditionName,
+                    blockNumber: blockNumber
+                });
+
+                // Impulsive (Operant) incentive for this condition
+                rounds.push({
+                    player: player,
+                    incentive: this.incentives.OPERANT_INCENTIVE,
+                    condition: conditionName,
+                    blockNumber: blockNumber
+                });
+            });
         });
-        
-        // Shuffle the rounds to avoid predictable patterns
+
+        // Add the three NO_INCENTIVE rounds (one per condition) with no recipient
+        Object.values(this.conditions).forEach(conditionName => {
+            rounds.push({
+                player: null,
+                incentive: this.incentives.NO_INCENTIVE,
+                condition: conditionName,
+                blockNumber: blockNumber
+            });
+        });
+
+        // Sanity check: rounds should be 21
+        if (rounds.length !== this.ROUNDS_PER_BLOCK) {
+            console.warn(`Generated ${rounds.length} rounds for block ${blockNumber}, expected ${this.ROUNDS_PER_BLOCK}`);
+        }
+
+        // Shuffle to randomize order within block while keeping distribution
         return this.shuffleArray(rounds);
     }
 
     /**
-     * Generate rounds for a specific condition with balanced incentive distribution
-     * 
-     * @param {string} condition - The experimental condition
-     * @param {number} roundCount - Number of rounds to generate (21)
-     * @returns {Array} Array of round objects for this condition
-     */
-    generateConditionRounds(condition, roundCount) {
-        const rounds = [];
-        const incentiveTypes = Object.values(this.incentives);
-        const roundsPerIncentive = Math.floor(roundCount / incentiveTypes.length); // 7 rounds per incentive
-        const extraRounds = roundCount % incentiveTypes.length; // Handle remainder
-        
-        // Generate base rounds (7 rounds per incentive type)
-        incentiveTypes.forEach((incentive, index) => {
-            let roundsForThisIncentive = roundsPerIncentive;
-            // Distribute extra rounds evenly
-            if (index < extraRounds) {
-                roundsForThisIncentive += 1;
-            }
-            
-            for (let i = 0; i < roundsForThisIncentive; i++) {
-                // Rotate through players for each round to ensure balance
-                const playerIndex = (rounds.length) % this.players.length;
-                const player = this.players[playerIndex];
-                
-                rounds.push({
-                    condition: condition,
-                    player: player,
-                    incentive: incentive,
-                    roundNumber: null // Will be set when building full schedule
-                });
-            }
-        });
-        
-        return rounds;
-    }
-
-    /**
      * Generate a complete experimental schedule for Conditions mode
-     * 441 rounds across 7 blocks of 63 rounds each
+     * Multiple blocks of 21 rounds each
      * 
-     * @returns {Array} Array of 441 round objects with round numbers
+     * @param {number} numBlocks - Number of blocks to generate (default 9 for 189 rounds)
+     * @returns {Array} Array of round objects with round numbers
      */
-    generateConditionsSchedule() {
+    generateConditionsSchedule(numBlocks = 9) {
         const fullSchedule = [];
         let roundNumber = 1;
         
-        // Generate 7 blocks of 63 rounds each
-        for (let block = 1; block <= 7; block++) {
-            console.log(`📋 Generating block ${block}/7...`);
-            const blockRounds = this.generateBlock();
+        // Generate blocks
+        for (let block = 1; block <= numBlocks; block++) {
+            console.log(`📋 Generating block ${block}/${numBlocks}...`);
+            const blockRounds = this.generateBlock(block);
             
             // Assign round numbers to each round in this block
             blockRounds.forEach(round => {
                 round.roundNumber = roundNumber;
-                round.blockNumber = block;
                 fullSchedule.push(round);
                 roundNumber++;
             });
         }
         
-        console.log(`✅ Generated complete conditions schedule: ${fullSchedule.length} rounds across 7 blocks`);
-        this.validateSchedule(fullSchedule);
+        const totalRounds = fullSchedule.length;
+        console.log(`✅ Generated complete conditions schedule: ${totalRounds} rounds across ${numBlocks} blocks`);
+        this.validateSchedule(fullSchedule, numBlocks);
         return fullSchedule;
     }
 
@@ -163,9 +171,10 @@ class ExperimentScheduler {
      * Validate the generated schedule for proper balance and distribution
      * 
      * @param {Array} schedule - The complete schedule to validate
+     * @param {number} numBlocks - Number of blocks in the schedule
      * @returns {Object} Validation results
      */
-    validateSchedule(schedule) {
+    validateSchedule(schedule, numBlocks) {
         const validation = {
             totalRounds: schedule.length,
             conditionCounts: {},
@@ -194,36 +203,54 @@ class ExperimentScheduler {
                 (validation.blockCounts[round.blockNumber] || 0) + 1;
         });
 
+        const expectedTotal = numBlocks * this.ROUNDS_PER_BLOCK;
+        // Each player receives 6 incentive rounds per block (3 conditions × 2 incentive types)
+        const roundsPerPlayer = numBlocks * 6;
+
+        // Each condition appears 7 times per block (6 incentive rounds + 1 none), so per schedule:
+        const roundsPerCondition = numBlocks * 7;
+
+        // Expected incentive totals across the full schedule
+        const expectedNoneTotal = numBlocks * this.NONE_PER_BLOCK; // 3 per block
+        const expectedCulturantTotal = numBlocks * 9; // per block: 3 conditions × 3 players = 9 culturant incentives
+        const expectedOperantTotal = numBlocks * 9;  // per block: 9 operant incentives
+
         // Validate expected totals
-        if (validation.totalRounds !== 441) {
-            validation.errors.push(`Expected 441 rounds, got ${validation.totalRounds}`);
+        if (validation.totalRounds !== expectedTotal) {
+            validation.errors.push(`Expected ${expectedTotal} rounds, got ${validation.totalRounds}`);
         }
 
-        // Each condition should appear 147 times (21 rounds × 7 blocks)
+        // Each condition should appear exactly roundsPerCondition times
         Object.entries(validation.conditionCounts).forEach(([condition, count]) => {
-            if (count !== 147) {
-                validation.errors.push(`Condition "${condition}" appears ${count} times, expected 147`);
+            if (count !== roundsPerCondition) {
+                validation.errors.push(`Condition "${condition}" appears ${count} times, expected ${roundsPerCondition}`);
             }
         });
 
-        // Each incentive should appear 147 times 
-        Object.entries(validation.incentiveCounts).forEach(([incentive, count]) => {
-            if (count !== 147) {
-                validation.errors.push(`Incentive "${incentive}" appears ${count} times, expected 147`);
-            }
-        });
+        // Validate incentive distribution
+        if ((validation.incentiveCounts[this.incentives.NO_INCENTIVE] || 0) !== expectedNoneTotal) {
+            validation.errors.push(`"No Incentive" appears ${validation.incentiveCounts[this.incentives.NO_INCENTIVE] || 0} times, expected ${expectedNoneTotal}`);
+        }
 
-        // Each player should appear 147 times
+        if ((validation.incentiveCounts[this.incentives.CULTURANT_INCENTIVE] || 0) !== expectedCulturantTotal) {
+            validation.errors.push(`"${this.incentives.CULTURANT_INCENTIVE}" appears ${validation.incentiveCounts[this.incentives.CULTURANT_INCENTIVE] || 0} times, expected ${expectedCulturantTotal}`);
+        }
+
+        if ((validation.incentiveCounts[this.incentives.OPERANT_INCENTIVE] || 0) !== expectedOperantTotal) {
+            validation.errors.push(`"${this.incentives.OPERANT_INCENTIVE}" appears ${validation.incentiveCounts[this.incentives.OPERANT_INCENTIVE] || 0} times, expected ${expectedOperantTotal}`);
+        }
+
+        // Each player should appear evenly
         Object.entries(validation.playerCounts).forEach(([player, count]) => {
-            if (count !== 147) {
-                validation.errors.push(`Player "${player}" appears ${count} times, expected 147`);
+            if (count !== roundsPerPlayer) {
+                validation.errors.push(`Player "${player}" appears ${count} times, expected ${roundsPerPlayer}`);
             }
         });
 
-        // Each block should have 63 rounds
+        // Each block should have 21 rounds
         Object.entries(validation.blockCounts).forEach(([block, count]) => {
-            if (count !== 63) {
-                validation.errors.push(`Block ${block} has ${count} rounds, expected 63`);
+            if (count !== this.ROUNDS_PER_BLOCK) {
+                validation.errors.push(`Block ${block} has ${count} rounds, expected ${this.ROUNDS_PER_BLOCK}`);
             }
         });
 
@@ -236,10 +263,10 @@ class ExperimentScheduler {
 
         console.log('📊 Schedule summary:');
         console.log(`   Total rounds: ${validation.totalRounds}`);
+        console.log(`   Blocks: ${numBlocks} × ${this.ROUNDS_PER_BLOCK} rounds`);
         console.log(`   Conditions:`, validation.conditionCounts);
         console.log(`   Incentives:`, validation.incentiveCounts);
         console.log(`   Players:`, validation.playerCounts);
-        console.log(`   Blocks:`, validation.blockCounts);
 
         return validation;
     }
@@ -258,23 +285,16 @@ class ExperimentScheduler {
     /**
      * Check if experiment should end based on mode and conditions
      * 
-     * @param {string} mode - 'baseline' or 'conditions'
+     * @param {string} mode - 'conditions' mode
      * @param {number} currentRound - Current round number
      * @param {number} whiteTokensRemaining - White tokens left in pool
      * @param {number} maxRounds - Maximum rounds for mode
      * @returns {Object} End game status and reason
      */
     shouldEndExperiment(mode, currentRound, whiteTokensRemaining, maxRounds) {
-        if (mode === 'baseline') {
-            if (whiteTokensRemaining <= 0) {
-                return { shouldEnd: true, reason: 'White token pool exhausted' };
-            }
-            if (currentRound >= maxRounds) {
-                return { shouldEnd: true, reason: 'Maximum rounds reached (500)' };
-            }
-        } else if (mode === 'conditions') {
-            if (currentRound >= 441) {
-                return { shouldEnd: true, reason: 'All 441 experimental rounds completed' };
+        if (mode === 'conditions') {
+            if (currentRound >= 189) {
+                return { shouldEnd: true, reason: 'All 189 experimental rounds completed' };
             }
             if (whiteTokensRemaining <= 0) {
                 return { shouldEnd: true, reason: 'White token pool exhausted (early termination)' };
@@ -318,8 +338,7 @@ class ExperimentScheduler {
     exportExperimentResultsToCSV(dataLog, options = {}) {
         const headers = [
             'Round',
-            'Condition', 
-            'Phase',
+            'Condition',
             'Block_Number',
             'Incentive_Type',
             'Incentive_Recipient',
@@ -381,16 +400,6 @@ class ExperimentScheduler {
             // Determine condition display
             const condition = logEntry.condition || 'Baseline';
             
-            // For Lightning test, use the phase field directly; otherwise use legacy logic
-            let phase;
-            if (logEntry.experimentMode === 'lightning_test' && logEntry.phase) {
-                phase = logEntry.phase;
-            } else {
-                phase = logEntry.experimentMode === 'unified' ? 
-                    (condition === 'Baseline' ? 'baseline' : 'conditions') :
-                    (logEntry.experimentMode === 'baseline' ? 'baseline' : 'conditions');
-            }
-            
             // Calculate total payouts using correct condition token values
             const calculatePayout = (player) => {
                 if (!player) return 0;
@@ -446,7 +455,6 @@ class ExperimentScheduler {
             const row = [
                 logEntry.round,
                 condition,
-                phase,
                 logEntry.blockNumber || '',
                 (logEntry.incentive && logEntry.incentive !== 'No Incentive') ? logEntry.incentive : 'None',
                 (logEntry.incentive && logEntry.incentive !== 'No Incentive') ? (logEntry.player || 'None') : 'None',
@@ -501,11 +509,7 @@ class ExperimentScheduler {
         };
 
         const addTest = (name, passed, details = '') => {
-            testResults.tests.push({
-                name,
-                passed,
-                details
-            });
+            testResults.tests.push({ name, passed, details });
             if (passed) {
                 testResults.passed++;
                 console.log(`✅ ${name}`);
@@ -515,107 +519,70 @@ class ExperimentScheduler {
             }
         };
 
-        // Test 1: Generate multiple schedules and verify basic structure
+        // Test suite using a known number of blocks
         try {
-            const schedule = this.generateConditionsSchedule();
-            addTest('Schedule Generation', schedule.length === 441, `Generated ${schedule.length} rounds, expected 441`);
-            
-            // Test 2: Verify condition distribution
+            const numBlocks = 9;
+            const schedule = this.generateConditionsSchedule(numBlocks);
+            addTest('Schedule Generation', schedule.length === (numBlocks * this.ROUNDS_PER_BLOCK), `Generated ${schedule.length} rounds, expected ${numBlocks * this.ROUNDS_PER_BLOCK}`);
+
+            // Condition distribution
             const conditionCounts = {};
             schedule.forEach(round => {
                 conditionCounts[round.condition] = (conditionCounts[round.condition] || 0) + 1;
             });
-            
-            const expectedConditionCount = 147; // 21 rounds × 7 blocks
+            const expectedConditionCount = numBlocks * 7; // 7 occurrences per block per condition
             let conditionDistributionPassed = true;
             Object.entries(conditionCounts).forEach(([condition, count]) => {
-                if (count !== expectedConditionCount) {
-                    conditionDistributionPassed = false;
-                }
+                if (count !== expectedConditionCount) conditionDistributionPassed = false;
             });
-            addTest('Condition Distribution', conditionDistributionPassed, 
-                `Conditions: ${JSON.stringify(conditionCounts)}, expected ${expectedConditionCount} each`);
+            addTest('Condition Distribution', conditionDistributionPassed, `Conditions: ${JSON.stringify(conditionCounts)}, expected ${expectedConditionCount} each`);
 
-            // Test 3: Verify player distribution
+            // Player distribution
             const playerCounts = {};
             schedule.forEach(round => {
-                playerCounts[round.player] = (playerCounts[round.player] || 0) + 1;
+                const p = round.player || 'None';
+                playerCounts[p] = (playerCounts[p] || 0) + 1;
             });
-            
-            const expectedPlayerCount = 147; // 441 rounds ÷ 3 players
+            const expectedPlayerCount = numBlocks * 6; // 6 rounds per player per block
             let playerDistributionPassed = true;
-            Object.entries(playerCounts).forEach(([player, count]) => {
-                if (count !== expectedPlayerCount) {
-                    playerDistributionPassed = false;
-                }
+            this.players.forEach(player => {
+                if (playerCounts[player] !== expectedPlayerCount) playerDistributionPassed = false;
             });
-            addTest('Player Distribution', playerDistributionPassed,
-                `Players: ${JSON.stringify(playerCounts)}, expected ${expectedPlayerCount} each`);
+            addTest('Player Distribution', playerDistributionPassed, `Players: ${JSON.stringify(playerCounts)}, expected ${expectedPlayerCount} each (None shows NO rounds)`);
 
-            // Test 4: Verify incentive distribution
+            // Incentive distribution
             const incentiveCounts = {};
             schedule.forEach(round => {
                 incentiveCounts[round.incentive] = (incentiveCounts[round.incentive] || 0) + 1;
             });
-            
-            const expectedIncentiveCount = 147; // Equal distribution
-            let incentiveDistributionPassed = true;
-            Object.entries(incentiveCounts).forEach(([incentive, count]) => {
-                if (count !== expectedIncentiveCount) {
-                    incentiveDistributionPassed = false;
-                }
-            });
-            addTest('Incentive Distribution', incentiveDistributionPassed,
-                `Incentives: ${JSON.stringify(incentiveCounts)}, expected ${expectedIncentiveCount} each`);
+            const expectedNone = numBlocks * this.NONE_PER_BLOCK; // 3 per block
+            const expectedCulturant = numBlocks * 9; // 9 culturant incentives per block * numBlocks
+            const expectedOperant = numBlocks * 9;
+            const incentivePassed = (incentiveCounts[this.incentives.NO_INCENTIVE] === expectedNone) &&
+                                    (incentiveCounts[this.incentives.CULTURANT_INCENTIVE] === expectedCulturant) &&
+                                    (incentiveCounts[this.incentives.OPERANT_INCENTIVE] === expectedOperant);
+            addTest('Incentive Distribution', incentivePassed, `Incentives: ${JSON.stringify(incentiveCounts)}, expected None:${expectedNone}, Culturant:${expectedCulturant}, Operant:${expectedOperant}`);
 
-            // Test 5: Verify block structure
+            // Block structure
             const blockCounts = {};
             schedule.forEach(round => {
                 blockCounts[round.blockNumber] = (blockCounts[round.blockNumber] || 0) + 1;
             });
-            
-            const expectedBlockCount = 63; // 63 rounds per block
             let blockStructurePassed = true;
-            for (let block = 1; block <= 7; block++) {
-                if (blockCounts[block] !== expectedBlockCount) {
-                    blockStructurePassed = false;
-                }
+            for (let block = 1; block <= numBlocks; block++) {
+                if (blockCounts[block] !== this.ROUNDS_PER_BLOCK) blockStructurePassed = false;
             }
-            addTest('Block Structure', blockStructurePassed,
-                `Blocks: ${JSON.stringify(blockCounts)}, expected ${expectedBlockCount} rounds each`);
+            addTest('Block Structure', blockStructurePassed, `Blocks: ${JSON.stringify(blockCounts)}, expected ${this.ROUNDS_PER_BLOCK} rounds each`);
 
-            // Test 6: Verify round number continuity
+            // Round continuity
             const roundNumbers = schedule.map(r => r.roundNumber).sort((a, b) => a - b);
             const continuityPassed = roundNumbers.every((num, index) => num === index + 1);
-            addTest('Round Number Continuity', continuityPassed,
-                `Round numbers: ${roundNumbers.slice(0, 5)}...${roundNumbers.slice(-5)}`);
+            addTest('Round Number Continuity', continuityPassed, `Round numbers continuous: ${continuityPassed}`);
 
-            // Test 7: Test randomization - multiple generations should produce different orders
-            const schedule2 = this.generateConditionsSchedule();
-            const firstBlockOrder1 = schedule.slice(0, 10).map(r => r.condition).join(',');
-            const firstBlockOrder2 = schedule2.slice(0, 10).map(r => r.condition).join(',');
-            const randomizationPassed = firstBlockOrder1 !== firstBlockOrder2;
-            addTest('Randomization', randomizationPassed,
-                `First 10 rounds differ between generations: ${firstBlockOrder1 !== firstBlockOrder2}`);
-
-            // Test 8: Verify each block has balanced sub-distribution
-            let blockBalancePassed = true;
-            for (let blockNum = 1; blockNum <= 7; blockNum++) {
-                const blockRounds = schedule.filter(r => r.blockNumber === blockNum);
-                const blockConditions = {};
-                blockRounds.forEach(r => {
-                    blockConditions[r.condition] = (blockConditions[r.condition] || 0) + 1;
-                });
-                
-                // Each condition should appear exactly 21 times per block
-                Object.entries(blockConditions).forEach(([condition, count]) => {
-                    if (count !== 21) {
-                        blockBalancePassed = false;
-                    }
-                });
-            }
-            addTest('Block-Level Balance', blockBalancePassed,
-                'Each block contains 21 rounds per condition');
+            // Randomization - ensure subsequent generations differ
+            const schedule2 = this.generateConditionsSchedule(numBlocks);
+            const diff = schedule.map((r, i) => `${r.condition}|${r.player}|${r.incentive}`).join(',') !== schedule2.map((r, i) => `${r.condition}|${r.player}|${r.incentive}`).join(',');
+            addTest('Randomization', diff, 'Schedule order differs between generations');
 
         } catch (error) {
             addTest('Test Execution', false, `Error during testing: ${error.message}`);

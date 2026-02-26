@@ -1,8 +1,8 @@
 // Token Pool Configuration Constants (must match server-side)
 const TOKEN_CONFIG = {
-    BASELINE_TOKENS: 100,
-    CONDITIONS_TOKENS: 2500,
-    MAX_TOKENS: 2500  // Maximum for validation and UI limits
+    BASELINE_TOKENS: 100, // Legacy - no longer used
+    CONDITIONS_TOKENS: 1250, // Updated from 2500
+    MAX_TOKENS: 1250  // Maximum for validation and UI limits (updated from 2500)
 };
 
 // Store user admin status globally so we can use it for invite visibility
@@ -85,6 +85,8 @@ function updateCardVisibility() {
     
     // Update invite visibility
     updateInviteVisibility();
+    // Update evaluate visibility (moderator-only card)
+    updateEvaluateVisibility();
 }
 
 // Function to update invite card visibility based on admin status only
@@ -143,6 +145,24 @@ function isCurrentRoomModerator() {
     return window.currentUserIsModerator || false;
 }
 const socket = io();
+
+// Global error handlers to capture runtime exceptions and unhandled promise rejections
+window.addEventListener('error', function (evt) {
+    try {
+        console.error('Global error caught:', evt.message, 'at', evt.filename + ':' + evt.lineno, evt.error);
+    } catch (e) {
+        console.error('Global error (logging failure)', e);
+    }
+    // don't rethrow to avoid halting subsequent handlers
+});
+
+window.addEventListener('unhandledrejection', function (evt) {
+    try {
+        console.error('Unhandled promise rejection:', evt.reason);
+    } catch (e) {
+        console.error('Unhandled rejection (logging failure)', e);
+    }
+});
 
 // Store pending token updates to apply after players return to poker table positions
 let pendingTokenUpdates = null;
@@ -209,7 +229,9 @@ socket.on('disconnect', function() {
 });
 
 socket.on('reconnect', function() {
-    console.log('Socket reconnected to server');
+    console.log('Socket reconnected to server (no forced session restore)');
+    // Reconnects now happen silently; session is only restored on initial page load or explicit refresh.
+    // Server preserves game state for reconnecting players automatically via socket.id matching.
 });
 
 // Handle session restoration
@@ -219,6 +241,12 @@ socket.on('sessionRestored', function(data) {
         if (!domLoaded) {
             pendingSessionRestore = data;
             return;
+        }
+        
+        // Store player position if provided by server
+        if (data.playerPosition) {
+            console.log('📍 Server provided player position:', data.playerPosition);
+            window.storedPlayerPosition = data.playerPosition;
         }
         
         performSessionRestore(data);
@@ -546,13 +574,527 @@ function closeGlassmorphismAlert() {
     }
 }
 
+// Neon-styled room join notification (matches welcome animation style)
+function showNeonRoomJoinAlert(roomName) {
+    // Remove any existing neon alert
+    const existingAlert = document.getElementById('neonRoomJoinAlert');
+    if (existingAlert) {
+        existingAlert.remove();
+    }
+    
+    const existingStyle = document.getElementById('neonRoomJoinStyle');
+    if (existingStyle) {
+        existingStyle.remove();
+    }
+    
+    const alertHTML = `
+        <div id="neonRoomJoinAlert">
+            <div class="neon-alert-scanlines"></div>
+            <div class="neon-alert-content">
+                <div class="neon-alert-border-top"></div>
+                <div class="neon-alert-icon">
+                    <i class="fas fa-door-open"></i>
+                </div>
+                <div class="neon-alert-title">CONNECTING</div>
+                <div class="neon-alert-room">
+                    <span class="neon-alert-bracket">[</span>
+                    <span class="neon-alert-room-name">${roomName}</span>
+                    <span class="neon-alert-bracket">]</span>
+                </div>
+                <div class="neon-alert-status">
+                    <span class="neon-alert-dot"></span>
+                    <span class="neon-alert-status-text">ESTABLISHING LINK</span>
+                </div>
+                <div class="neon-alert-border-bottom"></div>
+            </div>
+        </div>
+    `;
+    
+    const style = document.createElement('style');
+    style.id = 'neonRoomJoinStyle';
+    style.textContent = `
+        #neonRoomJoinAlert {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(5, 5, 15, 0.85);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 100000;
+            opacity: 0;
+            animation: neonAlertFadeIn 0.4s ease forwards;
+            cursor: pointer;
+        }
+        
+        @keyframes neonAlertFadeIn {
+            to { opacity: 1; }
+        }
+        
+        @keyframes neonAlertFadeOut {
+            to { opacity: 0; transform: scale(0.95); }
+        }
+        
+        .neon-alert-scanlines {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: repeating-linear-gradient(
+                0deg,
+                rgba(0, 0, 0, 0.1) 0px,
+                rgba(0, 0, 0, 0.1) 1px,
+                transparent 1px,
+                transparent 3px
+            );
+            pointer-events: none;
+        }
+        
+        .neon-alert-content {
+            text-align: center;
+            padding: 40px 50px;
+            position: relative;
+            animation: neonAlertSlideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.1s both;
+        }
+        
+        @keyframes neonAlertSlideUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px) scale(0.9);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+        
+        .neon-alert-border-top, .neon-alert-border-bottom {
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 80%;
+            max-width: 300px;
+            height: 2px;
+            background: linear-gradient(90deg, 
+                transparent, 
+                #00ffff, 
+                #ff00ff, 
+                #00ffff, 
+                transparent);
+            box-shadow: 
+                0 0 10px #00ffff,
+                0 0 20px #ff00ff;
+            animation: neonBorderPulse 1.5s ease infinite;
+        }
+        
+        .neon-alert-border-top { top: 0; }
+        .neon-alert-border-bottom { bottom: 0; }
+        
+        @keyframes neonBorderPulse {
+            0%, 100% { opacity: 0.7; }
+            50% { opacity: 1; }
+        }
+        
+        .neon-alert-icon {
+            font-size: 48px;
+            color: #00ffff;
+            margin-bottom: 15px;
+            text-shadow: 
+                0 0 10px #00ffff,
+                0 0 20px #00ffff,
+                0 0 40px #00ffff;
+            animation: neonIconFloat 2s ease-in-out infinite;
+        }
+        
+        @keyframes neonIconFloat {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-5px); }
+        }
+        
+        .neon-alert-title {
+            font-size: 28px;
+            font-weight: 900;
+            font-family: 'Arial Black', Arial, sans-serif;
+            color: #fff;
+            letter-spacing: 8px;
+            margin-bottom: 20px;
+            text-shadow: 
+                0 0 10px #fff,
+                0 0 20px #ff00ff,
+                0 0 40px #ff00ff;
+            animation: neonTitlePulse 2s ease infinite;
+        }
+        
+        @keyframes neonTitlePulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.85; }
+        }
+        
+        .neon-alert-room {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .neon-alert-bracket {
+            font-size: 40px;
+            font-family: 'Courier New', monospace;
+            color: #ff00ff;
+            text-shadow: 0 0 10px #ff00ff, 0 0 20px #ff00ff;
+            animation: neonBracketPulse 1s ease infinite;
+        }
+        
+        .neon-alert-bracket:last-child {
+            animation-delay: 0.5s;
+        }
+        
+        @keyframes neonBracketPulse {
+            0%, 100% { opacity: 0.6; }
+            50% { opacity: 1; }
+        }
+        
+        .neon-alert-room-name {
+            font-family: 'Courier New', monospace;
+            font-size: 24px;
+            font-weight: bold;
+            color: #00ffff;
+            letter-spacing: 3px;
+            padding: 10px 20px;
+            background: rgba(0, 255, 255, 0.05);
+            border: 1px solid rgba(0, 255, 255, 0.3);
+            border-radius: 4px;
+            text-shadow: 
+                0 0 10px #00ffff,
+                0 0 20px #00ffff;
+        }
+        
+        .neon-alert-status {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        
+        .neon-alert-dot {
+            width: 8px;
+            height: 8px;
+            background: #00ff00;
+            border-radius: 50%;
+            box-shadow: 0 0 10px #00ff00, 0 0 20px #00ff00;
+            animation: neonDotBlink 0.8s ease infinite;
+        }
+        
+        @keyframes neonDotBlink {
+            0%, 50%, 100% { opacity: 1; }
+            25%, 75% { opacity: 0.3; }
+        }
+        
+        .neon-alert-status-text {
+            font-family: 'Courier New', monospace;
+            font-size: 11px;
+            color: #00ff00;
+            letter-spacing: 2px;
+            text-shadow: 0 0 5px #00ff00;
+        }
+    `;
+    
+    document.head.appendChild(style);
+    document.body.insertAdjacentHTML('beforeend', alertHTML);
+    
+    const alertElement = document.getElementById('neonRoomJoinAlert');
+    
+    // Function to dismiss the alert
+    function dismissAlert() {
+        if (alertElement) {
+            alertElement.style.animation = 'neonAlertFadeOut 0.3s ease forwards';
+            setTimeout(() => {
+                alertElement.remove();
+                style.remove();
+            }, 300);
+        }
+    }
+    
+    // Dismiss on click anywhere
+    alertElement.addEventListener('click', dismissAlert);
+    
+    // After 2 seconds, change to "CONNECTED" state
+    setTimeout(() => {
+        if (!alertElement || !document.contains(alertElement)) return;
+        
+        const titleEl = alertElement.querySelector('.neon-alert-title');
+        const iconEl = alertElement.querySelector('.neon-alert-icon');
+        const statusDot = alertElement.querySelector('.neon-alert-dot');
+        const statusText = alertElement.querySelector('.neon-alert-status-text');
+        
+        if (titleEl) {
+            titleEl.textContent = 'CONNECTED';
+            titleEl.style.color = '#00ff00';
+            titleEl.style.textShadow = '0 0 10px #00ff00, 0 0 20px #00ff00, 0 0 40px #00ff00';
+        }
+        if (iconEl) {
+            iconEl.innerHTML = '<i class="fas fa-check-circle"></i>';
+            iconEl.style.color = '#00ff00';
+            iconEl.style.textShadow = '0 0 10px #00ff00, 0 0 20px #00ff00, 0 0 40px #00ff00';
+        }
+        if (statusText) {
+            statusText.textContent = 'LINK ESTABLISHED';
+        }
+        
+        // Dismiss after showing "CONNECTED" for 1.5 seconds
+        setTimeout(dismissAlert, 1500);
+    }, 2000);
+}
+
+// Neon-styled welcome alert for new account creation (matches room join styling)
+function showNeonWelcomeAlert() {
+    // Remove any existing neon alert
+    const existingAlert = document.getElementById('neonWelcomeAlert');
+    if (existingAlert) {
+        existingAlert.remove();
+    }
+    
+    const existingStyle = document.getElementById('neonWelcomeStyle');
+    if (existingStyle) {
+        existingStyle.remove();
+    }
+    
+    const alertHTML = `
+        <div id="neonWelcomeAlert">
+            <div class="neon-welcome-scanlines"></div>
+            <div class="neon-welcome-content">
+                <div class="neon-welcome-border-top"></div>
+                <div class="neon-welcome-icon">
+                    <i class="fas fa-user-check"></i>
+                </div>
+                <div class="neon-welcome-title">WELCOME</div>
+                <div class="neon-welcome-subtitle">
+                    <span class="neon-welcome-text">ACCOUNT CREATED</span>
+                </div>
+                <div class="neon-welcome-status">
+                    <span class="neon-welcome-dot"></span>
+                    <span class="neon-welcome-status-text">SYSTEM ONLINE</span>
+                </div>
+                <div class="neon-welcome-border-bottom"></div>
+            </div>
+        </div>
+    `;
+    
+    const style = document.createElement('style');
+    style.id = 'neonWelcomeStyle';
+    style.textContent = `
+        #neonWelcomeAlert {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(5, 5, 15, 0.85);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 100000;
+            opacity: 0;
+            animation: neonWelcomeFadeIn 0.4s ease forwards;
+            cursor: pointer;
+        }
+        
+        @keyframes neonWelcomeFadeIn {
+            to { opacity: 1; }
+        }
+        
+        @keyframes neonWelcomeFadeOut {
+            to { opacity: 0; transform: scale(0.95); }
+        }
+        
+        .neon-welcome-scanlines {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: repeating-linear-gradient(
+                0deg,
+                rgba(0, 0, 0, 0.1) 0px,
+                rgba(0, 0, 0, 0.1) 1px,
+                transparent 1px,
+                transparent 3px
+            );
+            pointer-events: none;
+        }
+        
+        .neon-welcome-content {
+            text-align: center;
+            padding: 40px 50px;
+            position: relative;
+            animation: neonWelcomeSlideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.1s both;
+        }
+        
+        @keyframes neonWelcomeSlideUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px) scale(0.9);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+        
+        .neon-welcome-border-top, .neon-welcome-border-bottom {
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 80%;
+            max-width: 300px;
+            height: 2px;
+            background: linear-gradient(90deg, 
+                transparent, 
+                #00ffff, 
+                #ff00ff, 
+                #00ffff, 
+                transparent);
+            box-shadow: 
+                0 0 10px #00ffff,
+                0 0 20px #ff00ff;
+            animation: neonWelcomeBorderPulse 1.5s ease infinite;
+        }
+        
+        .neon-welcome-border-top { top: 0; }
+        .neon-welcome-border-bottom { bottom: 0; }
+        
+        @keyframes neonWelcomeBorderPulse {
+            0%, 100% { opacity: 0.7; }
+            50% { opacity: 1; }
+        }
+        
+        .neon-welcome-icon {
+            font-size: 48px;
+            color: #00ff00;
+            margin-bottom: 15px;
+            text-shadow: 
+                0 0 10px #00ff00,
+                0 0 20px #00ff00,
+                0 0 40px #00ff00;
+            animation: neonWelcomeIconFloat 2s ease-in-out infinite;
+        }
+        
+        @keyframes neonWelcomeIconFloat {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-5px); }
+        }
+        
+        .neon-welcome-title {
+            font-size: 32px;
+            font-weight: 900;
+            font-family: 'Arial Black', Arial, sans-serif;
+            color: #fff;
+            letter-spacing: 10px;
+            margin-bottom: 15px;
+            text-shadow: 
+                0 0 10px #fff,
+                0 0 20px #ff00ff,
+                0 0 40px #ff00ff;
+            animation: neonWelcomeTitlePulse 2s ease infinite;
+        }
+        
+        @keyframes neonWelcomeTitlePulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.85; }
+        }
+        
+        .neon-welcome-subtitle {
+            margin-bottom: 20px;
+        }
+        
+        .neon-welcome-text {
+            font-family: 'Courier New', monospace;
+            font-size: 18px;
+            font-weight: bold;
+            color: #00ffff;
+            letter-spacing: 4px;
+            padding: 10px 25px;
+            background: rgba(0, 255, 255, 0.05);
+            border: 1px solid rgba(0, 255, 255, 0.3);
+            border-radius: 4px;
+            text-shadow: 
+                0 0 10px #00ffff,
+                0 0 20px #00ffff;
+        }
+        
+        .neon-welcome-status {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        
+        .neon-welcome-dot {
+            width: 8px;
+            height: 8px;
+            background: #00ff00;
+            border-radius: 50%;
+            box-shadow: 0 0 10px #00ff00, 0 0 20px #00ff00;
+            animation: neonWelcomeDotBlink 0.8s ease infinite;
+        }
+        
+        @keyframes neonWelcomeDotBlink {
+            0%, 50%, 100% { opacity: 1; }
+            25%, 75% { opacity: 0.3; }
+        }
+        
+        .neon-welcome-status-text {
+            font-family: 'Courier New', monospace;
+            font-size: 11px;
+            color: #00ff00;
+            letter-spacing: 2px;
+            text-shadow: 0 0 5px #00ff00;
+        }
+    `;
+    
+    document.head.appendChild(style);
+    document.body.insertAdjacentHTML('beforeend', alertHTML);
+    
+    const alertElement = document.getElementById('neonWelcomeAlert');
+    
+    // Function to dismiss the alert
+    function dismissAlert() {
+        if (alertElement) {
+            alertElement.style.animation = 'neonWelcomeFadeOut 0.3s ease forwards';
+            setTimeout(() => {
+                alertElement.remove();
+                style.remove();
+            }, 300);
+        }
+    }
+    
+    // Dismiss on click anywhere
+    alertElement.addEventListener('click', dismissAlert);
+    
+    // Auto-dismiss after 5 seconds
+    setTimeout(dismissAlert, 5000);
+}
+
 // Function to show invite code with copy functionality
-function showInviteCodeAlert(inviteCode, codeType = 'Single-Use') {
+function showInviteCodeAlert(inviteCode, codeType = 'Single-Use', targetRoom = null) {
     // Remove any existing alert modal
     const existingModal = document.getElementById('inviteCodeModal');
     if (existingModal) {
         existingModal.remove();
     }
+
+    // Generate the shareable invite link
+    const inviteLink = `${window.location.origin}/invite?code=${inviteCode}`;
+    
+    // Description based on whether there's a target room
+    const hasRoom = targetRoom && targetRoom !== 'Global';
+    const description = hasRoom 
+        ? `New users will automatically join room "<strong>${targetRoom}</strong>" after signing up`
+        : (codeType === 'Permanent' ? 'This code never expires and can be used multiple times' : 'Share this code with a user to let them create an account');
 
     const modalHTML = `
         <div id="inviteCodeModal" style="
@@ -570,7 +1112,7 @@ function showInviteCodeAlert(inviteCode, codeType = 'Single-Use') {
             z-index: 10000;
         ">
             <div style="
-                max-width: 420px;
+                max-width: 480px;
                 width: 90%;
                 background: linear-gradient(145deg, 
                     rgba(43, 45, 59, 0.98) 0%, 
@@ -607,7 +1149,7 @@ function showInviteCodeAlert(inviteCode, codeType = 'Single-Use') {
                         margin: 0;
                         font-size: 24px;
                         letter-spacing: -0.5px;
-                    ">✨ ${codeType} Invite Code Generated!</h3>
+                    ">${hasRoom ? '🚪' : '✨'} ${codeType} Invite Code Generated!</h3>
                     <div style="
                         width: 3px;
                         height: 3px;
@@ -622,7 +1164,7 @@ function showInviteCodeAlert(inviteCode, codeType = 'Single-Use') {
                     font-size: 14px; 
                     margin-bottom: 25px; 
                     opacity: 0.8;
-                ">${codeType === 'Permanent' ? 'This code never expires and can be used multiple times' : 'Share this code with a user to let them create an account'}</p>
+                ">${description}</p>
 
                 <div style="
                     background: rgba(32, 34, 37, 0.8);
@@ -666,6 +1208,58 @@ function showInviteCodeAlert(inviteCode, codeType = 'Single-Use') {
                         📋 Copy Code
                     </button>
                 </div>
+                
+                <!-- Shareable Link Section -->
+                <div style="
+                    background: rgba(46, 204, 113, 0.1);
+                    border: 2px solid rgba(46, 204, 113, 0.3);
+                    border-radius: 12px;
+                    padding: 15px;
+                    margin: 15px 0;
+                ">
+                    <p style="
+                        color: #2ecc71;
+                        font-size: 12px;
+                        font-weight: 600;
+                        margin: 0 0 10px 0;
+                        text-transform: uppercase;
+                        letter-spacing: 1px;
+                    ">🔗 Shareable Invite Link</p>
+                    
+                    <div style="
+                        font-family: 'Courier New', monospace;
+                        font-size: 12px;
+                        color: #b9bbbe;
+                        word-break: break-all;
+                        margin-bottom: 10px;
+                        padding: 8px;
+                        background: rgba(0, 0, 0, 0.3);
+                        border-radius: 6px;
+                    " id="inviteLinkText">${inviteLink}</div>
+                    
+                    <button onclick="copyInviteLink('${inviteLink}')" style="
+                        background: linear-gradient(135deg, rgba(46, 204, 113, 0.9), rgba(39, 174, 96, 0.9));
+                        color: white;
+                        border: none;
+                        padding: 8px 16px;
+                        border-radius: 6px;
+                        font-size: 12px;
+                        font-weight: 600;
+                        cursor: pointer;
+                        transition: all 0.2s ease;
+                    "
+                    onmouseover="
+                        this.style.background='linear-gradient(135deg, rgba(46, 204, 113, 1), rgba(39, 174, 96, 1))';
+                        this.style.transform='translateY(-1px)';
+                    "
+                    onmouseout="
+                        this.style.background='linear-gradient(135deg, rgba(46, 204, 113, 0.9), rgba(39, 174, 96, 0.9))';
+                        this.style.transform='translateY(0)';
+                    "
+                    id="copyInviteLinkBtn">
+                        🔗 Copy Link
+                    </button>
+                </div>
 
                 <div style="display: flex; gap: 15px; justify-content: center; margin-top: 25px;">
                     <button onclick="closeInviteCodeAlert()" style="
@@ -696,6 +1290,17 @@ function showInviteCodeAlert(inviteCode, codeType = 'Single-Use') {
     `;
     
     document.body.insertAdjacentHTML('beforeend', modalHTML);
+    
+    // Add click-outside-to-close functionality
+    const modal = document.getElementById('inviteCodeModal');
+    if (modal) {
+        modal.addEventListener('click', function(e) {
+            // Only close if clicking the backdrop (not the inner content)
+            if (e.target === modal) {
+                modal.remove();
+            }
+        });
+    }
 }
 
 // Function to copy invite code to clipboard
@@ -730,6 +1335,52 @@ function copyInviteCode(code) {
     });
 }
 
+// Function to copy invite link to clipboard
+function copyInviteLink(link) {
+    navigator.clipboard.writeText(link).then(function() {
+        const copyBtn = document.getElementById('copyInviteLinkBtn');
+        if (copyBtn) {
+            const originalText = copyBtn.innerHTML;
+            copyBtn.innerHTML = '✅ Link Copied!';
+            copyBtn.style.background = 'linear-gradient(135deg, #27ae60, #2ecc71)';
+            copyBtn.style.transform = 'scale(1.05)';
+            copyBtn.style.transition = 'all 0.2s ease';
+            
+            setTimeout(() => {
+                copyBtn.innerHTML = originalText;
+                copyBtn.style.background = 'linear-gradient(135deg, rgba(46, 204, 113, 0.9), rgba(39, 174, 96, 0.9))';
+                copyBtn.style.transform = 'scale(1)';
+            }, 1500);
+        }
+    }).catch(function() {
+        // Fallback for browsers that don't support clipboard API
+        const textArea = document.createElement('textarea');
+        textArea.value = link;
+        document.body.appendChild(textArea);
+        textArea.select();
+        try {
+            document.execCommand('copy');
+            const copyBtn = document.getElementById('copyInviteLinkBtn');
+            if (copyBtn) {
+                const originalText = copyBtn.innerHTML;
+                copyBtn.innerHTML = '✅ Link Copied!';
+                copyBtn.style.background = 'linear-gradient(135deg, #27ae60, #2ecc71)';
+                copyBtn.style.transform = 'scale(1.05)';
+                copyBtn.style.transition = 'all 0.2s ease';
+                
+                setTimeout(() => {
+                    copyBtn.innerHTML = originalText;
+                    copyBtn.style.background = 'linear-gradient(135deg, rgba(46, 204, 113, 0.9), rgba(39, 174, 96, 0.9))';
+                    copyBtn.style.transform = 'scale(1)';
+                }, 1500);
+            }
+        } catch (err) {
+            showGlassmorphismAlert('Copy Failed', 'Please manually copy the invite link.', 'error');
+        }
+        document.body.removeChild(textArea);
+    });
+}
+
 // Function to close invite code modal
 function closeInviteCodeAlert() {
     const modal = document.getElementById('inviteCodeModal');
@@ -738,183 +1389,460 @@ function closeInviteCodeAlert() {
     }
 }
 
-// Function to show experiment ended modal with glassmorphic styling
-function showExperimentEndedModal(message, moderator) {
+// Function to show experiment ended modal with retro-future neon stat screen
+function showExperimentEndedModal(data) {
     // Remove any existing modal
     const existingModal = document.getElementById('experimentEndedModal');
     if (existingModal) {
         existingModal.remove();
     }
 
-    const modalHTML = `
-        <div id="experimentEndedModal" style="
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.8);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            z-index: 10000;
-            animation: fadeIn 0.3s ease-out;
-        ">
-            <div style="
-                max-width: 500px;
-                width: 90%;
-                background: linear-gradient(145deg, 
-                    rgba(43, 45, 59, 0.98) 0%, 
-                    rgba(54, 57, 63, 0.95) 100%);
-                backdrop-filter: blur(20px);
-                -webkit-backdrop-filter: blur(20px);
-                border: 1px solid rgba(255, 255, 255, 0.15);
-                border-radius: 20px;
-                box-shadow: 
-                    0 25px 80px rgba(0, 0, 0, 0.6),
-                    0 10px 40px rgba(0, 0, 0, 0.4),
-                    inset 0 1px 0 rgba(255, 255, 255, 0.1);
-                padding: 40px;
-                text-align: center;
-                position: relative;
-                animation: modalSlideIn 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-            ">
-                <!-- Decorative elements -->
-                <div style="
-                    position: absolute;
-                    top: -2px;
-                    left: -2px;
-                    right: -2px;
-                    height: 4px;
-                    background: linear-gradient(90deg, #e74c3c, #f39c12, #e74c3c);
-                    border-radius: 20px 20px 0 0;
-                    opacity: 0.8;
-                "></div>
-                
-                <div style="
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    gap: 12px;
-                    margin-bottom: 25px;
-                ">
-                    <div style="
-                        width: 4px;
-                        height: 4px;
-                        background: linear-gradient(135deg, #e74c3c, #f39c12);
-                        border-radius: 50%;
-                        animation: subtlePulse 2s infinite;
-                    "></div>
-                    <h2 style="
-                        color: #dcddde; 
-                        font-weight: 600; 
-                        margin: 0;
-                        font-size: 28px;
-                        letter-spacing: -0.5px;
-                        background: linear-gradient(135deg, #e74c3c, #f39c12);
-                        -webkit-background-clip: text;
-                        -webkit-text-fill-color: transparent;
-                        background-clip: text;
-                    ">🛑 Experiment Ended</h2>
-                    <div style="
-                        width: 4px;
-                        height: 4px;
-                        background: linear-gradient(135deg, #e74c3c, #f39c12);
-                        border-radius: 50%;
-                        animation: subtlePulse 2s infinite 0.5s;
-                    "></div>
-                </div>
-                
-                <div style="
-                    font-size: 56px;
-                    margin-bottom: 20px;
-                    opacity: 0.9;
-                    filter: drop-shadow(0 4px 8px rgba(0,0,0,0.3));
-                ">🏁</div>
-                
-                <div style="
-                    background: rgba(32, 34, 37, 0.6);
-                    border: 1px solid rgba(231, 76, 60, 0.3);
-                    border-radius: 12px;
-                    padding: 20px;
-                    margin: 20px 0;
-                    backdrop-filter: blur(10px);
-                ">
-                    <p style="
-                        color: #dcddde; 
-                        font-size: 16px; 
-                        margin: 0 0 10px 0; 
-                        line-height: 1.5;
-                        font-weight: 500;
-                    ">${message}</p>
-                    
-                    ${moderator ? `<p style="
-                        color: #f39c12; 
-                        font-size: 14px; 
-                        margin: 0;
-                        opacity: 0.9;
-                        font-style: italic;
-                    ">— ${moderator}</p>` : ''}
-                </div>
-                
-                <p style="
-                    color: #b9bbbe; 
-                    font-size: 14px; 
-                    margin-bottom: 30px; 
-                    opacity: 0.8;
-                    line-height: 1.4;
-                ">You will be returned to the global chat area.</p>
+    // Extract data with defaults
+    const reason = data.reason || 'Experiment completed';
+    const totalRounds = data.totalRounds || 0;
+    const maxRounds = data.maxRounds || 189;
+    const tokensUsed = data.tokensUsed || 0;
+    const startingTokenPool = data.startingTokenPool || 1250;
+    const finalTokenPool = data.finalTokenPool || 0;
+    const culturantsProduced = data.culturantsProduced || 0;
+    const selfControlChoices = data.selfControlChoices || 0;
+    const impulsiveChoices = data.impulsiveChoices || 0;
+    const sessionDuration = data.sessionDuration || 0;
+    const playerStats = data.playerStats || [];
+    const isModerator = data.isModerator || window.currentUserIsModerator || false;
+    const roomName = data.roomName || currentRoom || 'Unknown';
+    
+    // Format session duration
+    const minutes = Math.floor(sessionDuration / 60);
+    const seconds = sessionDuration % 60;
+    const durationStr = `${minutes}m ${seconds}s`;
+    
+    // Calculate choice percentages
+    const totalChoices = selfControlChoices + impulsiveChoices;
+    const selfControlPct = totalChoices > 0 ? Math.round((selfControlChoices / totalChoices) * 100) : 0;
+    const impulsivePct = totalChoices > 0 ? Math.round((impulsiveChoices / totalChoices) * 100) : 0;
+    
+    // Generate player stats HTML
+    const playerStatsHTML = playerStats.map(p => `
+        <div class="exp-end-player-row">
+            <span class="exp-end-player-name">${p.isAI ? '🤖' : '👤'} ${p.username}</span>
+            <span class="exp-end-player-tokens">
+                <span class="exp-end-white-token">⚪ ${p.whiteTokens}</span>
+                <span class="exp-end-black-token">⚫ ${p.blackTokens}</span>
+            </span>
+        </div>
+    `).join('');
+    
+    // CSV download button (moderator only)
+    const csvButtonHTML = isModerator ? `
+        <button onclick="downloadExperimentCSVFromModal('${roomName}')" class="exp-end-csv-btn">
+            <span>📊</span> Download CSV Data
+        </button>
+    ` : '';
 
-                <button onclick="closeExperimentEndedModal()" style="
-                    background: linear-gradient(135deg, rgba(67, 181, 129, 0.9) 0%, rgba(52, 168, 107, 0.9) 100%);
-                    color: white;
-                    padding: 15px 32px;
-                    border: none;
-                    border-radius: 10px;
-                    cursor: pointer;
-                    font-weight: 600;
-                    font-size: 16px;
-                    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-                    box-shadow: 
-                        0 4px 15px rgba(67, 181, 129, 0.4),
-                        0 2px 8px rgba(0, 0, 0, 0.2);
-                    display: flex;
-                    align-items: center;
-                    gap: 8px;
-                    margin: 0 auto;
-                    position: relative;
-                    overflow: hidden;
-                "
-                onmouseover="
-                    this.style.background='linear-gradient(135deg, rgba(52, 168, 107, 0.95) 0%, rgba(39, 174, 96, 0.95) 100%)';
-                    this.style.transform='translateY(-2px)';
-                    this.style.boxShadow='0 6px 20px rgba(67, 181, 129, 0.5), 0 4px 12px rgba(0, 0, 0, 0.3)';
-                "
-                onmouseout="
-                    this.style.background='linear-gradient(135deg, rgba(67, 181, 129, 0.9) 0%, rgba(52, 168, 107, 0.9) 100%)';
-                    this.style.transform='translateY(0)';
-                    this.style.boxShadow='0 4px 15px rgba(67, 181, 129, 0.4), 0 2px 8px rgba(0, 0, 0, 0.2)';
-                "
-                onmousedown="this.style.transform='translateY(0) scale(0.98)'"
-                onmouseup="this.style.transform='translateY(-2px) scale(1)'">
-                    <span style="font-size: 14px;">🏠</span>
-                    Return to Global Chat
-                </button>
+    const modalHTML = `
+        <div id="experimentEndedModal" class="exp-end-overlay">
+            <div class="exp-end-container">
+                <!-- Scanline overlay -->
+                <div class="exp-end-scanlines"></div>
+                
+                <!-- Neon border glow -->
+                <div class="exp-end-neon-border"></div>
+                
+                <!-- Header -->
+                <div class="exp-end-header">
+                    <div class="exp-end-title-glow">EXPERIMENT COMPLETE</div>
+                    <div class="exp-end-subtitle">${reason}</div>
+                </div>
+                
+                <!-- Main stats grid -->
+                <div class="exp-end-stats-grid">
+                    <div class="exp-end-stat-card exp-end-stat-rounds">
+                        <div class="exp-end-stat-icon">🔄</div>
+                        <div class="exp-end-stat-value">${totalRounds}<span class="exp-end-stat-max">/${maxRounds}</span></div>
+                        <div class="exp-end-stat-label">ROUNDS</div>
+                    </div>
+                    
+                    <div class="exp-end-stat-card exp-end-stat-duration">
+                        <div class="exp-end-stat-icon">⏱️</div>
+                        <div class="exp-end-stat-value">${durationStr}</div>
+                        <div class="exp-end-stat-label">DURATION</div>
+                    </div>
+                    
+                    <div class="exp-end-stat-card exp-end-stat-tokens">
+                        <div class="exp-end-stat-icon">🪙</div>
+                        <div class="exp-end-stat-value">${tokensUsed}<span class="exp-end-stat-max">/${startingTokenPool}</span></div>
+                        <div class="exp-end-stat-label">TOKENS USED</div>
+                    </div>
+                    
+                    <div class="exp-end-stat-card exp-end-stat-culturants">
+                        <div class="exp-end-stat-icon">⚫</div>
+                        <div class="exp-end-stat-value">${culturantsProduced}</div>
+                        <div class="exp-end-stat-label">CULTURANTS</div>
+                    </div>
+                </div>
+                
+                <!-- Choice breakdown -->
+                <div class="exp-end-choices-section">
+                    <div class="exp-end-section-title">CHOICE BREAKDOWN</div>
+                    <div class="exp-end-choice-bar-container">
+                        <div class="exp-end-choice-bar">
+                            <div class="exp-end-choice-self-control" style="width: ${selfControlPct}%"></div>
+                            <div class="exp-end-choice-impulsive" style="width: ${impulsivePct}%"></div>
+                        </div>
+                        <div class="exp-end-choice-labels">
+                            <span class="exp-end-choice-label-sc">🧘 Self-Control: ${selfControlPct}%</span>
+                            <span class="exp-end-choice-label-imp">⚡ Impulsive: ${impulsivePct}%</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Player leaderboard -->
+                <div class="exp-end-players-section">
+                    <div class="exp-end-section-title">PLAYER RESULTS</div>
+                    <div class="exp-end-players-list">
+                        ${playerStatsHTML}
+                    </div>
+                </div>
+                
+                <!-- Action buttons -->
+                <div class="exp-end-actions">
+                    ${csvButtonHTML}
+                    <button onclick="closeExperimentEndedModal()" class="exp-end-return-btn">
+                        <span>🏠</span> Return to Global Chat
+                    </button>
+                </div>
             </div>
         </div>
         
         <style>
-            @keyframes fadeIn {
+            .exp-end-overlay {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0, 0, 0, 0.92);
+                backdrop-filter: blur(8px);
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                z-index: 10000;
+                animation: expEndFadeIn 0.4s ease-out;
+            }
+            
+            .exp-end-container {
+                max-width: 600px;
+                width: 95%;
+                max-height: 90vh;
+                overflow-y: auto;
+                background: linear-gradient(180deg, 
+                    rgba(10, 12, 20, 0.98) 0%, 
+                    rgba(15, 18, 30, 0.98) 100%);
+                border: 2px solid rgba(0, 255, 255, 0.3);
+                border-radius: 12px;
+                padding: 30px;
+                position: relative;
+                box-shadow: 
+                    0 0 40px rgba(0, 255, 255, 0.15),
+                    0 0 80px rgba(255, 0, 128, 0.1),
+                    inset 0 0 60px rgba(0, 0, 0, 0.5);
+                animation: expEndSlideIn 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            }
+            
+            .exp-end-scanlines {
+                position: absolute;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: repeating-linear-gradient(
+                    0deg,
+                    transparent,
+                    transparent 2px,
+                    rgba(0, 255, 255, 0.02) 2px,
+                    rgba(0, 255, 255, 0.02) 4px
+                );
+                pointer-events: none;
+                border-radius: 12px;
+            }
+            
+            .exp-end-neon-border {
+                position: absolute;
+                top: -2px;
+                left: -2px;
+                right: -2px;
+                bottom: -2px;
+                border-radius: 14px;
+                background: linear-gradient(45deg, 
+                    rgba(0, 255, 255, 0.5), 
+                    rgba(255, 0, 128, 0.5), 
+                    rgba(0, 255, 255, 0.5));
+                z-index: -1;
+                animation: expEndNeonPulse 3s ease-in-out infinite;
+                filter: blur(3px);
+            }
+            
+            .exp-end-header {
+                text-align: center;
+                margin-bottom: 25px;
+            }
+            
+            .exp-end-title-glow {
+                font-size: 28px;
+                font-weight: 800;
+                letter-spacing: 4px;
+                color: #00ffff;
+                text-shadow: 
+                    0 0 10px rgba(0, 255, 255, 0.8),
+                    0 0 20px rgba(0, 255, 255, 0.6),
+                    0 0 40px rgba(0, 255, 255, 0.4);
+                animation: expEndTitleFlicker 4s ease-in-out infinite;
+                font-family: 'Courier New', monospace;
+            }
+            
+            .exp-end-subtitle {
+                font-size: 14px;
+                color: rgba(255, 255, 255, 0.7);
+                margin-top: 10px;
+                font-family: 'Courier New', monospace;
+                text-transform: uppercase;
+                letter-spacing: 2px;
+            }
+            
+            .exp-end-stats-grid {
+                display: grid;
+                grid-template-columns: repeat(2, 1fr);
+                gap: 15px;
+                margin-bottom: 25px;
+            }
+            
+            .exp-end-stat-card {
+                background: rgba(0, 20, 40, 0.6);
+                border: 1px solid rgba(0, 255, 255, 0.2);
+                border-radius: 8px;
+                padding: 15px;
+                text-align: center;
+                position: relative;
+                overflow: hidden;
+            }
+            
+            .exp-end-stat-card::before {
+                content: '';
+                position: absolute;
+                top: 0;
+                left: 0;
+                right: 0;
+                height: 2px;
+                background: linear-gradient(90deg, transparent, rgba(0, 255, 255, 0.5), transparent);
+            }
+            
+            .exp-end-stat-icon {
+                font-size: 24px;
+                margin-bottom: 5px;
+            }
+            
+            .exp-end-stat-value {
+                font-size: 28px;
+                font-weight: 700;
+                color: #00ffff;
+                font-family: 'Courier New', monospace;
+                text-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
+            }
+            
+            .exp-end-stat-max {
+                font-size: 14px;
+                color: rgba(255, 255, 255, 0.5);
+            }
+            
+            .exp-end-stat-label {
+                font-size: 11px;
+                color: rgba(255, 255, 255, 0.6);
+                letter-spacing: 2px;
+                margin-top: 5px;
+                font-family: 'Courier New', monospace;
+            }
+            
+            .exp-end-stat-culturants {
+                border-color: rgba(255, 0, 128, 0.3);
+            }
+            
+            .exp-end-stat-culturants .exp-end-stat-value {
+                color: #ff0080;
+                text-shadow: 0 0 10px rgba(255, 0, 128, 0.5);
+            }
+            
+            .exp-end-stat-culturants::before {
+                background: linear-gradient(90deg, transparent, rgba(255, 0, 128, 0.5), transparent);
+            }
+            
+            .exp-end-section-title {
+                font-size: 12px;
+                color: rgba(0, 255, 255, 0.8);
+                letter-spacing: 3px;
+                margin-bottom: 12px;
+                font-family: 'Courier New', monospace;
+                text-align: center;
+            }
+            
+            .exp-end-choices-section {
+                margin-bottom: 25px;
+            }
+            
+            .exp-end-choice-bar-container {
+                background: rgba(0, 20, 40, 0.6);
+                border: 1px solid rgba(0, 255, 255, 0.2);
+                border-radius: 8px;
+                padding: 15px;
+            }
+            
+            .exp-end-choice-bar {
+                height: 20px;
+                border-radius: 10px;
+                overflow: hidden;
+                display: flex;
+                background: rgba(0, 0, 0, 0.5);
+            }
+            
+            .exp-end-choice-self-control {
+                background: linear-gradient(90deg, #00ff88, #00cc6a);
+                box-shadow: 0 0 10px rgba(0, 255, 136, 0.5);
+                transition: width 1s ease-out;
+            }
+            
+            .exp-end-choice-impulsive {
+                background: linear-gradient(90deg, #ff4444, #cc0000);
+                box-shadow: 0 0 10px rgba(255, 68, 68, 0.5);
+                transition: width 1s ease-out;
+            }
+            
+            .exp-end-choice-labels {
+                display: flex;
+                justify-content: space-between;
+                margin-top: 10px;
+                font-size: 12px;
+                font-family: 'Courier New', monospace;
+            }
+            
+            .exp-end-choice-label-sc {
+                color: #00ff88;
+            }
+            
+            .exp-end-choice-label-imp {
+                color: #ff4444;
+            }
+            
+            .exp-end-players-section {
+                margin-bottom: 25px;
+            }
+            
+            .exp-end-players-list {
+                background: rgba(0, 20, 40, 0.6);
+                border: 1px solid rgba(0, 255, 255, 0.2);
+                border-radius: 8px;
+                padding: 10px;
+            }
+            
+            .exp-end-player-row {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                padding: 8px 10px;
+                border-bottom: 1px solid rgba(0, 255, 255, 0.1);
+            }
+            
+            .exp-end-player-row:last-child {
+                border-bottom: none;
+            }
+            
+            .exp-end-player-name {
+                color: rgba(255, 255, 255, 0.9);
+                font-family: 'Courier New', monospace;
+                font-size: 14px;
+            }
+            
+            .exp-end-player-tokens {
+                display: flex;
+                gap: 15px;
+                font-family: 'Courier New', monospace;
+                font-size: 14px;
+            }
+            
+            .exp-end-white-token {
+                color: #ffffff;
+                text-shadow: 0 0 5px rgba(255, 255, 255, 0.5);
+            }
+            
+            .exp-end-black-token {
+                color: #ff0080;
+                text-shadow: 0 0 5px rgba(255, 0, 128, 0.5);
+            }
+            
+            .exp-end-actions {
+                display: flex;
+                flex-direction: column;
+                gap: 12px;
+            }
+            
+            .exp-end-csv-btn {
+                background: linear-gradient(135deg, rgba(255, 165, 0, 0.2) 0%, rgba(255, 140, 0, 0.2) 100%);
+                border: 1px solid rgba(255, 165, 0, 0.5);
+                color: #ffa500;
+                padding: 14px 24px;
+                border-radius: 8px;
+                font-size: 14px;
+                font-weight: 600;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                gap: 10px;
+                font-family: 'Courier New', monospace;
+                letter-spacing: 1px;
+                transition: all 0.3s ease;
+                text-shadow: 0 0 10px rgba(255, 165, 0, 0.5);
+            }
+            
+            .exp-end-csv-btn:hover {
+                background: linear-gradient(135deg, rgba(255, 165, 0, 0.4) 0%, rgba(255, 140, 0, 0.4) 100%);
+                box-shadow: 0 0 20px rgba(255, 165, 0, 0.3);
+                transform: translateY(-2px);
+            }
+            
+            .exp-end-return-btn {
+                background: linear-gradient(135deg, rgba(0, 255, 255, 0.2) 0%, rgba(0, 200, 200, 0.2) 100%);
+                border: 1px solid rgba(0, 255, 255, 0.5);
+                color: #00ffff;
+                padding: 14px 24px;
+                border-radius: 8px;
+                font-size: 14px;
+                font-weight: 600;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                gap: 10px;
+                font-family: 'Courier New', monospace;
+                letter-spacing: 1px;
+                transition: all 0.3s ease;
+                text-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
+            }
+            
+            .exp-end-return-btn:hover {
+                background: linear-gradient(135deg, rgba(0, 255, 255, 0.4) 0%, rgba(0, 200, 200, 0.4) 100%);
+                box-shadow: 0 0 20px rgba(0, 255, 255, 0.3);
+                transform: translateY(-2px);
+            }
+            
+            @keyframes expEndFadeIn {
                 from { opacity: 0; }
                 to { opacity: 1; }
             }
             
-            @keyframes modalSlideIn {
+            @keyframes expEndSlideIn {
                 from {
                     opacity: 0;
-                    transform: translateY(-20px) scale(0.95);
+                    transform: translateY(-30px) scale(0.95);
                 }
                 to {
                     opacity: 1;
@@ -922,9 +1850,18 @@ function showExperimentEndedModal(message, moderator) {
                 }
             }
             
-            @keyframes subtlePulse {
-                0%, 100% { opacity: 0.6; transform: scale(1); }
-                50% { opacity: 1; transform: scale(1.2); }
+            @keyframes expEndNeonPulse {
+                0%, 100% { opacity: 0.5; }
+                50% { opacity: 0.8; }
+            }
+            
+            @keyframes expEndTitleFlicker {
+                0%, 100% { opacity: 1; }
+                92% { opacity: 1; }
+                93% { opacity: 0.8; }
+                94% { opacity: 1; }
+                95% { opacity: 0.9; }
+                96% { opacity: 1; }
             }
         </style>
     `;
@@ -932,31 +1869,171 @@ function showExperimentEndedModal(message, moderator) {
     document.body.insertAdjacentHTML('beforeend', modalHTML);
 }
 
+// Download CSV from the experiment end modal
+function downloadExperimentCSVFromModal(roomName) {
+    const downloadUrl = `/api/download-experiment-csv/${encodeURIComponent(roomName)}`;
+    
+    const link = document.createElement('a');
+    link.href = downloadUrl;
+    link.download = `experiment_${roomName}_${new Date().toISOString().slice(0,10)}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    console.log(`📊 CSV download initiated from experiment end modal for room: ${roomName}`);
+}
+
 // Function to close experiment ended modal and return to global chat
 function closeExperimentEndedModal() {
-    // Immediate refresh when "Return to Global Chat" is clicked
-    console.log('🔄 Refreshing page immediately after experiment end...');
-    window.location.reload();
+    // Soft-return to global chat when "Return to Global Chat" is clicked
+    console.log('🔄 Soft-returning to global chat after experiment end (no full reload)');
+
+    // Remove the modal from DOM
+    const modal = document.getElementById('experimentEndedModal');
+    if (modal) {
+        modal.remove();
+        console.log('✅ Removed experiment ended modal');
+    }
+
+    // COMPREHENSIVE STATE RESET - treat this like a fresh start
+    console.log('🧹 Starting comprehensive state cleanup...');
     
-    // Ensure proper UI state when returning to global chat
-    // Hide the login screen (landing page) and show the chat interface
-    const landingPage = document.getElementById('landingPage');
-    const chatContainer = document.getElementById('chat-container');
+    // Reset game state flags
+    gameActive = false;
+    currentRoundNumber = 0;
+    window.currentUserIsModerator = false; // Clear moderator flag
+    document.body.classList.remove('game-active', 'experiment-running', 'lightning-active');
     
-    if (landingPage) {
-        landingPage.style.display = 'none';
-        console.log('✅ Hidden landing page (login screen background)');
+    // Reset LED tracker state completely
+    if (typeof conditionTracker !== 'undefined') {
+        conditionTracker.appliedHistory = [];
+        conditionTracker.currentBlock = null;
+        conditionTracker.lastPhase = '';
+        conditionTracker.callCounts = {};
+        conditionTracker.isUpdating = false;
+        console.log('🧹 Reset LED tracker state');
     }
     
+    // Clear all LEDs back to off state
+    try {
+        const allLEDs = document.querySelectorAll('#playerLEDArray .led-grid .led-indicator');
+        if (allLEDs.length > 0) {
+            allLEDs.forEach(led => led.className = 'led-indicator off');
+            console.log(`🧹 Reset ${allLEDs.length} LEDs to off state`);
+        }
+    } catch (e) {
+        console.warn('LED reset failed:', e);
+    }
+    
+    // Clear LED group player labels back to placeholders
+    try {
+        const ledGroups = document.querySelectorAll('.led-player-group .led-group-label');
+        ledGroups.forEach((label, index) => {
+            if (!label.closest('.led-player-group').querySelector('[data-player="NONE"]')) {
+                label.textContent = `Player ${index + 1}`;
+            }
+        });
+        console.log('🧹 Reset LED player labels to placeholders');
+    } catch (e) {
+        console.warn('LED label reset failed:', e);
+    }
+    
+    // Reset experiment display elements
+    const experimentStatus = document.getElementById('experimentStatus');
+    const blockDisplay = document.getElementById('blockDisplay');
+    const tokenConversion = document.getElementById('tokenConversionDisplay');
+    if (experimentStatus) experimentStatus.textContent = '';
+    if (blockDisplay) blockDisplay.textContent = 'Block: --/--';
+    if (tokenConversion) tokenConversion.textContent = 'White=$-.-- Black=$-.--';
+    
+    // Clear poker table completely
+    const seatIds = ['leftPlayer', 'topPlayer', 'rightPlayer'];
+    seatIds.forEach(seatId => {
+        const seat = document.getElementById(seatId);
+        if (seat) {
+            seat.removeAttribute('data-player-username');
+            const nameDiv = seat.querySelector('.player-name');
+            const statusDiv = seat.querySelector('.player-status');
+            const aiDiv = seat.querySelector('.ai-indicator');
+            const walletDiv = seat.querySelector('.player-wallet');
+            const lockIndicator = seat.querySelector('.player-lock-indicator');
+            
+            if (nameDiv) nameDiv.textContent = '';
+            if (statusDiv) statusDiv.textContent = '';
+            if (aiDiv) aiDiv.style.display = 'none';
+            if (walletDiv) {
+                walletDiv.textContent = '';
+                walletDiv.style.display = 'none';
+            }
+            if (lockIndicator) lockIndicator.remove();
+            
+            // Reset all visual effects
+            seat.style.transform = '';
+            seat.style.transition = '';
+            seat.style.boxShadow = '';
+            seat.style.border = '';
+            seat.classList.remove('floating-animation', 'active-player', 'glow-effect');
+        }
+    });
+    console.log('🧹 Cleared poker table seats');
+    
+    // Reset Player.list to clear any lingering player data
+    if (typeof Player !== 'undefined' && Player.list) {
+        Player.list = {};
+    }
+    
+    // Clear turn display if it exists
+    const turnDisplay = document.querySelector('.turn-display');
+    if (turnDisplay) turnDisplay.remove();
+    
+    // Reset current round display
+    const currentRoundEl = document.getElementById('currentRound');
+    if (currentRoundEl) currentRoundEl.textContent = '0';
+    
+    // Hide all moderator controls (they'll be shown again when creating a new room)
+    const startBtn = document.getElementById('startExperimentBtn');
+    const addAIBtn = document.getElementById('addAIBtn');
+    const endExperimentBtn = document.getElementById('endExperimentBtn');
+    if (startBtn) startBtn.style.display = 'none';
+    if (addAIBtn) addAIBtn.style.display = 'none';
+    if (endExperimentBtn) endExperimentBtn.style.display = 'none';
+    console.log('🧹 Hidden moderator controls');
+
+    // Hide game interface
+    const gameDiv = document.getElementById('gameDiv');
+    if (gameDiv) {
+        gameDiv.style.display = 'none';
+        console.log('✅ Hidden game interface');
+    }
+
+    // Ensure proper UI state when returning to global chat
+    const landingPage = document.getElementById('landingPage');
+    const chatContainer = document.getElementById('chat-container');
+    const chatInterface = document.querySelector('.chat-interface');
+
+    if (landingPage) {
+        landingPage.style.display = 'none';
+        console.log('✅ Hidden landing page');
+    }
+
     if (chatContainer) {
         chatContainer.style.display = 'block';
+        chatContainer.style.visibility = 'visible';
+        chatContainer.style.opacity = '1';
         console.log('✅ Shown chat container');
+    }
+    
+    if (chatInterface) {
+        chatInterface.style.display = '';
+        chatInterface.style.visibility = 'visible';
+        console.log('✅ Shown chat interface');
     }
     
     // Ensure we're showing the global chat tab
     const globalChatMessages = document.getElementById('globalChatMessages');
     const roomChatMessages = document.getElementById('roomChatMessages');
     const globalNameText = document.getElementById('globalNameText');
+    const roomNameText = document.getElementById('roomNameText');
     
     if (globalChatMessages) {
         globalChatMessages.style.display = '';
@@ -973,15 +2050,33 @@ function closeExperimentEndedModal() {
         console.log('✅ Activated global chat tab styling');
     }
     
-    // Reset current room state
-    currentRoom = 'Global';
-    gameActive = false;
-    document.body.classList.remove('game-active');
+    if (roomNameText) {
+        roomNameText.style.backgroundColor = '';
+        roomNameText.innerText = '';
+        roomNameText.style.display = 'none';
+    }
+    
+    // Leave current room and join Global via socket
+    const oldRoom = currentRoom;
+    if (currentRoom && currentRoom !== 'Global') {
+        console.log(`🚪 Leaving room: ${currentRoom}`);
+        socket.emit('leaveRoom', { room: currentRoom });
+        
+        // Small delay before joining Global to let server process the leave
+        setTimeout(() => {
+            console.log('🌍 Joining Global chat');
+            socket.emit('joinRoom', 'Global'); // Fixed: use string, not object
+            currentRoom = 'Global';
+            console.log(`✅ Transitioned from ${oldRoom} to Global`);
+        }, 100);
+    } else {
+        currentRoom = 'Global';
+    }
     
     // Update card visibility for global context - this includes invite visibility
     updateCardVisibility();
     
-    // Hide room pill in global chat (inline implementation)  
+    // Hide room pill in global chat
     const roomPill = document.getElementById('room-pill');
     if (roomPill) {
         roomPill.style.display = 'none';
@@ -990,7 +2085,11 @@ function closeExperimentEndedModal() {
     // Double-check invite visibility specifically
     setTimeout(() => {
         updateInviteVisibility();
-    }, 100);
+        // Force update card visibility again to ensure everything is correct
+        updateCardVisibility();
+    }, 200);
+    
+    console.log('✅ Comprehensive cleanup complete - ready for new room');
 }
 
 // Function to properly return user to global chat
@@ -1087,18 +2186,6 @@ function showLightningTestResults(message, stats, duration, csvData) {
                 position: relative;
                 animation: modalSlideIn 0.4s cubic-bezier(0.4, 0, 0.2, 1);
             ">
-                <!-- Decorative lightning border -->
-                <div style="
-                    position: absolute;
-                    top: -2px;
-                    left: -2px;
-                    right: -2px;
-                    height: 4px;
-                    background: linear-gradient(90deg, #c026d3, #7c3aed, #c026d3);
-                    border-radius: 20px 20px 0 0;
-                    opacity: 0.8;
-                    animation: lightningShimmer 3s infinite;
-                "></div>
                 
                 <div style="
                     display: flex;
@@ -1125,18 +2212,6 @@ function showLightningTestResults(message, stats, duration, csvData) {
                     ">Lightning Test Complete</h2>
                 </div>
                 
-                <!-- Decorative lightning border - results modal -->
-                <div style="
-                    position: absolute;
-                    top: 0px;
-                    left: 0px;
-                    right: 0px;
-                    height: 4px;
-                    background: linear-gradient(90deg, #c026d3, #7c3aed, #c026d3);
-                    border-radius: 20px 20px 0 0;
-                    opacity: 0.8;
-                    animation: lightningShimmer 3s infinite;
-                "></div>
                 
                 <div style="
                     background: rgba(15, 15, 15, 0.7);
@@ -2038,8 +3113,16 @@ socket.on('logoutResponse', function(data) {
             gameDiv.style.display = 'none';
         }
         
-        // Refresh page to reset state
-        window.location.reload();
+        // Soft-reset client UI to logged-out state without full page reload
+        console.log('🔄 Performing soft-reset to logged-out UI (no full reload)');
+        // Ensure landing page / sign-in UI is visible and hide game UI
+        const landing = document.getElementById('landingPage');
+        const signDivLocal = document.getElementById('signDiv');
+        const gameDivLocal = document.getElementById('gameDiv');
+
+        if (landing) landing.style.display = 'block';
+        if (signDivLocal) signDivLocal.style.display = 'block';
+        if (gameDivLocal) gameDivLocal.style.display = 'none';
     }
 });
 
@@ -2680,28 +3763,34 @@ socket.on('conditionUpdate', function(data) {
             
             // Initialize player names if we have a players array and haven't done so yet
             if (players && players.length > 0 && playerNameMapping.size === 0) {
-                console.log('🎯 EARLY: Moderator was filtered out:', currentModerator);
                 initializePlayerNamesInTracker(players);
             }
-            
+
             // Update LED matrix - use REAL player names (no A/B/C mapping)
             let playerName = data.player;
-            
+
             // Skip moderator check for player assignment tracking
             if (playerName) {
                 const moderatorDiv = document.getElementById('moderatorPosition');
                 const moderatorNameDiv = moderatorDiv?.querySelector('.moderator-name');
                 const currentModerator = moderatorNameDiv?.textContent;
-                
+
                 if (playerName === currentModerator) {
                     playerName = null; // Skip tracking for moderator
                 }
             }
-            
-            console.log(`🔗 EARLY: Using real player name: ${playerName} (no A/B/C mapping)`);
-            
-            updateConditionLED(condition, round, blockNumber, playerName);
-            console.log('✅ EARLY: Successfully processed conditionUpdate');
+
+            // Always queue for processing by the authoritative experimentStatusUpdate
+            try {
+                const pendingKey = `${blockNumber}:${round}`;
+                conditionTracker.pendingUpdates = conditionTracker.pendingUpdates || new Map();
+                const list = conditionTracker.pendingUpdates.get(pendingKey) || [];
+                list.push({ condition, round, blockNumber, player: playerName });
+                conditionTracker.pendingUpdates.set(pendingKey, list);
+            } catch (e) {
+                // If queuing fails, still call updateConditionLED as a last resort
+                try { updateConditionLED(condition, round, blockNumber, playerName); } catch (ee) { console.warn('Failed to queue or apply condition update', ee); }
+            }
             
         } catch (error) {
             console.error('❌ EARLY: Error processing conditionUpdate:', error);
@@ -2719,7 +3808,7 @@ socket.on('signUpResponse', function (data) {
     if (data.success) {
         if (data.autoLogin) {
             // Handle auto-login after successful signup
-            showGlassmorphismAlert('Welcome!', data.message || 'Account created and signed in successfully!', 'success');
+            // Note: Welcome alert is shown later - either neon room join or neon welcome
             
             // Store the current username globally and in localStorage (like normal signin)
             currentUsername = data.username;
@@ -2766,9 +3855,27 @@ socket.on('signUpResponse', function (data) {
                 window.stopSpaceAnimationsOnLogin();
             }
             
-            // Join Global chat automatically
+            // Join Global chat automatically, or target room if invite specified one
             setTimeout(() => {
-                if (!currentRoom) {
+                // Check if there's a target room from invite link
+                const targetRoom = window.inviteTargetRoom;
+                
+                if (targetRoom && targetRoom !== 'Global') {
+                    console.log('🚪 Auto-joining target room from invite:', targetRoom);
+                    currentRoom = targetRoom;
+                    
+                    // Update leave button visibility
+                    updateLeaveButtonVisibility();
+                    
+                    // Join the target room
+                    socket.emit('joinRoom', { room: targetRoom });
+                    
+                    // Clear the stored target room
+                    window.inviteTargetRoom = null;
+                    
+                    showNeonRoomJoinAlert(targetRoom);
+                } else {
+                    // Normal signup without target room - show neon welcome
                     console.log('🌐 Auto-joining Global chat after signup');
                     currentRoom = 'Global';
                     
@@ -2785,6 +3892,9 @@ socket.on('signUpResponse', function (data) {
                     // Join Global chat
                     console.log(`🔗 Session restore: Emitting joinRoom for Global chat`);
                     socket.emit('joinRoom', { room: 'Global' });
+                    
+                    // Show neon welcome alert for normal signups
+                    showNeonWelcomeAlert();
                 }
             }, 100);
         } else {
@@ -2841,7 +3951,7 @@ socket.on('inviteCodeResponse', function (data) {
         
         // Show the invite code in a special alert with copy functionality
         const codeType = data.isPermanent ? 'Permanent' : 'Single-Use';
-        showInviteCodeAlert(data.inviteCode, codeType);
+        showInviteCodeAlert(data.inviteCode, codeType, data.targetRoom);
     } else {
         showGlassmorphismAlert('Invite Generation Failed', data.message || 'Failed to generate invite code.', 'error');
     }
@@ -2890,6 +4000,18 @@ socket.on('roomUsers', ({ room, users, usersCount }) => {
 
 // Handle players in room updates (including AI players)
 socket.on('playersInRoom', function(data) {
+    console.log('📥 Received playersInRoom event:', {
+        room: data.room,
+        playerCount: data.players.length,
+        players: data.players.map(p => ({
+            username: p.username,
+            isModerator: p.isModerator,
+            isAI: p.isAI,
+            seatPosition: p.seatPosition,
+            triadPosition: p.triadPosition
+        }))
+    });
+    
     // Only update if this is for our current room
     if (data.room === currentRoom) {
         // Check if the player list has actually changed to avoid unnecessary UI rebuilds
@@ -2909,9 +4031,9 @@ socket.on('playersInRoom', function(data) {
         const moderatorNameDiv = moderatorDiv?.querySelector('.moderator-name');
         const currentModerator = moderatorNameDiv?.textContent;
         
-        // Get new player list
-        const newModerator = data.players.find(p => p.isModerator) || data.players[0];
-        const newParticipants = data.players.filter(p => p !== newModerator).map(p => p.username);
+        // Get new player list using isModerator flag
+        const newModerator = data.players.find(p => p.isModerator);
+        const newParticipants = data.players.filter(p => !p.isModerator).map(p => p.username);
         
         console.log('🔄 playersInRoom change detection:', {
             currentRoom: currentRoom,
@@ -2925,7 +4047,7 @@ socket.on('playersInRoom', function(data) {
         
         // EARLY INITIALIZATION: Initialize player names in LED tracker as soon as we have players
         // Filter out moderators and only include actual participants
-        const trackerPlayers = data.players.filter(p => p.username !== newModerator?.username).map(p => ({ name: p.username, isAI: p.isAI }));
+        const trackerPlayers = data.players.filter(p => !p.isModerator).map(p => ({ name: p.username, isAI: p.isAI }));
         if (trackerPlayers.length > 0 && (!playerNameMapping || playerNameMapping.size === 0)) {
             console.log('🎯 EARLY: Initializing player names from playersInRoom event');
             console.log('🎯 EARLY: Participant players:', trackerPlayers);
@@ -3236,8 +4358,8 @@ socket.on('playersInRoom', function(data) {
             console.warn('👑 No moderator found in player data:', data.players);
         }
         
-        // Get non-moderator players for the poker seats
-        const participantPlayers = data.players.filter(p => p !== moderator);
+        // Get non-moderator players (participants) - exclude moderator from seat placement
+        const participantPlayers = data.players.filter(p => !p.isModerator);
         
         console.log('🎯 Participant placement:', {
             totalPlayers: data.players.length,
@@ -3294,66 +4416,93 @@ socket.on('playersInRoom', function(data) {
         
         console.log('🎯 Available seats for placement:', availableSeats);
         
+        // Map server seat positions to client seat IDs
+        const seatPositionMap = {
+            'left': 'leftPlayer',
+            'top': 'topPlayer',
+            'right': 'rightPlayer'
+        };
+        
         participantPlayers.forEach((player, index) => {
-            if (index < availableSeats.length) { // Only place if we have available seats
-                const seatId = availableSeats[index];
-                const seat = document.getElementById(seatId);
-                
-                console.log(`🎯 Placing ${player.username} (${player.isAI ? 'AI' : 'Human'}) in seat ${seatId} (index ${index})`);
-                
-                if (seat) {
-                    const nameDiv = seat.querySelector('.player-name');
-                    const statusDiv = seat.querySelector('.player-status');
-                    const aiDiv = seat.querySelector('.ai-indicator');
-                    const walletDiv = seat.querySelector('.player-wallet');
-                    
-                    if (nameDiv) nameDiv.textContent = player.username;
-                    if (statusDiv) statusDiv.textContent = `P${index + 1}`;
-                    
-                    // Show AI indicator if it's an AI player
-                    if (aiDiv) {
-                        if (player.isAI) {
-                            aiDiv.style.display = 'block';
-                        } else {
-                            aiDiv.style.display = 'none';
-                        }
-                    }
-                    
-                    // Display wallet totals
-                    if (walletDiv) {
-                        const totalEarnings = player.totalEarnings || 0;
-                        walletDiv.textContent = `$${totalEarnings.toFixed(2)}`;
-                    }
-                    
-                    // Store player data for wallet updates
-                    seat.setAttribute('data-player-username', player.username);
-                    
-                    // Highlight active seat
-                    seat.style.borderColor = '#7289da';
-                    
-                    console.log(`✅ Successfully placed ${player.username} in ${seatId}`);
-                    
-                    // Process any pending lock indicators for this player
-                    if (pendingLockIndicators.has(player.username)) {
-                        const lockData = pendingLockIndicators.get(player.username);
-                        console.log(`🔄 Processing pending lock indicator for ${player.username}`);
-                        
-                        // Apply visual lock indicator
-                        applyLockIndicator(lockData);
-                        
-                        // IMPORTANT: Also trigger the full floating animation that was missed during initial lock-in
-                        console.log(`🎭 Triggering deferred floating animation for ${player.username}`);
-                        console.log(`🎭 Function params: seat=${!!seat}, lockData=${!!lockData}, username=${player.username}`);
-                        triggerPlayerSeatAnimation(seat, lockData, player.username);
-                    }
-                    
-                } else {
-                    console.error(`❌ Seat element ${seatId} not found during placement (should have been checked earlier)`);
-                }
+            // Use server-assigned seatPosition if available, otherwise fallback to index
+            let seatId;
+            if (player.seatPosition && seatPositionMap[player.seatPosition]) {
+                seatId = seatPositionMap[player.seatPosition];
+                console.log(`🎯 Using server-assigned seat for ${player.username}: ${player.seatPosition} -> ${seatId}`);
             } else {
-                console.log(`⚠️ Skipping ${player.username} - no available seats (index ${index}, available: ${availableSeats.length})`);
+                // Fallback to index-based assignment
+                seatId = availableSeats[index];
+                console.log(`⚠️ No server seat position for ${player.username}, using index ${index} -> ${seatId}`);
+            }
+            
+            const seat = document.getElementById(seatId);
+            
+            if (seat) {
+                console.log(`🎯 Placing ${player.username} (${player.isAI ? 'AI' : 'Human'}) in seat ${seatId} (triadPosition: ${player.triadPosition})`);
+                
+                const nameDiv = seat.querySelector('.player-name');
+                const statusDiv = seat.querySelector('.player-status');
+                const aiDiv = seat.querySelector('.ai-indicator');
+                const walletDiv = seat.querySelector('.player-wallet');
+                
+                if (nameDiv) nameDiv.textContent = player.username;
+                // Use triadPosition for P1/P2/P3 label if available, otherwise use index
+                if (statusDiv) statusDiv.textContent = player.triadPosition ? `P${player.triadPosition}` : `P${index + 1}`;
+                
+                // Show AI indicator if it's an AI player
+                if (aiDiv) {
+                    if (player.isAI) {
+                        aiDiv.style.display = 'block';
+                    } else {
+                        aiDiv.style.display = 'none';
+                    }
+                }
+                
+                // Hide wallet display for non-moderators (only show for moderators viewing)
+                if (walletDiv) {
+                    walletDiv.style.display = 'none'; // Always hide for non-moderator view
+                }
+                
+                // Store player data for wallet updates
+                seat.setAttribute('data-player-username', player.username);
+                
+                // Highlight active seat
+                seat.style.borderColor = '#7289da';
+                
+                console.log(`✅ Successfully placed ${player.username} in ${seatId} as P${player.triadPosition || index + 1}`);
+                
+                // Process any pending lock indicators for this player
+                if (pendingLockIndicators.has(player.username)) {
+                    const lockData = pendingLockIndicators.get(player.username);
+                    console.log(`🔄 Processing pending lock indicator for ${player.username}`);
+                    
+                    // Apply visual lock indicator
+                    applyLockIndicator(lockData);
+                    
+                    // IMPORTANT: Also trigger the full floating animation that was missed during initial lock-in
+                    console.log(`🎭 Triggering deferred floating animation for ${player.username}`);
+                    console.log(`🎭 Function params: seat=${!!seat}, lockData=${!!lockData}, username=${player.username}`);
+                    triggerPlayerSeatAnimation(seat, lockData, player.username);
+                }
+                
+            } else {
+                console.error(`❌ Seat element ${seatId} not found during placement`);
             }
         });
+        
+        // Build triad positions mapping for LED tracker (1->A, 2->B, 3->C)
+        window.triadPositions = {};
+        const positionMap = { 1: 'A', 2: 'B', 3: 'C' };
+        participantPlayers.forEach(player => {
+            if (player.triadPosition && positionMap[player.triadPosition]) {
+                const letter = positionMap[player.triadPosition];
+                window.triadPositions[letter] = player.username;
+                console.log(`🎯 Mapped triad position: ${player.triadPosition} (${letter}) -> ${player.username}`);
+            }
+        });
+        console.log('🎯 Final triad positions mapping:', window.triadPositions);
+        // Update LED group labels and remap LED items to usernames
+        if (window.remapLEDs) window.remapLEDs();
         
         // Also update the player list display - COMMENTED OUT FOR CLEANER UI
         /*
@@ -3461,18 +4610,105 @@ socket.on('roomCreated', (roomName) => {
     currentRoundNumber = 0;
     document.body.classList.remove('game-active', 'experiment-running', 'lightning-active');
     
+    // Clean up any lingering experiment ended modals
+    const existingModal = document.getElementById('experimentEndedModal');
+    if (existingModal) {
+        existingModal.remove();
+        console.log('🧹 Removed lingering experiment ended modal');
+    }
+    
+    // Reset LED tracker state completely
+    if (typeof conditionTracker !== 'undefined') {
+        conditionTracker.appliedHistory = [];
+        conditionTracker.currentBlock = null;
+        conditionTracker.lastPhase = '';
+        conditionTracker.callCounts = {};
+        conditionTracker.isUpdating = false;
+        console.log('🧹 Reset LED tracker state');
+    }
+    
+    // Clear all LEDs back to off state
+    try {
+        const allLEDs = document.querySelectorAll('#playerLEDArray .led-grid .led-indicator');
+        if (allLEDs.length > 0) {
+            allLEDs.forEach(led => led.className = 'led-indicator off');
+            console.log(`🧹 Reset ${allLEDs.length} LEDs to off state`);
+        }
+    } catch (e) {
+        console.warn('LED reset failed:', e);
+    }
+    
+    // Clear LED group player labels back to placeholders
+    try {
+        const ledGroups = document.querySelectorAll('.led-player-group .led-group-label');
+        ledGroups.forEach((label, index) => {
+            if (!label.closest('.led-player-group').querySelector('[data-player="NONE"]')) {
+                label.textContent = `Player ${index + 1}`;
+            }
+        });
+        console.log('🧹 Reset LED player labels to placeholders');
+    } catch (e) {
+        console.warn('LED label reset failed:', e);
+    }
+    
+    // Reset experiment display elements
+    const experimentStatus = document.getElementById('experimentStatus');
+    const blockDisplay = document.getElementById('blockDisplay');
+    const tokenConversion = document.getElementById('tokenConversionDisplay');
+    if (experimentStatus) experimentStatus.textContent = '';
+    if (blockDisplay) blockDisplay.textContent = 'Block: --/--';
+    if (tokenConversion) tokenConversion.textContent = 'White=$-.-- Black=$-.--';
+    
+    // Reset all player seats and animations
+    const seatIds = ['leftPlayer', 'topPlayer', 'rightPlayer'];
+    seatIds.forEach(seatId => {
+        const seat = document.getElementById(seatId);
+        if (seat) {
+            // Clear player data
+            seat.removeAttribute('data-player-username');
+            const nameDiv = seat.querySelector('.player-name');
+            const statusDiv = seat.querySelector('.player-status');
+            const aiDiv = seat.querySelector('.ai-indicator');
+            const walletDiv = seat.querySelector('.player-wallet');
+            const lockIndicator = seat.querySelector('.player-lock-indicator');
+            
+            if (nameDiv) nameDiv.textContent = '';
+            if (statusDiv) statusDiv.textContent = '';
+            if (aiDiv) aiDiv.style.display = 'none';
+            if (walletDiv) {
+                walletDiv.textContent = '';
+                walletDiv.style.display = 'none';
+            }
+            if (lockIndicator) lockIndicator.remove();
+            
+            // Reset any floating animations and glow effects
+            seat.style.transform = '';
+            seat.style.transition = '';
+            seat.style.boxShadow = '';
+            seat.style.border = '';
+            seat.classList.remove('floating-animation', 'active-player', 'glow-effect');
+        }
+    });
+    console.log('🧹 Reset all player seats and animations');
+    
+    // Reset round display
+    const currentRoundEl = document.getElementById('currentRound');
+    if (currentRoundEl) currentRoundEl.textContent = '0';
+    
     roomNameText.style.display ="";
     socket.emit('joinRoom', roomName );
     currentRoom = roomName; // Update current room tracking
     roomNameText.innerText = roomName;
     
-    // Show game interface immediately when moderator creates room
-    showGameInterface();
+    // CRITICAL: Set moderator status FIRST before showing game interface
+    window.currentUserIsModerator = true;
+    console.log('🔑 Set currentUserIsModerator = true for room creator');
     
-    // Initialize moderator status and buttons for room creator (with delay to ensure DOM ready)
-    setTimeout(() => {
-        initializeModeratorUI(roomName);
-    }, 10);
+    // Initialize moderator UI immediately (not delayed)
+    initializeModeratorUI(roomName);
+    
+    // Show game interface after moderator status is set
+    showGameInterface();
     
     // Copy room name to clipboard
     if (navigator.clipboard) {
@@ -3595,6 +4831,7 @@ function initializeModeratorUI(roomName) {
 // Function to show game interface inline
 function showGameInterface() {
     console.log('🎮 showGameInterface() called for room:', currentRoom);
+    console.log('🎮 Current state - gameActive:', gameActive, 'currentUserIsModerator:', window.currentUserIsModerator);
     
     // Only show game interface for non-Global rooms
     if (currentRoom === 'Global' || !currentRoom) {
@@ -3602,10 +4839,54 @@ function showGameInterface() {
         return;
     }
     
+    // FRESH ROOM CLEANUP: Reset all experiment UI elements to pre-experiment state
+    console.log('🧹 Resetting experiment UI to fresh room state...');
+    
+    // Hide all experiment phase containers
+    const lobbyPhase = document.getElementById('lobbyPhase');
+    const decisionPhase = document.getElementById('decisionPhase');
+    const resultsPhase = document.getElementById('resultsPhase');
+    const finalResults = document.getElementById('finalResults');
+    
+    if (lobbyPhase) lobbyPhase.style.display = 'block'; // Show lobby for new room
+    if (decisionPhase) decisionPhase.style.display = 'none'; // Hide decision interface
+    if (resultsPhase) resultsPhase.style.display = 'none'; // Hide results
+    if (finalResults) finalResults.style.display = 'none'; // Hide final results
+    
+    // Hide decision grid and related elements
+    const decisionGrid = document.getElementById('decisionGrid');
+    const selectionSection = document.getElementById('selectionSection');
+    const tokenConversion = document.getElementById('tokenConversionDisplay');
+    const currentTokenValue = document.getElementById('currentTokenValueDisplay');
+    
+    if (decisionGrid) decisionGrid.style.display = 'none';
+    if (selectionSection) selectionSection.style.display = 'none';
+    if (tokenConversion) tokenConversion.style.display = 'none';
+    if (currentTokenValue) currentTokenValue.style.display = 'none';
+    
+    // Hide turn display for turn-based games
+    const turnDisplay = document.getElementById('turnDisplay');
+    if (turnDisplay) turnDisplay.style.display = 'none';
+    
+    // Clear any experiment status text
+    const experimentStatus = document.getElementById('experimentStatus');
+    const blockDisplay = document.getElementById('blockDisplay');
+    if (experimentStatus) experimentStatus.textContent = '';
+    if (blockDisplay) blockDisplay.textContent = 'Block: --/--';
+    
+    // Hide moderator switchboard (will be shown when experiment starts)
+    const moderatorSwitchboard = document.getElementById('moderatorSwitchboard');
+    if (moderatorSwitchboard) moderatorSwitchboard.style.display = 'none';
+    
+    // Reset token pool display to default
+    updateTokenPoolDisplay(0, 0);
+    
+    console.log('✅ Fresh room state restored');
+    
     const gameDiv = document.getElementById('gameDiv');
     const landingPage = document.getElementById('landingPage');
     
-    console.log('gameDiv found:', !!gameDiv);
+    console.log('gameDiv found:', !!gameDiv, 'display:', gameDiv ? gameDiv.style.display : 'N/A');
     console.log('landingPage found:', !!landingPage);
     
     // Hide landing page if it exists
@@ -3615,8 +4896,9 @@ function showGameInterface() {
     }
     
     if (gameDiv) {
-        gameDiv.style.display = 'block';
-        console.log('✅ Game interface displayed');
+        // Important: Use inline-block to match expected state
+        gameDiv.style.display = 'inline-block';
+        console.log('✅ Game interface displayed as inline-block');
         
         // Don't automatically show buttons - wait for moderator check in playersInRoom handler
         console.log('⏳ Waiting for room state to determine button visibility');
@@ -4071,15 +5353,15 @@ socket.on('leftRoom', function(data) {
 socket.on('experimentEnded', function(data) {
     console.log('🛑 Experiment ended:', data);
     
-    // Show glassmorphic experiment ended modal
-    showExperimentEndedModal(data.message, data.moderator);
+    // Show retro-future neon stat screen with full experiment data
+    showExperimentEndedModal(data);
     
-    // User will refresh by clicking "Return to Global Chat" button
+    // User will click "Return to Global Chat" to continue
     
     // Reset game state immediately and completely
     gameActive = false;
     document.body.classList.remove('game-active', 'experiment-running', 'lightning-active');
-    currentRoom = 'Global';
+    // DON'T set currentRoom = 'Global' here - let closeExperimentEndedModal handle it
     currentRoundNumber = 0;
     
     // Simple targeted cleanup
@@ -4098,6 +5380,10 @@ socket.on('experimentEnded', function(data) {
     if (typeof lockedInPlayers !== 'undefined' && lockedInPlayers instanceof Map) {
         lockedInPlayers.clear();
     }
+    
+    // IMPORTANT: Keep gameDiv visible so the modal appears properly
+    // The modal is shown over the game interface
+    // When user clicks "Return to Global", closeExperimentEndedModal will hide gameDiv
     
     // Update card visibility for global context
     updateCardVisibility();
@@ -4386,8 +5672,13 @@ socket.on('triadComplete', function(data) {
     console.log('  - rightPlayer exists:', !!document.getElementById('rightPlayer'));
     console.log('  - gameDiv display:', document.getElementById('gameDiv') ? document.getElementById('gameDiv').style.display : 'not found');
     
-    // Update player position and status
-    document.getElementById('playerPosition').textContent = `You are Player ${data.playerPosition}`;
+    // Update player position and status (guard against missing element)
+    try {
+        const playerPositionEl = document.getElementById('playerPosition');
+        if (playerPositionEl) playerPositionEl.textContent = `You are Player ${data.playerPosition}`;
+    } catch (e) {
+        console.warn('triadComplete: playerPosition element missing', e);
+    }
     
     // Update poker table with player positions (preserve active player highlighting)
     console.log('🎯 About to call updatePokerTable with:', data.gameSession);
@@ -4534,6 +5825,51 @@ socket.on('yourTurn', function(data) {
     
     // Show selection section and token conversion display
     if (selectionSectionElement) selectionSectionElement.style.display = 'block';
+    
+    // Show and update current token value display (below checkerboard)
+    const currentTokenValueDisplay = document.getElementById('currentTokenValueDisplay');
+    if (currentTokenValueDisplay) {
+        currentTokenValueDisplay.style.display = 'block';
+        // Update token values from server data if available
+        if (data.condition && typeof data.condition === 'object' && 
+            data.condition.whiteValue && data.condition.blackValue) {
+            const whiteValueEl = document.getElementById('currentWhiteTokenValue');
+            const blackValueEl = document.getElementById('currentBlackTokenValue');
+            if (whiteValueEl) whiteValueEl.textContent = `$${data.condition.whiteValue.toFixed(2)}`;
+            if (blackValueEl) blackValueEl.textContent = `$${data.condition.blackValue.toFixed(2)}`;
+            
+            // Color-code background based on condition
+            const innerBox = currentTokenValueDisplay.querySelector('div');
+            if (innerBox && data.condition.name) {
+                let bgColor, borderColor;
+                switch (data.condition.name) {
+                    case 'High Operant':
+                        // Blue for high-operant
+                        bgColor = 'rgba(88, 101, 242, 0.3)';
+                        borderColor = 'rgba(88, 101, 242, 0.5)';
+                        break;
+                    case 'Equal Culturant-Operant':
+                        // Green for equal operant-culturant
+                        bgColor = 'rgba(67, 181, 129, 0.3)';
+                        borderColor = 'rgba(67, 181, 129, 0.5)';
+                        break;
+                    case 'High Culturant':
+                        // Yellow for high culturant
+                        bgColor = 'rgba(250, 166, 26, 0.3)';
+                        borderColor = 'rgba(250, 166, 26, 0.5)';
+                        break;
+                    default:
+                        // Default gray for baseline or unknown
+                        bgColor = 'rgba(54, 57, 63, 0.8)';
+                        borderColor = 'rgba(114, 118, 125, 0.2)';
+                }
+                innerBox.style.background = bgColor;
+                innerBox.style.borderColor = borderColor;
+                innerBox.style.transition = 'background 0.3s ease, border-color 0.3s ease';
+            }
+        }
+    }
+    
     if (tokenConversionDisplay) {
         tokenConversionDisplay.style.display = 'block';
         // Update token values from server data if available
@@ -4571,13 +5907,13 @@ socket.on('yourTurn', function(data) {
             console.log(`🔄 Restored locked-in UI state`);
         } else if (selectedChoice !== null) {
             lockInBtn.disabled = false;
-            lockInText.textContent = '🔒 Lock In Choice';
+            lockInText.textContent = 'Lock in';
             lockInBtn.style.background = 'linear-gradient(135deg, #faa61a, #e8941a)';
             lockInBtn.style.cursor = 'pointer';
             console.log(`🔄 Restored enabled lock-in button`);
         } else {
             lockInBtn.disabled = true;
-            lockInText.textContent = '🔒 Lock In Choice';
+            lockInText.textContent = 'Lock in';
             lockInBtn.style.background = 'linear-gradient(135deg, #5865f2, #4752c4)';
             lockInBtn.style.cursor = 'not-allowed';
         }
@@ -4585,10 +5921,27 @@ socket.on('yourTurn', function(data) {
     
     // Reset row styles and restore selected row if applicable
     document.querySelectorAll('.clickable-row').forEach(row => {
-        row.style.opacity = '0.7';
+        const rowNumber = row.getAttribute('data-row');
+        const isTaken = data.takenRows && data.takenRows.includes(rowNumber);
+        
+        if (isTaken) {
+            // Disable rows that are already taken by other players
+            row.style.opacity = '0.3';
+            row.style.pointerEvents = 'none';
+            row.style.cursor = 'not-allowed';
+            row.style.filter = 'grayscale(70%)';
+            row.style.backgroundColor = 'rgba(255, 0, 0, 0.1)';
+        } else {
+            // Enable available rows
+            row.style.opacity = '0.7';
+            row.style.pointerEvents = 'auto';
+            row.style.cursor = 'pointer';
+            row.style.filter = 'none';
+            row.style.backgroundColor = 'transparent';
+        }
+        
         row.style.transform = 'scale(1)';
         row.style.boxShadow = 'none';
-        row.style.backgroundColor = 'transparent';
     });
     
     // Restore selected row highlighting if choice was restored
@@ -4641,11 +5994,17 @@ socket.on('yourTurn', function(data) {
     if (moderatorSwitchboard) {
         moderatorSwitchboard.style.display = data.isModerator ? 'block' : 'none';
         
-        // Hide tokenUpdate div for moderators
-        const tokenUpdateElement = document.getElementById('tokenUpdate');
-        if (tokenUpdateElement) {
-            tokenUpdateElement.style.display = data.isModerator ? 'none' : 'block';
+        // Show/hide moderator cumulative earnings section
+        const moderatorCumulativeEarnings = document.getElementById('moderatorCumulativeEarnings');
+        if (moderatorCumulativeEarnings) {
+            moderatorCumulativeEarnings.style.display = data.isModerator ? 'block' : 'none';
         }
+        
+        // Hide tokenUpdate div for moderators - update both left and right versions
+        const tokenUpdateElements = document.querySelectorAll('.tokenUpdate');
+        tokenUpdateElements.forEach(element => {
+            element.style.display = data.isModerator ? 'none' : 'block';
+        });
         
         // Initialize switchboard functionality for moderators
         if (data.isModerator) {
@@ -4654,6 +6013,38 @@ socket.on('yourTurn', function(data) {
                 addColumnHoverEffects();
                 initializeSwitchboardFunctions();
             }, 100);
+            
+            // Update moderator status panel with current round info
+            const conditionStatusDisplay = document.getElementById('currentConditionDisplay');
+            if (conditionStatusDisplay && data.condition && data.condition.name) {
+                conditionStatusDisplay.textContent = data.condition.name;
+            }
+            
+            const roundDisplay = document.getElementById('currentRoundDisplay');
+            if (roundDisplay && data.round) {
+                // Calculate round within current block (1-21)
+                const roundInBlock = ((data.round - 1) % 21) + 1;
+                roundDisplay.textContent = `${roundInBlock}/21`;
+            }
+            
+            // Update incentive player display
+            const incentivePlayerDisplay = document.getElementById('currentIncentivePlayerDisplay');
+            if (incentivePlayerDisplay) {
+                if (data.player && data.incentive && data.incentive !== 'No Incentive') {
+                    // Use incentiveDisplay for user-friendly text, fallback to raw incentive
+                    incentivePlayerDisplay.textContent = `${data.player} (${data.incentiveDisplay || data.incentive})`;
+                } else {
+                    incentivePlayerDisplay.textContent = 'NONE';
+                }
+            }
+            
+            // Block display will be updated by roundResult, but initialize if we have data
+            const blockStatusDisplay = document.getElementById('currentBlockDisplay');
+            if (blockStatusDisplay && data.blockNumber) {
+                blockStatusDisplay.textContent = `${data.blockNumber}/9`;
+            } else if (blockStatusDisplay) {
+                blockStatusDisplay.textContent = '1/3';
+            }
         }
     }
     
@@ -4708,6 +6099,22 @@ socket.on('yourTurn', function(data) {
         updateTokenPoolDisplay(data.whiteTokensRemaining, totalTokens);
         console.log('🎯 yourTurn: Token pool updated:', data.whiteTokensRemaining, '/', totalTokens);
     }
+
+    // For moderators: update LED tracker based on yourTurn data (contains incentive + player)
+    if (data.isModerator && data.round && data.incentive) {
+        console.log('🎯 yourTurn: updating moderator LED tracker');
+        try {
+            applyExperimentStatusToLEDs({
+                phase: data.condition ? data.condition.name : '',
+                round: data.round,
+                incentive: data.incentive,
+                player: data.player || null,
+                tokens: data.whiteTokensRemaining
+            });
+        } catch (e) {
+            console.warn('🎯 yourTurn: LED update failed', e);
+        }
+    }
     
     // Final gameDiv protection at yourTurn end
     const gameDivEnd = document.getElementById('gameDiv');
@@ -4728,6 +6135,11 @@ socket.on('newRound', function(data) {
     
     // Close the triad formation popup when game starts
     closeTriadFormationPopup();
+    
+    // Initialize round results panel on first round
+    if (data.round === 1) {
+        initializeRoundResultsPanel();
+    }
     
     // Update current round tracking
     currentRoundNumber = data.round;
@@ -4798,16 +6210,28 @@ socket.on('newRound', function(data) {
     // Choice status is now handled by the modern selection UI
 });
 
-// Function to update token conversion display
+// Function to update token conversion display (handles both left and right versions for responsive layout)
 function updateTokenConversionDisplay(whiteValue, blackValue) {
-    const whiteTokenElement = document.getElementById('whiteTokenValue');
-    const blackTokenElement = document.getElementById('blackTokenValue');
-    const conversionDisplay = document.getElementById('tokenConversionDisplay');
+    const whiteTokenElements = document.querySelectorAll('.whiteTokenValue');
+    const blackTokenElements = document.querySelectorAll('.blackTokenValue');
+    const conversionDisplays = document.querySelectorAll('#tokenConversionDisplayLeft, #tokenConversionDisplayRight');
     
-    if (whiteTokenElement && blackTokenElement && conversionDisplay) {
-        whiteTokenElement.textContent = `$${whiteValue.toFixed(2)}`;
-        blackTokenElement.textContent = `$${blackValue.toFixed(2)}`;
-        conversionDisplay.style.display = 'block';
+    // Update all white token value elements
+    whiteTokenElements.forEach(element => {
+        element.textContent = `$${whiteValue.toFixed(2)}`;
+    });
+    
+    // Update all black token value elements
+    blackTokenElements.forEach(element => {
+        element.textContent = `$${blackValue.toFixed(2)}`;
+    });
+    
+    // Show all conversion displays
+    conversionDisplays.forEach(display => {
+        display.style.display = 'block';
+    });
+    
+    if (whiteTokenElements.length > 0 && blackTokenElements.length > 0) {
         console.log(`💰 Updated token conversion display: White=$${whiteValue.toFixed(2)}, Black=$${blackValue.toFixed(2)}`);
     }
 }
@@ -4821,31 +6245,118 @@ let conditionTracker = {
     playerCounts: {}
 };
 
-function initializeConditionTracker() {
-    // Reset tracker for new block
-    conditionTracker.occurrences = {};
-    conditionTracker.playerCounts = {};
+function initializeConditionTracker(newBlockNumber) {
+    // If called with a block number, only reset when block changes
+    if (typeof newBlockNumber !== 'undefined') {
+        if (conditionTracker.currentBlock === newBlockNumber) {
+            // already initialized for this block — do not clear LEDs
+            return;
+        }
+        conditionTracker.currentBlock = newBlockNumber;
+        conditionTracker.occurrences = {};
+        conditionTracker.playerCounts = {};
+    } else {
+        // No explicit new block number provided: do not clear DOM state if tracker already initialized
+        if (conditionTracker && conditionTracker.currentBlock) {
+            // Already initialized; just ensure internal structures are present
+            conditionTracker.occurrences = conditionTracker.occurrences || {};
+            conditionTracker.playerCounts = conditionTracker.playerCounts || {};
+        } else {
+            // First-time initialization
+            conditionTracker.occurrences = {};
+            conditionTracker.playerCounts = {};
+        }
+    }
+    // Build playerLEDSlots keyed by actual player usernames when available
+    conditionTracker.playerLEDSlots = {};
+    const triad = window.triadPositions || {};
+    const playerNames = Object.values(triad).filter(n => !!n);
+    if (playerNames.length === 3) {
+        playerNames.forEach(name => {
+            conditionTracker.playerLEDSlots[name] = { none: 0, sc: 0, imp: 0 };
+        });
+        // Remap DOM data-player attributes from A/B/C to real usernames
+        const ledItems = document.querySelectorAll('.led-item');
+        ledItems.forEach(item => {
+            const dp = item.getAttribute('data-player');
+            if (dp && triad[dp]) {
+                const username = triad[dp];
+                item.setAttribute('data-player', username);
+                // Update title for clarity
+                const title = item.getAttribute('title') || '';
+                item.setAttribute('title', title.replace(/Player [ABC]/, username));
+            }
+        });
+    } else {
+        // Fallback: keep A/B/C if mapping not ready
+        conditionTracker.playerLEDSlots = {
+            A: { none: 0, sc: 0, imp: 0 },
+            B: { none: 0, sc: 0, imp: 0 },
+            C: { none: 0, sc: 0, imp: 0 }
+        };
+    }
+    // Set to track processed updates to avoid duplicate illumination
+    conditionTracker.processedUpdates = conditionTracker.processedUpdates || new Set();
+    // Pending updates keyed by `${block}:${round}` -> array of update objects
+    conditionTracker.pendingUpdates = conditionTracker.pendingUpdates || new Map();
     
-    // Reset all LEDs to off state
-    const allLEDs = document.querySelectorAll('.led-indicator');
-    allLEDs.forEach(led => {
-        led.className = 'led-indicator off';
-    });
-    
-    // Reset all player counters
-    const allCounters = document.querySelectorAll('.player-counter .count');
-    allCounters.forEach(counter => {
-        counter.textContent = '0';
-    });
-    
-    // Remove active state from player counters
-    const allPlayerCounters = document.querySelectorAll('.player-counter');
-    allPlayerCounters.forEach(counter => {
-        counter.classList.remove('active');
-    });
-    
-    console.log('🔵 LED Condition Tracker initialized for new block');
+    // Reset all player-grid LEDs to off state only when we've done a real block reset
+    if (typeof newBlockNumber !== 'undefined') {
+        const allLEDs = document.querySelectorAll('#playerLEDArray .led-grid .led-indicator');
+        allLEDs.forEach(led => {
+            led.className = 'led-indicator off';
+        });
+    }
+
+    // Leave leftmost 'none' LEDs off by default (they'll illuminate when assignments occur)
 }
+
+function removeExistingHalos(fadeMs = 800) {
+    const groups = document.querySelectorAll('.led-player-group.halo');
+    groups.forEach(g => {
+        // add fade class to animate removal
+        g.classList.add('halo-fade');
+        // remove halo classes after fade
+            setTimeout(() => {
+            g.classList.remove('halo', 'halo-green', 'halo-yellow', 'halo-white');
+            g.classList.remove('halo-fade');
+        }, fadeMs);
+    });
+}
+
+// Utility: remap DOM LED items from A/B/C to actual usernames when triad mapping available
+window.remapLEDs = function() {
+    try {
+        const triad = window.triadPositions || {};
+        const ledItems = document.querySelectorAll('.led-item');
+        ledItems.forEach(item => {
+            const dp = item.getAttribute('data-player');
+            if (dp && triad[dp]) {
+                const username = triad[dp];
+                item.setAttribute('data-player', username);
+                const title = item.getAttribute('title') || '';
+                item.setAttribute('title', title.replace(/Player [ABC]/, username));
+            }
+        });
+
+        // Update labels in order
+        const groups = document.querySelectorAll('.led-player-group');
+        const letters = ['A','B','C'];
+        groups.forEach((g, idx) => {
+            const lbl = g.querySelector('.led-group-label');
+            const name = triad[letters[idx]] || (`Player ${letters[idx]}`);
+            if (lbl) lbl.textContent = name;
+        });
+        // Reinitialize condition tracker so playerLEDSlots are keyed by usernames
+        try {
+            initializeConditionTracker();
+        } catch (e) {
+            console.warn('Could not initialize condition tracker after remap', e);
+        }
+    } catch (e) {
+        console.warn('🔀 remapLEDs failed', e);
+    }
+};
 
 // Test function for debugging player counter creation
 function debugPlayerCounterState(playerName, conditionKey) {
@@ -5047,13 +6558,7 @@ function createDynamicPlayerCounter(conditionKey, playerName) {
 }
 
 function updateConditionLED(condition, round, blockNumber, player) {
-    console.log(`🔍 updateConditionLED called with:`, {
-        condition: condition,
-        round: round,
-        blockNumber: blockNumber,
-        player: player,
-        playerType: typeof player
-    });
+    // Guarded debug suppressed in normal operation
     
     // Only track conditions mode (not baseline)
     if (!condition || condition === 'Baseline') {
@@ -5061,224 +6566,122 @@ function updateConditionLED(condition, round, blockNumber, player) {
         return;
     }
     
-    // Skip tracking for moderators - check if this player is the moderator
+    // Skip tracking for moderators
     const moderatorDiv = document.getElementById('moderatorPosition');
     const moderatorNameDiv = moderatorDiv?.querySelector('.moderator-name');
     const currentModerator = moderatorNameDiv?.textContent;
-    
-    // Also check if we have stored moderator information from playersInRoom
     const storedUsername = localStorage.getItem('username');
     const effectiveUsername = currentUsername || storedUsername;
     const isPlayerTheModerator = (player === effectiveUsername && window.currentUserIsModerator);
-    
-    console.log(`🔍 Moderator check debug:`, {
-        player: player,
-        moderatorDiv: !!moderatorDiv,
-        moderatorNameDiv: !!moderatorNameDiv,
-        currentModerator: currentModerator,
-        storedUsername: storedUsername,
-        effectiveUsername: effectiveUsername,
-        isPlayerTheModerator: isPlayerTheModerator,
-        currentUserIsModerator: window.currentUserIsModerator,
-        isDOMMatch: player === currentModerator,
-        shouldSkip: (player && currentModerator && player === currentModerator) || isPlayerTheModerator
-    });
     
     if ((player && currentModerator && player === currentModerator) || isPlayerTheModerator) {
         console.log(`🚫 Skipping LED update - ${player} is the moderator, not a participant`);
         return;
     }
     
-    // Convert display name to constant name for HTML data attributes
-    let conditionKey;
-    console.log(`🔍 Condition matching debug: received="${condition}" (length: ${condition ? condition.length : 0})`);
-    switch(condition) {
+    // Use player username or letter directly
+    const playerName = player;
+    if (!playerName) {
+        console.warn(`⚠️ No player provided for LED update (condition=${condition})`);
+        // allow processing for 'none' (global) updates which target the separate NONE row
+    }
+    // Determine which key to use for playerLEDSlots: username or triad letter
+    // Resolve which key to use in playerLEDSlots and which selector to prefer
+    let playerKey = null;
+    let resolvedUsername = null;
+    const triad = window.triadPositions || {};
+    if (playerName && conditionTracker.playerLEDSlots[playerName]) {
+        playerKey = playerName;
+        resolvedUsername = playerName;
+    } else if (playerName && /^(A|B|C)$/.test(playerName) && conditionTracker.playerLEDSlots[playerName]) {
+        playerKey = playerName;
+    } else if (playerName) {
+        // try to find letter mapping for this username
+        for (const [letter, uname] of Object.entries(triad)) {
+            if (uname === playerName) {
+                resolvedUsername = uname;
+                if (conditionTracker.playerLEDSlots[uname]) {
+                    playerKey = uname;
+                } else if (conditionTracker.playerLEDSlots[letter]) {
+                    playerKey = letter;
+                }
+                break;
+            }
+        }
+    }
+    // If still missing, try to fall back to letters A/B/C if any exist
+    if (!playerKey) {
+        ['A','B','C'].some(l => { if (conditionTracker.playerLEDSlots[l]) { playerKey = l; return true; } return false; });
+    }
+    // If no playerKey and not a NONE update, there's nothing to do
+    // (for NONE updates we proceed to target the global NONE row below)
+    // continue execution
+    
+    // Normalize condition (server may send enum keys like HIGH_CULTURANT)
+    const CONDITION_MAP = {
+        'HIGH_CULTURANT': 'High Culturant',
+        'HIGH_OPERANT': 'High Operant',
+        'EQUAL_CULTURANT_OPERANT': 'Equal Culturant–Operant'
+    };
+    let normalizedCondition = condition;
+    if (typeof condition === 'string') {
+        if (CONDITION_MAP[condition]) {
+            normalizedCondition = CONDITION_MAP[condition];
+        } else {
+            const keyForm = condition.toUpperCase().replace(/\s+/g, '_');
+            if (CONDITION_MAP[keyForm]) normalizedCondition = CONDITION_MAP[keyForm];
+        }
+    }
+
+    // Determine incentive type from normalized condition
+    let incentiveType;
+    switch(normalizedCondition) {
         case 'High Culturant':
-            conditionKey = 'HIGH_CULTURANT';
-            console.log(`✅ Matched High Culturant → ${conditionKey}`);
+            incentiveType = 'sc'; // Self Control
             break;
         case 'High Operant':
-            conditionKey = 'HIGH_OPERANT';
-            console.log(`✅ Matched High Operant → ${conditionKey}`);
+            incentiveType = 'imp'; // Impulse
             break;
         case 'Equal Culturant–Operant':
-            conditionKey = 'EQUAL_CULTURANT_OPERANT';
-            console.log(`✅ Matched Equal Culturant–Operant → ${conditionKey}`);
+            incentiveType = 'none'; // No incentive
             break;
         default:
-            console.warn(`⚠️ Unknown condition: "${condition}" (chars: ${condition ? Array.from(condition).map(c => `${c}(${c.charCodeAt(0)})`).join(' ') : 'null'})`);
+            console.warn(`⚠️ Unknown condition: "${condition}" (normalized: "${normalizedCondition}")`);
             return;
     }
     
+    // Deduplicate updates: only process each block:round once per target (player or NONE)
+    let updateKey;
+    if (incentiveType === 'none') {
+        updateKey = `${blockNumber}:${round}:NONE:${normalizedCondition}`;
+    } else {
+        updateKey = `${blockNumber}:${round}:${playerName}:${normalizedCondition}`;
+    }
+    if (conditionTracker.processedUpdates && conditionTracker.processedUpdates.has(updateKey)) {
+        console.log(`⏭️ Skipping duplicate LED update for ${updateKey}`);
+        return;
+    }
+
     // Reset tracker if new block started
     if (blockNumber && blockNumber !== conditionTracker.currentBlock) {
         conditionTracker.currentBlock = blockNumber;
         initializeConditionTracker();
     }
     
-    // Initialize condition tracking if not exists
-    if (!conditionTracker.occurrences[conditionKey]) {
-        conditionTracker.occurrences[conditionKey] = {};
-    }
-    if (!conditionTracker.playerCounts[conditionKey]) {
-        conditionTracker.playerCounts[conditionKey] = {};
-    }
-    
-    // For conditions mode, each condition gets exactly 21 rounds per block
-    // The round number should be 1-21 within each condition, not global
-    let conditionRound = round;
-    
-    // If this is a global round number > 21, we need to calculate which round within this condition
-    if (typeof round === 'number') {
-        // In a 63-round block: rounds 1-21 = condition 1, rounds 22-42 = condition 2, rounds 43-63 = condition 3
-        // But we don't know which condition this is, so we'll use a different approach
-        // We'll just track each unique round-condition pair once
-        conditionRound = round;
-    }
-    
-    // Create a unique key for this condition-round pair within the block
-    const uniqueKey = `${conditionKey}-${conditionRound}`;
-    
-    // Check if we've already processed this exact condition-round combination
-    if (conditionTracker.occurrences[conditionKey][uniqueKey]) {
-        console.warn(`⚠️ Duplicate processing detected for ${condition} round ${conditionRound} - skipping to prevent false error`);
-        return;
-    }
-    
-    // Mark this condition-round as processed
-    conditionTracker.occurrences[conditionKey][uniqueKey] = 1;
-    
-    // Calculate which LED position to light (1-7 for each condition)
-    // We need to determine which of the 7 LEDs within this condition to light
-    // For now, we'll use a simple counter approach
-    const processedRounds = Object.keys(conditionTracker.occurrences[conditionKey]).length;
-    const ledPosition = Math.min(processedRounds, 7); // Cap at 7 LEDs per condition
-    
-    // Update player count
-    const playerKey = player || 'None';
-    
-    console.log(`🔍 LED Update Debug DETAILED:`);
-    console.log(`   condition: "${condition}"`);
-    console.log(`   player: "${player}" (type: ${typeof player})`);
-    console.log(`   playerKey: "${playerKey}" (type: ${typeof playerKey})`);
-    console.log(`   conditionKey: "${conditionKey}"`);
-    console.log(`🔍 conditionTracker.playerCounts:`, conditionTracker.playerCounts);
-    
-    // Create dynamic player counter if it doesn't exist (including 'None')
-    if (!conditionTracker.playerCounts[conditionKey][playerKey]) {
-        conditionTracker.playerCounts[conditionKey][playerKey] = 0;
-        console.log(`🆕 Initializing counter for ${playerKey} in ${conditionKey}`);
-        
-        // For 'None', check if static counter exists, otherwise create dynamic counter
-        if (playerKey === 'None') {
-            const existingNoneCounter = document.querySelector(`[data-player="None"][data-condition="${conditionKey}"]`);
-            if (existingNoneCounter) {
-                console.log(`✅ Found existing static None counter for ${conditionKey}`);
-                // Make sure it's visible (it should be by default, but just in case)
-                existingNoneCounter.style.display = 'inline-block';
-            } else {
-                console.log(`🆕 Creating dynamic None counter for ${conditionKey}`);
-                const success = createDynamicPlayerCounter(conditionKey, playerKey);
-                console.log(`🆕 Counter creation result for ${playerKey}: ${success}`);
-            }
-        } else {
-            // For regular players, always try to create dynamic counter
-            const success = createDynamicPlayerCounter(conditionKey, playerKey);
-            console.log(`🆕 Counter creation result for ${playerKey}: ${success}`);
-            if (!success) {
-                console.warn(`⚠️ Failed to create counter for ${playerKey} in ${conditionKey} - no available placeholders`);
-            }
-        }
-    }
-    
-    // Increment player count
-    if (conditionTracker.playerCounts[conditionKey][playerKey] !== undefined) {
-        const oldCount = conditionTracker.playerCounts[conditionKey][playerKey];
-        conditionTracker.playerCounts[conditionKey][playerKey]++;
-        const newCount = conditionTracker.playerCounts[conditionKey][playerKey];
-        console.log(`📊 Updated counter: ${playerKey} in ${conditionKey}: ${oldCount} → ${newCount}`);
-        
-        // Update player counter display
-        const playerCounterSelector = `[data-player="${playerKey}"][data-condition="${conditionKey}"] .count`;
-        console.log(`🎯 Looking for counter element with selector: ${playerCounterSelector}`);
-        
-        const playerCounterElement = document.querySelector(playerCounterSelector);
-        if (playerCounterElement) {
-            const oldValue = playerCounterElement.textContent;
-            playerCounterElement.textContent = newCount;
-            console.log(`✅ Updated counter display for ${playerKey}: ${oldValue} → ${newCount}`);
-            
-            // Add visual feedback for the update
-            playerCounterElement.style.fontWeight = 'bold';
-            playerCounterElement.style.color = '#4CAF50';
-            setTimeout(() => {
-                playerCounterElement.style.fontWeight = '';
-                playerCounterElement.style.color = '';
-            }, 1000);
-        } else {
-            console.error(`❌ Counter element not found for ${playerKey} in ${conditionKey}`);
-            
-            // Call debug function to analyze the issue
-            debugPlayerCounterState(playerKey, conditionKey);
-            
-            // Enhanced debugging: Check what elements exist
-            console.log(`🔍 Debug: Looking for elements with data-player="${playerKey}"`);
-            const playerElements = document.querySelectorAll(`[data-player="${playerKey}"]`);
-            console.log(`🔍 Found ${playerElements.length} elements with data-player="${playerKey}":`, 
-                Array.from(playerElements).map(el => ({
-                    tagName: el.tagName,
-                    dataCondition: el.getAttribute('data-condition'),
-                    innerHTML: el.innerHTML,
-                    classes: el.className
-                }))
-            );
-            
-            console.log(`🔍 Debug: Looking for elements with data-condition="${conditionKey}"`);
-            const conditionElements = document.querySelectorAll(`[data-condition="${conditionKey}"]`);
-            console.log(`🔍 Found ${conditionElements.length} elements with data-condition="${conditionKey}":`,
-                Array.from(conditionElements).map(el => ({
-                    tagName: el.tagName,
-                    dataPlayer: el.getAttribute('data-player'),
-                    innerHTML: el.innerHTML,
-                    classes: el.className
-                }))
-            );
-            
-            // Try alternative selectors
-            const altSelector1 = `[data-condition="${conditionKey}"][data-player="${playerKey}"] .count`;
-            const altElement1 = document.querySelector(altSelector1);
-            console.log(`🔍 Alternative selector "${altSelector1}" found:`, !!altElement1);
-            
-            if (altElement1) {
-                altElement1.textContent = newCount;
-                console.log(`✅ Updated counter using alternative selector!`);
-            }
-        }
-        
-        // Highlight current player
-        const allPlayerCounters = document.querySelectorAll(`[data-condition="${conditionKey}"] .player-counter`);
-        allPlayerCounters.forEach(counter => counter.classList.remove('active'));
-        
-        const currentPlayerCounter = document.querySelector(
-            `[data-player="${playerKey}"][data-condition="${conditionKey}"]`
-        );
-        if (currentPlayerCounter) {
-            currentPlayerCounter.classList.add('active');
-        }
-    }
-    
-    // Find the LED element for this condition and LED position
-    const ledElement = document.querySelector(
-        `[data-condition="${conditionKey}"][data-round="${ledPosition}"] .led-indicator`
-    );
-    
-    if (ledElement) {
-        // Always show green for normal processing (no duplicates since we prevent them above)
-        ledElement.className = 'led-indicator green';
-        console.log(`🟢 LED updated: ${condition} position ${ledPosition} - Normal occurrence (Player ${playerKey})`);
-    } else {
-        console.warn(`⚠️ LED not found for condition: ${conditionKey}, position: ${ledPosition}`);
-    }
+    // Enqueue update to be processed by the authoritative experiment status handler (Map keyed by block:round)
+    conditionTracker.pendingUpdates = conditionTracker.pendingUpdates || new Map();
+    const pendingKey = `${blockNumber}:${round}`;
+    const list = conditionTracker.pendingUpdates.get(pendingKey) || [];
+    list.push({
+        incentiveType,
+        player: playerName || 'NONE',
+        round: round,
+        blockNumber: blockNumber,
+        normalizedCondition: normalizedCondition
+    });
+    conditionTracker.pendingUpdates.set(pendingKey, list);
+    // Do not mark processed yet; it will be marked when the status update applies the LED
+    return;
 }
 
 // Function to update experimental HUD with condition and incentive information
@@ -5308,12 +6711,10 @@ function updateExperimentalHUD(data) {
         }
     }
     
-    // Update assigned player if applicable
-    if (data.player) {
-        const playerDisplay = document.getElementById('assignedPlayer');
-        if (playerDisplay) {
-            playerDisplay.textContent = `Player: ${data.player}`;
-        }
+    // Update assigned player (show 'No Player' when undefined)
+    const playerDisplay = document.getElementById('assignedPlayer');
+    if (playerDisplay) {
+        playerDisplay.textContent = `Player: ${data.player || 'NONE'}`;
     }
     
     // Check if current user is moderator
@@ -5357,27 +6758,19 @@ function updateExperimentalHUD(data) {
     
     // MODERATOR STATUS UPDATES - Update fixed status panel in control board
     
-    // Update current phase display
-    const phaseDisplay = document.getElementById('currentPhaseDisplay');
-    if (phaseDisplay && data.phase) {
-        phaseDisplay.textContent = data.phase.charAt(0).toUpperCase() + data.phase.slice(1);
-    }
-    
     // Update current condition display
     const conditionStatusDisplay = document.getElementById('currentConditionDisplay');
     if (conditionStatusDisplay) {
         conditionStatusDisplay.textContent = data.condition;
     }
     
-    // Update current round display with round count in phase (x/21 format)
+    // Update current round display with round count in block (x/21 format)
     const roundDisplay = document.getElementById('currentRoundDisplay');
     if (roundDisplay) {
-        if (data.phase === 'baseline') {
-            roundDisplay.textContent = `Baseline Round ${data.round || 0}`;
-        } else if (data.blockNumber) {
-            // Calculate round within current block (1-63)
-            const roundInBlock = ((data.round - 1) % 63) + 1;
-            roundDisplay.textContent = `${roundInBlock}/63`;
+        if (data.blockNumber) {
+            // Calculate round within current block (1-21)
+            const roundInBlock = ((data.round - 1) % 21) + 1;
+            roundDisplay.textContent = `${roundInBlock}/21`;
         } else {
             roundDisplay.textContent = `Round ${data.round || 0}`;
         }
@@ -5389,15 +6782,15 @@ function updateExperimentalHUD(data) {
         if (data.player && data.incentive !== 'No Incentive') {
             incentivePlayerDisplay.textContent = `${data.player} (${data.incentiveDisplay || data.incentive})`;
         } else {
-            incentivePlayerDisplay.textContent = 'None';
+            incentivePlayerDisplay.textContent = 'NONE';
         }
     }
     
     // Update block display
     const blockStatusDisplay = document.getElementById('currentBlockDisplay');
     if (blockStatusDisplay) {
-        if (data.blockNumber && data.phase !== 'baseline') {
-            blockStatusDisplay.textContent = `${data.blockNumber}/7`;
+        if (data.blockNumber) {
+            blockStatusDisplay.textContent = `${data.blockNumber}/9`;
         } else {
             blockStatusDisplay.textContent = 'N/A';
         }
@@ -5608,10 +7001,12 @@ socket.on('roundResult', function(data) {
         }
     }, 300); // Short delay for global token pool display
     
-    // Update round results title
-    const roundResultsTitle = document.getElementById('roundResultsTitle');
-    if (roundResultsTitle && data.round) {
-        roundResultsTitle.textContent = `Round ${data.round} Results`;
+    // Update round results title (both left and right versions for responsive layout)
+    const roundResultsTitles = document.querySelectorAll('.roundResultsTitle');
+    if (roundResultsTitles.length > 0 && data.round) {
+        roundResultsTitles.forEach(title => {
+            title.textContent = `Round ${data.round} Results`;
+        });
     }
     
     // Display round results
@@ -5656,24 +7051,28 @@ socket.on('roundResult', function(data) {
     }
     
     // Check if we have restored round history that we should preserve
-    const roundResultsDiv = document.getElementById('roundResults');
-    const hasRestoredHistory = roundResultsDiv && roundResultsDiv.querySelector('#persistentRoundHistory');
+    const roundResultsDivs = document.querySelectorAll('.roundResults');
+    const hasRestoredHistory = roundResultsDivs.length > 0 && roundResultsDivs[0].querySelector('#persistentRoundHistory');
     
     if (hasRestoredHistory && data.showDetails === false) {
         // This is a historical round result sent during restoration - don't overwrite the history display
         console.log('📚 Preserving restored round history, skipping roundResults update');
     } else {
-        // This is a current round result, safe to update
-        document.getElementById('roundResults').innerHTML = resultsHTML;
+        // This is a current round result, safe to update both left and right versions
+        roundResultsDivs.forEach(div => {
+            div.innerHTML = resultsHTML;
+        });
     }
     
-    // Display token awards with earnings inline (hide for moderators)
-    const tokenUpdateElement = document.getElementById('tokenUpdate');
-    if (tokenUpdateElement) {
+    // Display token awards with earnings inline (hide for moderators) - update both left and right versions
+    const tokenUpdateElements = document.querySelectorAll('.tokenUpdate');
+    if (tokenUpdateElements.length > 0) {
         if (isModerator) {
             // Hide token update div for moderators and clear content
-            tokenUpdateElement.style.display = 'none';
-            tokenUpdateElement.innerHTML = '';
+            tokenUpdateElements.forEach(element => {
+                element.style.display = 'none';
+                element.innerHTML = '';
+            });
         } else {
             // Calculate earnings from this round's tokens
             const whiteEarnings = (data.tokensAwarded.white || 0) * (data.condition.whiteValue || 0);
@@ -5700,30 +7099,32 @@ socket.on('roundResult', function(data) {
                 tokenHTML += ` ($0.00)`;
             }
             
-            tokenUpdateElement.innerHTML = tokenHTML;
+            tokenUpdateElements.forEach(element => {
+                element.innerHTML = tokenHTML;
+            });
         }
     }
 
     // Clear the separate round earnings element since we're now showing inline
-    const roundEarningsElement = document.getElementById('roundEarnings');
-    if (roundEarningsElement) {
-        roundEarningsElement.textContent = '';
-    }
+    const roundEarningsElements = document.querySelectorAll('.roundEarnings');
+    roundEarningsElements.forEach(element => {
+        element.textContent = '';
+    });
     
-    // Display active incentive status (only for moderators)
-    const incentiveElement = document.getElementById('activeIncentive');
-    if (incentiveElement) {
+    // Display active incentive status (only for moderators) - update both left and right versions
+    const incentiveElements = document.querySelectorAll('.activeIncentive');
+    incentiveElements.forEach(element => {
         if (isModerator && data.activeIncentive) {
-            incentiveElement.textContent = `Active Incentive: ${data.activeIncentive.charAt(0).toUpperCase() + data.activeIncentive.slice(1)}`;
-            incentiveElement.style.color = '#faa61a';
+            element.textContent = `Active Incentive: ${data.activeIncentive.charAt(0).toUpperCase() + data.activeIncentive.slice(1)}`;
+            element.style.color = '#faa61a';
         } else if (isModerator && !data.activeIncentive) {
-            incentiveElement.textContent = 'No Active Incentive';
-            incentiveElement.style.color = '#72767d';
+            element.textContent = 'No Active Incentive';
+            element.style.color = '#72767d';
         } else {
             // Hide incentive info for non-moderators
-            incentiveElement.textContent = '';
+            element.textContent = '';
         }
-    }
+    });
     
     // Update culturant count from server data
     if (data.culturantsProduced !== undefined) {
@@ -5734,22 +7135,22 @@ socket.on('roundResult', function(data) {
         }
     }
     
-    // Display culturant status
+    // Display culturant status - update both left and right versions
+    const culturantStatusElements = document.querySelectorAll('.culturantStatus');
     if (data.culturantProduced) {
-        const culturantStatusElement = document.getElementById('culturantStatus');
-        
         // Only show cooperation event message to moderators
-        if (culturantStatusElement && isModerator) {
-            culturantStatusElement.textContent = '🎯 Cooperation Event! All players chose even rows.';
-            culturantStatusElement.style.color = '#43b581';
-        } else if (culturantStatusElement) {
-            culturantStatusElement.textContent = '';
-        }
+        culturantStatusElements.forEach(element => {
+            if (isModerator) {
+                element.textContent = '🎯 Cooperation Event! All players chose even rows.';
+                element.style.color = '#43b581';
+            } else {
+                element.textContent = '';
+            }
+        });
     } else {
-        const culturantStatusElement = document.getElementById('culturantStatus');
-        if (culturantStatusElement) {
-            culturantStatusElement.textContent = '';
-        }
+        culturantStatusElements.forEach(element => {
+            element.textContent = '';
+        });
     }
     
     // Note: Wallet displays are now updated with delay in playerStatusUpdate event to sync with return animation
@@ -5828,54 +7229,10 @@ socket.on('columnModeChanged', function(data) {
 });
 
 // Function to show baseline exit notification to moderators
-function showBaselineExitNotification(turnNumber) {
-    // Check if user is moderator
-    const moderatorSwitchboard = document.getElementById('moderatorSwitchboard');
-    const isModerator = moderatorSwitchboard && moderatorSwitchboard.style.display === 'block';
-    
-    if (!isModerator) return;
-    
-    const notification = document.getElementById('baselineExitNotification');
-    const notificationText = document.getElementById('baselineExitText');
-    
-    if (notification && notificationText) {
-        // Use current round if turnNumber is 0 or invalid
-        const displayTurn = turnNumber > 0 ? turnNumber : currentRoundNumber;
-        notificationText.textContent = `Baseline condition exited on turn ${displayTurn}`;
-        notification.style.display = 'block';
-        console.log('🎯 Baseline exit notification displayed for turn:', displayTurn);
-        
-        // Add a subtle animation to draw attention
-        notification.style.transform = 'scale(0.95)';
-        setTimeout(() => {
-            notification.style.transform = 'scale(1)';
-        }, 100);
-    }
-}
-
 // Experimental condition changed
 socket.on('conditionChanged', function(data) {
     console.log('🔄 conditionChanged event received:', data);
     console.log(`💰 Experimental condition changed: ${data.condition.name}`);
-    console.log('🔍 Previous condition:', previousCondition);
-    console.log('🔍 Current round number:', currentRoundNumber);
-    
-    // Check for baseline exit (case insensitive)
-    const currentConditionName = data.condition.name.toLowerCase();
-    const wasBaseline = previousCondition && previousCondition.toLowerCase().includes('baseline');
-    const isBaseline = currentConditionName.includes('baseline');
-    
-    console.log('🔍 Baseline exit check:', {
-        wasBaseline: wasBaseline,
-        isBaseline: isBaseline,
-        currentConditionName: currentConditionName,
-        willTrigger: wasBaseline && !isBaseline
-    });
-    
-    if (wasBaseline && !isBaseline) {
-        console.log('🎯 Detected baseline exit from:', previousCondition, 'to:', data.condition.name);
-        showBaselineExitNotification(currentRoundNumber);
-    }
     
     // Update previous condition tracking
     previousCondition = data.condition.name;
@@ -5975,23 +7332,29 @@ function initializePlayerNamesInTracker(players) {
     const moderatorDiv = document.getElementById('moderatorPosition');
     const moderatorNameDiv = moderatorDiv?.querySelector('.moderator-name');
     const currentModerator = moderatorNameDiv?.textContent;
-    
+
+    // Normalize player identity: prefer `username`, fallback to `name`
+    const normalizedPlayers = players.map(p => ({
+        username: p.username || p.name || p.id || String(p),
+        isModerator: !!p.isModerator
+    }));
+
     // Filter to get only actual participants (not moderators)
-    const actualParticipants = players.filter(player => {
-        const isModerator = player.isModerator || player.name === currentModerator;
+    const actualParticipants = normalizedPlayers.filter(player => {
+        const isModerator = player.isModerator || player.username === currentModerator;
         if (isModerator) {
-            console.warn(`🚫 FILTERED OUT: Moderator "${player.name}" excluded from LED tracker`);
+            console.warn(`🚫 FILTERED OUT: Moderator "${player.username}" excluded from LED tracker`);
             return false;
         }
         return true;
     });
-    
-    console.log(`✅ Found ${actualParticipants.length} actual participants:`, actualParticipants.map(p => p.name));
-    
+
+    console.log(`✅ Found ${actualParticipants.length} actual participants:`, actualParticipants.map(p => p.username));
+
     // Map up to 3 actual participants (not just first 3 positions)
     actualParticipants.slice(0, 3).forEach((player, index) => {
-        playerNameMapping.set(player.name, player.name);
-        console.log(`🔗 Mapped participant ${index + 1}: ${player.name}`);
+        playerNameMapping.set(player.username, player.username);
+        console.log(`🔗 Mapped participant ${index + 1}: ${player.username}`);
     });
     
     // Initialize all player counters for all conditions using REAL participant names
@@ -5999,9 +7362,9 @@ function initializePlayerNamesInTracker(players) {
     
     allConditions.forEach(conditionKey => {
         actualParticipants.slice(0, 3).forEach((player, index) => {
-            const success = createDynamicPlayerCounter(conditionKey, player.name);
+            const success = createDynamicPlayerCounter(conditionKey, player.username);
             if (!success) {
-                console.error(`❌ Failed to create counter for ${player.name} in ${conditionKey}`);
+                console.error(`❌ Failed to create counter for ${player.username} in ${conditionKey}`);
             }
         });
     });
@@ -6041,11 +7404,59 @@ socket.on('conditionUpdate', function(data) {
         console.log(`👤 No player assigned (data.player = ${data.player})`);
     }
     if (data.blockNumber) {
-        console.log(`📦 Block: ${data.blockNumber}/7`);
+        console.log(`📦 Block: ${data.blockNumber}/9`);
+    }
+    
+    // Update block number display
+    if (data.blockNumber) {
+        const blockDisplay = document.getElementById('currentBlockDisplay');
+        if (blockDisplay) {
+            blockDisplay.textContent = `${data.blockNumber}/9`;
+            console.log(`📦 Updated block display to: ${data.blockNumber}/9`);
+        }
     }
     
     // Update token conversion display for all players
     updateTokenConversionDisplay(data.tokenValues.white, data.tokenValues.black);
+    
+    // Update current token value display (below checkerboard)
+    const currentWhiteValueEl = document.getElementById('currentWhiteTokenValue');
+    const currentBlackValueEl = document.getElementById('currentBlackTokenValue');
+    if (currentWhiteValueEl) currentWhiteValueEl.textContent = `$${data.tokenValues.white.toFixed(2)}`;
+    if (currentBlackValueEl) currentBlackValueEl.textContent = `$${data.tokenValues.black.toFixed(2)}`;
+    
+    // Color-code token value display based on condition
+    const currentTokenValueDisplay = document.getElementById('currentTokenValueDisplay');
+    if (currentTokenValueDisplay && data.condition) {
+        const innerBox = currentTokenValueDisplay.querySelector('div');
+        if (innerBox) {
+            let bgColor, borderColor;
+            switch (data.condition) {
+                case 'High Operant':
+                    // Blue for high-operant
+                    bgColor = 'rgba(88, 101, 242, 0.3)';
+                    borderColor = 'rgba(88, 101, 242, 0.5)';
+                    break;
+                case 'Equal Culturant-Operant':
+                    // Green for equal operant-culturant
+                    bgColor = 'rgba(67, 181, 129, 0.3)';
+                    borderColor = 'rgba(67, 181, 129, 0.5)';
+                    break;
+                case 'High Culturant':
+                    // Yellow for high culturant
+                    bgColor = 'rgba(250, 166, 26, 0.3)';
+                    borderColor = 'rgba(250, 166, 26, 0.5)';
+                    break;
+                default:
+                    // Default gray for baseline or unknown
+                    bgColor = 'rgba(54, 57, 63, 0.8)';
+                    borderColor = 'rgba(114, 118, 125, 0.2)';
+            }
+            innerBox.style.background = bgColor;
+            innerBox.style.borderColor = borderColor;
+            innerBox.style.transition = 'background 0.3s ease, border-color 0.3s ease';
+        }
+    }
     
     // Update HUD with experimental information
     updateExperimentalHUD(data);
@@ -6059,7 +7470,7 @@ socket.on('conditionUpdate', function(data) {
         const condition = data.condition || '';
         const round = data.round || 0;
         const blockNumber = data.blockNumber || 0;
-        const playerName = data.player || 'None';  // Simplified - use data.player directly
+        const playerName = data.player || 'NONE';  // Treat undefined player as 'NONE'
         
         console.log(`🔍 conditionUpdate LED processing DETAILED:`);
         console.log(`   data.player: "${data.player}" (type: ${typeof data.player})`);
@@ -6075,85 +7486,6 @@ socket.on('conditionUpdate', function(data) {
     } catch (error) {
         console.error('❌ LED TRACKER: Error processing conditionUpdate:', error);
     }
-});
-
-// Handle baseline to conditions phase transition
-socket.on('phaseTransition', function(data) {
-    console.log('🔄 Phase transition event received:', data);
-    
-    // Update token pool display
-    if (data.newTokenPool !== undefined) {
-        // For phase transitions, use CONDITIONS_TOKENS as max since we're transitioning to conditions phase
-        const maxTokens = TOKEN_CONFIG.CONDITIONS_TOKENS;
-        updateTokenPoolDisplay(data.newTokenPool, maxTokens);
-        console.log(`🪙 Token pool updated for phase transition: ${data.newTokenPool}/${maxTokens}`);
-    }
-    
-    // Update token pool bar with new total
-    const tokenPoolBar = document.getElementById('tokenPoolBar');
-    if (tokenPoolBar && data.initialWhiteTokens) {
-        const percentage = Math.max(0, (data.newTokenPool / data.initialWhiteTokens) * 100);
-        tokenPoolBar.style.width = `${percentage}%`;
-        console.log(`🎯 Token pool bar updated for transition: ${percentage}% (${data.newTokenPool}/${data.initialWhiteTokens})`);
-    }
-    
-    // Show phase transition notification
-    showSystemNotification('Phase Transition', data.message, 'info');
-    
-    // Update moderator status panel if user is moderator
-    const isModerator = window.currentUserIsModerator || false;
-    if (isModerator) {
-        // Update phase display in status panel
-        const phaseDisplay = document.getElementById('currentPhaseDisplay');
-        if (phaseDisplay) {
-            phaseDisplay.textContent = data.to.charAt(0).toUpperCase() + data.to.slice(1);
-        }
-        
-        // If we have moderator info from the transition, update all status displays
-        if (data.moderatorInfo) {
-            const conditionDisplay = document.getElementById('currentConditionDisplay');
-            const roundDisplay = document.getElementById('currentRoundDisplay');
-            const incentivePlayerDisplay = document.getElementById('currentIncentivePlayerDisplay');
-            const blockDisplay = document.getElementById('currentBlockDisplay');
-            
-            if (conditionDisplay) {
-                conditionDisplay.textContent = data.moderatorInfo.currentCondition;
-            }
-            
-            if (roundDisplay) {
-                roundDisplay.textContent = '1/21'; // First round of conditions phase
-            }
-            
-            if (incentivePlayerDisplay) {
-                if (data.moderatorInfo.incentivePlayer && data.moderatorInfo.currentIncentive !== 'No Incentive') {
-                    incentivePlayerDisplay.textContent = `${data.moderatorInfo.incentivePlayer} (${data.moderatorInfo.incentiveDisplay})`;
-                } else {
-                    incentivePlayerDisplay.textContent = 'None';
-                }
-            }
-            
-            if (blockDisplay) {
-                if (data.moderatorInfo.blockNumber) {
-                    blockDisplay.textContent = `${data.moderatorInfo.blockNumber}/7`;
-                } else {
-                    blockDisplay.textContent = 'N/A';
-                }
-            }
-        }
-    }
-    
-    // Update experimental HUD if it exists (legacy support)
-    const expPanel = document.getElementById('experimentalInfo');
-    if (expPanel) {
-        const phaseDisplay = expPanel.querySelector('.phase-display') || document.createElement('div');
-        if (!expPanel.querySelector('.phase-display')) {
-            phaseDisplay.className = 'phase-display';
-            expPanel.appendChild(phaseDisplay);
-        }
-        phaseDisplay.innerHTML = `<strong>Phase:</strong> ${data.to.charAt(0).toUpperCase() + data.to.slice(1)}`;
-    }
-    
-    console.log(`🎯 Transitioned from ${data.from} to ${data.to} phase with ${data.newTokenPool} tokens`);
 });
 
 // Column selected notification
@@ -6375,49 +7707,15 @@ document.addEventListener('DOMContentLoaded', function() {
     loginButton = document.getElementById('loginNav');
     console.log('🔍 Login button found during init:', !!loginButton);
     if (loginButton) {
-        console.log('🔍 Login button initial display style:', loginButton.style.display);
-        console.log('🔍 Login button computed display:', window.getComputedStyle(loginButton).display);
-        
-        // Add click event handler to open login modal
-        loginButton.addEventListener('click', function(e) {
-            e.preventDefault();
-            console.log('🔑 Login button clicked - opening modal');
-            const modal = document.getElementById('id01');
-            if (modal) {
-                modal.style.display = 'block';
-                
-                // Reinitialize login elements after modal is shown
-                setTimeout(() => {
-                    console.log('🔑 Reinitializing login elements after modal open');
-                    const signDivUsername = document.getElementById('username');
-                    const signDivPassword = document.getElementById('password');
-                    const signDivSignIn = document.getElementById('signIn');
-                    
-                    console.log('🔑 Elements found:');
-                    console.log('  - username:', !!signDivUsername);
-                    console.log('  - password:', !!signDivPassword);
-                    console.log('  - signIn:', !!signDivSignIn);
-                    
-                    // Focus on username input
-                    if (signDivUsername) {
-                        signDivUsername.focus();
-                    }
-                    
-                    // Setup event listeners for sign in button
-                    if (signDivSignIn && !signDivSignIn.hasAttribute('data-handler-added')) {
-                        signDivSignIn.addEventListener('click', handleSignIn);
-                        signDivSignIn.addEventListener('touchend', handleSignIn, { passive: false });
-                        signDivSignIn.setAttribute('data-handler-added', 'true');
-                        console.log('🔑 Event handlers added to sign in button');
-                    }
-                }, 100);
-            } else {
-                console.error('❌ Login modal not found!');
-            }
-        });
-        
-        console.log('🔑 Login button event handler added');
+        console.log('🔍 Login button display:', loginButton.style.display);
+        console.log('🔍 Login button computed:', window.getComputedStyle(loginButton).display);
+        console.log('🔍 Login button visible:', loginButton.offsetParent !== null);
+    } else {
+        console.error('❌ CRITICAL: Login button (#loginNav) not found in DOM!');
     }
+    
+    // Note: Login button click handlers are set up later in the initialization sequence
+    // (see mobile and desktop event handlers below)
     
     // Clean initialization - header should work with normal CSS now
     console.log('🔧 Header initialized with normal CSS styling');
@@ -6514,7 +7812,10 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     if (loginButton) {
-        console.log('🔑 Primary login button found - adding mobile support');
+        console.log('🔑 Primary login button found - adding click and touch support');
+        console.log('🔑 Button element:', loginButton);
+        console.log('🔑 Button parent:', loginButton.parentElement);
+        console.log('🔑 Button offsetParent:', loginButton.offsetParent);
         
         let touchStartedOnLogin = false;
         
@@ -6523,7 +7824,6 @@ document.addEventListener('DOMContentLoaded', function() {
             console.log('📱 Touch started on primary login button');
             touchStartedOnLogin = true;
             // Visual feedback
-            this.style.background = 'linear-gradient(135deg, #16a34a 0%, #22c55e 100%)';
             this.style.transform = 'scale(0.95)';
         }, { passive: false });
         
@@ -6534,13 +7834,18 @@ document.addEventListener('DOMContentLoaded', function() {
                 e.stopPropagation();
                 
                 // Reset visual feedback
-                this.style.background = 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)';
                 this.style.transform = 'scale(1)';
                 
                 // Open modal
                 console.log('📱 Opening login modal from mobile touch');
-                if (modal) modal.style.display='block';
-                if (signDivUsername) signDivUsername.focus();
+                const loginModal = document.getElementById('id01');
+                if (loginModal) {
+                    loginModal.style.display = 'block';
+                    const usernameInput = document.getElementById('username');
+                    if (usernameInput) usernameInput.focus();
+                } else {
+                    console.error('❌ Login modal (id01) not found!');
+                }
                 
                 touchStartedOnLogin = false;
             }
@@ -6550,22 +7855,38 @@ document.addEventListener('DOMContentLoaded', function() {
         loginButton.addEventListener('touchcancel', function(e) {
             console.log('📱 Touch cancelled on primary login button');
             if (touchStartedOnLogin) {
-                // Reset visual feedback
-                this.style.background = 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)';
                 this.style.transform = 'scale(1)';
                 touchStartedOnLogin = false;
             }
         });
         
-        // Original click handler for desktop
-        loginButton.onclick = function(event) {
+        // Click handler for desktop (works alongside touchend for mobile)
+        loginButton.addEventListener('click', function(event) {
             console.log('🖱️ Click on primary login button');
-            // Only handle if not a touch event
-            if (!touchStartedOnLogin) {
-                if (modal) modal.style.display='block';
-                if (signDivUsername) signDivUsername.focus();
+            console.log('🖱️ Event:', event);
+            console.log('🖱️ Target:', event.target);
+            console.log('🖱️ CurrentTarget:', event.currentTarget);
+            event.preventDefault();
+            event.stopPropagation();
+            
+            const loginModal = document.getElementById('id01');
+            console.log('🖱️ Modal found:', !!loginModal);
+            if (loginModal) {
+                console.log('🖱️ Opening modal...');
+                loginModal.style.display = 'block';
+                const usernameInput = document.getElementById('username');
+                if (usernameInput) {
+                    setTimeout(() => usernameInput.focus(), 100);
+                }
+                console.log('✅ Modal should now be visible');
+            } else {
+                console.error('❌ Login modal (id01) not found!');
             }
-        }
+        });
+        
+        console.log('✅ Login button event handlers attached successfully');
+    } else {
+        console.error('❌ CRITICAL: loginButton is null, cannot attach event handlers');
     }
 
     // Set up logout button (legacy - now in profile menu)
@@ -6948,7 +8269,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 const leaveRoom = confirm('Are you sure you want to leave the chatroom?');
                 if (leaveRoom) {
                     socket.emit('leaveRoom', "Global");
-                    window.location.href = '/';
+                    console.log('🔄 Soft-returning to landing page (no full navigation)');
+                    currentRoom = "Global";
+                    const landing = document.getElementById('landingPage');
+                    const gameDivLocal = document.getElementById('gameDiv');
+                    if (landing) landing.style.display = 'block';
+                    if (gameDivLocal) gameDivLocal.style.display = 'none';
+                    switchToLoggedOutUI();
+                    updateLeaveButtonVisibility();
                 }
             }
         });
@@ -7012,7 +8340,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 const leaveRoom = confirm("Are you sure you want to leave this room?");
                 if (leaveRoom) {
                     socket.emit('leaveRoom', "Global");
-                    window.location.href = '/';
+                    console.log('🔄 Soft-returning to landing page (no full navigation)');
+                    currentRoom = "Global";
+                    const landing = document.getElementById('landingPage');
+                    const gameDivLocal = document.getElementById('gameDiv');
+                    if (landing) landing.style.display = 'block';
+                    if (gameDivLocal) gameDivLocal.style.display = 'none';
+                    switchToLoggedOutUI();
+                    updateLeaveButtonVisibility();
                 }
             }
         });
@@ -7312,9 +8647,17 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Row choice - Selection phase for 8x8 grid system
     document.addEventListener('click', function(e) {
-        if (e.target.closest('.clickable-row') && e.target.closest('.clickable-row').style.pointerEvents !== 'none') {
-            e.preventDefault();
-            const row = e.target.closest('.clickable-row');
+        const clickedRow = e.target.closest('.clickable-row');
+        if (clickedRow) {
+                // Use computed style to determine if the row is interactive (covers CSS or inline styles)
+                const computed = window.getComputedStyle(clickedRow);
+                if (computed && computed.pointerEvents === 'none') {
+                    // Row is disabled/taken - ignore click
+                    console.log('🔒 Click ignored on taken/disabled row:', clickedRow.getAttribute('data-row'));
+                    return;
+                }
+                e.preventDefault();
+                const row = clickedRow;
             const rowNumber = row.getAttribute('data-row');
             
             console.log('🎯 Row clicked! Row number:', rowNumber, 'Previous selectedChoice:', selectedChoice);
@@ -7323,7 +8666,7 @@ document.addEventListener('DOMContentLoaded', function() {
             selectedChoice = rowNumber;
             console.log('🎯 selectedChoice updated to:', selectedChoice);
             
-            // Clear previous selections
+            // Clear previous selections and reset row headers
             document.querySelectorAll('.clickable-row').forEach(r => {
                 r.style.opacity = '0.7';
                 r.style.transform = 'scale(1)';
@@ -7331,11 +8674,30 @@ document.addEventListener('DOMContentLoaded', function() {
                 r.style.backgroundColor = 'transparent';
             });
             
+            // Reset all row headers to default
+            document.querySelectorAll('.row-header').forEach(header => {
+                const headerRow = parseInt(header.getAttribute('data-row'));
+                const isOddRow = headerRow % 2 === 1;
+                header.style.color = isOddRow ? '#ffffff' : '#000000';
+                header.style.textShadow = 'none';
+                header.style.transform = 'scale(1)';
+                header.style.backgroundColor = 'transparent';
+            });
+            
             // Highlight selected row
             row.style.opacity = '1';
             row.style.transform = 'scale(1.02)';
             row.style.boxShadow = '0 0 15px rgba(255, 215, 0, 0.5)';
             row.style.backgroundColor = '#40444b';
+            
+            // Highlight the corresponding row header
+            const rowHeader = document.querySelector(`.row-header[data-row="${rowNumber}"]`);
+            if (rowHeader) {
+                rowHeader.style.color = '#ffd700';
+                rowHeader.style.textShadow = '0 0 10px rgba(255, 215, 0, 0.8)';
+                rowHeader.style.transform = 'scale(1.15)';
+                rowHeader.style.backgroundColor = 'rgba(255, 215, 0, 0.2)';
+            }
             
             // Show selection status and enable lock-in button
             const selectedChoiceDiv = document.getElementById('selectedChoice');
@@ -7352,7 +8714,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 const lockInText = document.getElementById('lockInText');
                 lockInBtn.disabled = false;
                 if (lockInText) {
-                    lockInText.textContent = '🔒 Lock In Choice';
+                    lockInText.textContent = 'Lock in';
                 }
                 lockInBtn.style.background = 'linear-gradient(135deg, #5865f2, #4752c4)';
                 lockInBtn.style.cursor = 'pointer';
@@ -7377,7 +8739,20 @@ document.addEventListener('DOMContentLoaded', function() {
                 e.stopPropagation();
                 
                 console.log('🔒 Lock-in processing started - selectedChoice:', selectedChoice);
-                
+                // Client-side guard: ensure the selected row isn't marked as taken
+                const selectedRowEl = document.querySelector(`.clickable-row[data-row="${selectedChoice}"]`);
+                if (selectedRowEl) {
+                    const comp = window.getComputedStyle(selectedRowEl);
+                    if (comp && comp.pointerEvents === 'none') {
+                        console.log('🚫 Attempted to lock in a taken row on client; aborting.');
+                        alert('That row was just taken by another player. Please select a different row.');
+                        // Re-enable UI for selection
+                        isLockedIn = false;
+                        if (lockInBtn) lockInBtn.disabled = true;
+                        return;
+                    }
+                }
+
                 // Mark as locked in
                 isLockedIn = true;
                 
@@ -8099,16 +9474,38 @@ socket.on('incentiveChanged', function(data) {
     }
 });
 
-// Handle incentive bonus notifications
+// Handle incentive bonus notifications - turn banner to neon green success state and spawn token
 socket.on('incentiveBonusNotification', function(data) {
     console.log('🎁 Incentive bonus earned:', data);
     
-    // Show prominent success notification
-    showSystemNotification('Bonus Earned!', data.message, 'success');
+    // Turn the incentive banner to neon green success state
+    const incentiveBanner = document.getElementById('incentiveBanner');
+    if (incentiveBanner) {
+        // Add success class for neon green styling
+        incentiveBanner.classList.add('incentive-success');
+        
+        // Get the content container
+        const content = incentiveBanner.querySelector('.incentive-content');
+        if (content) {
+            // Replace content with checkmark and success message in neon style
+            content.innerHTML = `
+                <h3 class="incentive-title" style="color: #00ff00 !important; text-shadow: 0 0 10px #00ff00, 0 0 20px #00ff00, 0 0 30px #00ff00 !important;">
+                    ✓ BONUS EARNED ✓
+                </h3>
+                <p class="incentive-description" style="color: #00ffff; font-size: 16px;">
+                    +${data.bonusTokens} Black Token${data.bonusTokens > 1 ? 's' : ''}
+                </p>
+            `;
+        }
+    }
     
-    // Could add special effects here (confetti, sound, etc.)
-    // playBonusSound();
-    // showBonusAnimation();
+    // Trigger immediate incentive token animation
+    if (data.bonusTokens && data.bonusTokens > 0) {
+        // Small delay to let the color change register
+        setTimeout(() => {
+            showIncentiveTokenAnimation(data.bonusTokens);
+        }, 200);
+    }
 });
 
 socket.on('experimentPaused', function(data) {
@@ -8132,11 +9529,75 @@ socket.on('experimentResumed', function(data) {
 socket.on('roundResultsPanel', function(data) {
     console.log('📊 Round results panel data received:', data);
     
-    // Only show for moderators
-    const isModerator = window.currentUserIsModerator || false;
-    if (isModerator) {
-        updateRoundResultsPanel(data);
+    // Show results for everyone, but different data based on role
+    const moderatorSwitchboard = document.getElementById('moderatorSwitchboard');
+    const isModerator = moderatorSwitchboard && moderatorSwitchboard.style.display === 'block';
+    console.log('📊 isModerator check:', isModerator);
+    
+    // Show token animation for non-moderators (players)
+    // NOTE: Only animate white tokens and cooperative black tokens here
+    // Incentive bonus tokens are animated IMMEDIATELY when earned (in incentiveBonusNotification handler)
+    if (!isModerator && data.previousRoundPlayers) {
+        const currentPlayerRound = data.previousRoundPlayers.find(p => p.username === currentUsername);
+        if (currentPlayerRound) {
+            const whiteEarned = currentPlayerRound.whiteTokens || 0;
+            // Only include cooperative black tokens (when all chose even), NOT incentive bonuses
+            const cooperativeBlackEarned = currentPlayerRound.blackTokens || 0;
+            // Show animation with slight delay for dramatic effect
+            setTimeout(() => {
+                showTokenAnimation(whiteEarned, cooperativeBlackEarned);
+            }, 500);
+        }
     }
+    
+    // Delay showing results until return animation triggers (2 seconds)
+    setTimeout(() => {
+        console.log('📊 Displaying round results after return animation delay');
+        updateRoundResultsPanel(data);
+        
+        // Update poker table wallet displays and personal wallet with current totals
+        if (data.players && data.players.length > 0) {
+            console.log('💰 Updating all wallet displays from roundResultsPanel');
+            updateAllWalletDisplays(data.players);
+            
+            // Also update personal wallet if not moderator
+            if (!isModerator) {
+                const currentPlayer = data.players.find(p => p.username === currentUsername);
+                if (currentPlayer) {
+                    console.log(`💰 Found current player data:`, currentPlayer);
+                    document.getElementById('whiteTokens').textContent = currentPlayer.whiteTokens || 0;
+                    document.getElementById('blackTokens').textContent = currentPlayer.blackTokens || 0;
+                    document.getElementById('totalEarnings').textContent = `$${(currentPlayer.totalEarnings || 0).toFixed(2)}`;
+                    console.log(`💰 Updated personal wallet for ${currentUsername}: White=${currentPlayer.whiteTokens}, Black=${currentPlayer.blackTokens}, Total=$${currentPlayer.totalEarnings}`);
+                } else {
+                    console.log(`💰 Could not find player data for ${currentUsername} in:`, data.players.map(p => p.username));
+                }
+            }
+        }
+        
+        // Show roundResultsPokerTable for all players (round results below poker table)
+        const roundResultsPokerTable = document.getElementById('roundResultsPokerTable');
+        if (roundResultsPokerTable && data.previousRoundPlayers) {
+            roundResultsPokerTable.style.display = 'block';
+            console.log('📊 Showing roundResultsPokerTable for all players');
+        }
+        
+        // Show resultsPhaseBottom only for moderators (cumulative below checkerboard)
+        if (isModerator) {
+            const resultsPhaseBottom = document.getElementById('resultsPhaseBottom');
+            if (resultsPhaseBottom && data.players) {
+                resultsPhaseBottom.style.display = 'block';
+                console.log('📊 Showing resultsPhaseBottom for moderator only');
+            }
+        } else {
+            // Hide resultsPhaseBottom for non-moderators
+            const resultsPhaseBottom = document.getElementById('resultsPhaseBottom');
+            if (resultsPhaseBottom) {
+                resultsPhaseBottom.style.display = 'none';
+                console.log('📊 Hiding resultsPhaseBottom for non-moderator');
+            }
+        }
+    }, 2500); // Delay to sync with return animation completion
 });
 
 socket.on('roundReset', function(data) {
@@ -8246,7 +9707,25 @@ socket.on('turnUpdate', function(data) {
     
     // Update global active player tracker
     currentActivePlayer = data.currentTurnPlayer;
+    // Track current round for LED processing logic
+    window.currentRound = data.round;
     console.log(`🎯 Set currentActivePlayer to: ${currentActivePlayer}`);
+    // Illuminate moderator round indicator at the start of a new round
+    try {
+        window._lastRoundNumber = window._lastRoundNumber === undefined ? -1 : window._lastRoundNumber;
+        if (typeof data.round !== 'undefined' && data.round !== window._lastRoundNumber) {
+            window._lastRoundNumber = data.round;
+            const modInd = document.getElementById('modRoundIndicator');
+            if (modInd) {
+                modInd.className = 'led-indicator green';
+                setTimeout(() => { if (modInd) modInd.className = 'led-indicator off'; }, 1500);
+            }
+            // NOTE: LED updates are now handled directly by experimentStatusUpdate and yourTurn events.
+            // The old pending queue system has been removed in favor of direct parsing.
+        }
+    } catch (e) {
+        // non-fatal
+    }
     
     // Update turn display
     console.log('🎯 Calling updateTurnDisplay...');
@@ -8320,9 +9799,8 @@ function updateTurnDisplay(turnData) {
         if (isMyTurn) {
             turnDisplay.style.cssText = `
                 position: absolute;
-                top: -60px;
-                left: 50%;
-                transform: translateX(-50%);
+                bottom: 30px;
+                right: 70px;
                 background: linear-gradient(145deg, rgba(67, 181, 129, 0.95), rgba(52, 144, 103, 0.95));
                 color: white;
                 padding: 8px 16px;
@@ -8341,9 +9819,8 @@ function updateTurnDisplay(turnData) {
         } else {
             turnDisplay.style.cssText = `
                 position: absolute;
-                top: -60px;
-                left: 50%;
-                transform: translateX(-50%);
+                bottom: 30px;
+                right: 70px;
                 background: rgba(72, 47, 247, 0.9);
                 color: white;
                 padding: 8px 16px;
@@ -8427,13 +9904,27 @@ function updateRowInteractivity(turnData) {
         }
         
         rows.forEach((row, index) => {
+            const rowNumber = row.getAttribute('data-row');
+            const isTaken = turnData.takenRows && turnData.takenRows.includes(rowNumber);
+            
             if (turnData.turnBased) {
                 if (isMyTurn) {
-                    row.style.pointerEvents = 'auto';
-                    row.style.opacity = '1';
-                    row.style.cursor = 'pointer';
-                    row.classList.remove('disabled-turn');
-                    if (index === 0) console.log(`🔓 Enabled row interactions for ${currentUsername}'s turn`);
+                    if (isTaken) {
+                        // Disable taken rows even on your turn
+                        row.style.pointerEvents = 'none';
+                        row.style.opacity = '0.3';
+                        row.style.cursor = 'not-allowed';
+                        row.style.filter = 'grayscale(70%)';
+                        row.style.backgroundColor = 'rgba(255, 0, 0, 0.1)';
+                    } else {
+                        // Enable available rows on your turn
+                        row.style.pointerEvents = 'auto';
+                        row.style.opacity = '1';
+                        row.style.cursor = 'pointer';
+                        row.style.filter = 'none';
+                        row.classList.remove('disabled-turn');
+                        if (index === 0) console.log(`🔓 Enabled row interactions for ${currentUsername}'s turn`);
+                    }
                 } else {
                     row.style.pointerEvents = 'none';
                     row.style.opacity = '0.5';
@@ -8811,15 +10302,15 @@ socket.on('playerLockedIn', function(data) {
             
             if (playerSeat.id === 'leftPlayer') {
                 // Left player moves right to just outside counter boundary
-                let moveDistance = 320; // P1 needs to move farther in
+                let moveDistance = 80; // Reduced movement for new layout
                 playerSeat.style.transform = (originalStyles.transform || '') + ` scale(1.1) translateX(${moveDistance}px)`;
             } else if (playerSeat.id === 'rightPlayer') {
                 // Right player moves left to just outside counter boundary
-                let moveDistance = 320; // P3 needs to move farther in
+                let moveDistance = 80; // Reduced movement for new layout
                 playerSeat.style.transform = (originalStyles.transform || '') + ` scale(1.1) translateX(-${moveDistance}px)`;
             } else if (playerSeat.id === 'topPlayer') {
                 // Top player moves down to just outside counter boundary
-                let moveDistance = 40; // P2 moves less
+                let moveDistance = 60; // P2 moves less
                 playerSeat.style.transform = (originalStyles.transform || '') + ` scale(1.1) translateY(${moveDistance}px)`;
             } else {
                 // Fallback: just scale
@@ -9482,16 +10973,21 @@ function switchToLoggedInUI(username) {
         console.log('🔍 Main header ensured visible during login');
     }
     
+    // Hide login button with !important to override any CSS
     if (loginButton) {
-        loginButton.style.display = 'none';
-        console.log('👤 ✅ Login button hidden');
+        loginButton.style.setProperty('display', 'none', 'important');
+        loginButton.style.setProperty('visibility', 'hidden', 'important');
+        console.log('👤 ✅ Login button hidden with !important');
     } else {
         console.log('👤 ❌ Login button not found');
     }
     
+    // Show profile menu container with !important
     if (profileMenuContainer) {
-        profileMenuContainer.style.display = 'block';
-        console.log('👤 ✅ Profile menu shown');
+        profileMenuContainer.style.setProperty('display', 'flex', 'important');
+        profileMenuContainer.style.setProperty('visibility', 'visible', 'important');
+        profileMenuContainer.style.setProperty('opacity', '1', 'important');
+        console.log('👤 ✅ Profile menu shown with !important');
     } else {
         console.log('👤 ❌ Profile menu container not found');
     }
@@ -10016,6 +11512,27 @@ function createInviteChoiceModal() {
                         Generate Random Code
                     </button>
                     
+                    <button onclick="generateInviteLink()" style="
+                        width: 100%;
+                        padding: 15px;
+                        margin: 10px 0;
+                        background: linear-gradient(135deg, #2ecc71, #27ae60);
+                        color: white;
+                        border: none;
+                        border-radius: 12px;
+                        font-size: 16px;
+                        cursor: pointer;
+                        transition: all 0.3s ease;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        gap: 10px;
+                    " onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 8px 25px rgba(46, 204, 113, 0.4)'"
+                       onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none'">
+                        <i class="fas fa-link"></i>
+                        Generate Invite Link
+                    </button>
+                    
                     <button onclick="openPermanentInviteModal()" style="
                         width: 100%;
                         padding: 15px;
@@ -10066,6 +11583,14 @@ window.generateRandomInvite = function() {
         inviteBtn.innerHTML = 'Generating...';
     }
     
+    socket.emit('generateInviteCode', { isPermanent: false });
+};
+
+window.generateInviteLink = function() {
+    console.log('🔗 Invite link requested from modal');
+    closeInviteChoiceModal();
+    
+    // Same as random invite - the response handler will show the link
     socket.emit('generateInviteCode', { isPermanent: false });
 };
 
@@ -10925,9 +12450,16 @@ function handlePauseExperiment() {
     if (confirmPause) {
         console.log('⏸️ Moderator pausing experiment (leaving room)');
         
-        // Regular leave room behavior for moderator
+        // Regular leave room behavior for moderator (soft-return)
         socket.emit('leaveRoom', "Global");
-        window.location.href = '/';
+        console.log('🔄 Moderator soft-returning to landing page (no full navigation)');
+        currentRoom = "Global";
+        const landingModerator = document.getElementById('landingPage');
+        const gameDivModerator = document.getElementById('gameDiv');
+        if (landingModerator) landingModerator.style.display = 'block';
+        if (gameDivModerator) gameDivModerator.style.display = 'none';
+        switchToLoggedOutUI();
+        updateLeaveButtonVisibility();
     }
 }
 
@@ -10993,13 +12525,315 @@ socket.on('experimentStatusUpdate', function(data) {
     if (statusDisplay) {
         statusDisplay.textContent = `Phase: ${data.phase || 'Unknown'} | Tokens: ${data.tokens || 'Unknown'} | Round: ${data.round || 'Unknown'}`;
     }
+    // Centralized moderator status handling: update HUD and drive LED board changes
+    try {
+        // Update HUD elements consistently
+        updateExperimentalHUD(data);
+    } catch (e) {
+        console.warn('Could not update experimental HUD from status update', e);
+    }
+    // Only update LEDs if user is actually a moderator (check for LED board existence)
+    const ledBoard = document.getElementById('playerLEDArray');
+    if (ledBoard) {
+        try {
+            applyExperimentStatusToLEDs(data);
+        } catch (e) {
+            console.warn('Could not apply experiment status to LEDs', e);
+        }
+    }
 });
+
+// Apply the current experiment status to the LED board and tracker
+function applyExperimentStatusToLEDs(data) {
+    if (!conditionTracker) conditionTracker = {};
+    
+    // Track call counts per round for debugging
+    if (!conditionTracker.callCounts) conditionTracker.callCounts = {};
+    const callKey = `round${data.round}`;
+    conditionTracker.callCounts[callKey] = (conditionTracker.callCounts[callKey] || 0) + 1;
+    const callNumber = conditionTracker.callCounts[callKey];
+    
+    console.log(`LED TRACKER: ==== CALL #${callNumber} for round ${data.round} ====`);
+    console.log(`LED TRACKER: raw data ->`, JSON.stringify(data, null, 2));
+    
+    // Execution lock to prevent concurrent calls from lighting multiple LEDs
+    if (conditionTracker.isUpdating) {
+        console.log('LED TRACKER: update already in progress, skipping duplicate call');
+        return;
+    }
+    conditionTracker.isUpdating = true;
+    
+    try {
+        const phase = data.phase || '';
+        const round = data.round || 0;
+        const incentive = data.incentive || '';
+        const player = data.player || null;
+
+        console.log(`LED TRACKER: experimentStatusUpdate - round=${round}, incentive="${incentive}", player="${player}"`);
+
+        // Initialize appliedHistory if needed (but never reset it during normal gameplay)
+        if (!conditionTracker.appliedHistory) {
+            conditionTracker.appliedHistory = [];
+            conditionTracker.lastPhase = phase;
+            conditionTracker.currentBlock = null;
+            console.log('LED TRACKER: initialized appliedHistory');
+        }
+    
+        // Detect block transitions and reset LEDs for new block (every 21 rounds)
+        const blockNumber = data.blockNumber || Math.ceil(round / 21);
+        if (conditionTracker.currentBlock !== null && blockNumber !== conditionTracker.currentBlock && round > 1) {
+            try {
+                const allLEDs = document.querySelectorAll('#playerLEDArray .led-grid .led-indicator');
+                allLEDs.forEach(led => led.className = 'led-indicator off');
+                conditionTracker.appliedHistory = [];
+                console.log(`LED TRACKER: 🔄 BLOCK ${conditionTracker.currentBlock} → ${blockNumber} - Reset all LEDs for new block`);
+            } catch (e) { console.warn('LED TRACKER: block reset failed', e); }
+        }
+        conditionTracker.currentBlock = blockNumber;
+    
+        // Only reset LEDs when truly starting a new experiment (round 0 or 1 with empty history)
+        if (round <= 1 && conditionTracker.appliedHistory.length === 0) {
+            try {
+                const allLEDs = document.querySelectorAll('#playerLEDArray .led-grid .led-indicator');
+                allLEDs.forEach(led => led.className = 'led-indicator off');
+                console.log('LED TRACKER: reset all LEDs for new experiment start');
+            } catch (e) { console.warn('LED TRACKER: reset failed', e); }
+        }
+
+    // Keep the global current round in sync
+    if (typeof round !== 'undefined') {
+        window.currentRound = round;
+    }
+
+    // Direct LED application: parse experimentStatusUpdate data
+    // Determine incentiveType from incentive string
+    let incentiveType = null;
+    if (!incentive || incentive === 'No Incentive') {
+        incentiveType = 'none';
+    } else if (incentive.toLowerCase().includes('self control') || incentive.toLowerCase().includes('even')) {
+        incentiveType = 'sc'; // Even Row = Green
+    } else if (incentive.toLowerCase().includes('impulse') || incentive.toLowerCase().includes('odd')) {
+        incentiveType = 'imp'; // Odd Row = Yellow
+    } else {
+        incentiveType = 'none'; // fallback
+    }
+
+    // Determine target player
+    const targetPlayer = player || 'NONE';
+
+    console.log(`LED TRACKER: parsed -> incentiveType=${incentiveType}, targetPlayer=${targetPlayer}`);
+
+    // Build unique key for deduplication (exclude phase to catch duplicates across event sources)
+    const updateKey = `${round}:${targetPlayer}:${incentiveType}`;
+    conditionTracker.appliedHistory = conditionTracker.appliedHistory || [];
+    
+    // Check if already applied
+    const alreadyApplied = conditionTracker.appliedHistory.some(key => key === updateKey);
+    if (alreadyApplied) {
+        console.log(`LED TRACKER: already applied ${updateKey}, skipping to preserve lit LED`);
+        return;
+    }
+
+        // Apply the LED update
+        try {
+            lightIncentiveForTarget(incentiveType, targetPlayer, { round, phase });
+            conditionTracker.appliedHistory.push(updateKey);
+            console.log(`LED TRACKER: applied and recorded ${updateKey} (total applied: ${conditionTracker.appliedHistory.length})`);
+        } catch (e) {
+            console.warn('LED TRACKER: lightIncentiveForTarget failed', e);
+        }
+    } finally {
+        // Release lock
+        conditionTracker.isUpdating = false;
+    }
+}
+
+// Light an incentive indicator for a target (playerName or NONE)
+function lightIncentiveForTarget(incentiveType, playerName, dataContext = {}) {
+    console.log(`LED DEBUG: lightIncentiveForTarget called - incentiveType="${incentiveType}", playerName="${playerName}", round=${dataContext.round}`);
+    
+    try {
+        if (!conditionTracker) conditionTracker = {};
+        const round = dataContext.round || window.currentRound || 0;
+        const phase = dataContext.phase || conditionTracker.lastPhase || '';
+
+        // Validate incentiveType
+        if (!['sc', 'imp', 'none'].includes(incentiveType)) {
+            console.error(`LED TRACKER: invalid incentiveType "${incentiveType}", aborting`);
+            return;
+        }
+
+        let group = null;
+        if (incentiveType === 'none') {
+            group = document.querySelector('.led-player-group[data-player="NONE"]');
+        } else {
+            // Primary: find a led-item that was remapped to the username
+            const anyItem = document.querySelector(`.led-item[data-player="${playerName}"]`);
+            group = anyItem ? anyItem.closest('.led-player-group') : null;
+            // Fallback: match by the visible group label text if remapping hasn't occurred
+            if (!group) {
+                const groups = Array.from(document.querySelectorAll('.led-player-group'));
+                for (const g of groups) {
+                    try {
+                        const lbl = g.querySelector('.led-group-label');
+                        if (lbl && lbl.textContent && lbl.textContent.trim() === playerName) {
+                            group = g;
+                            break;
+                        }
+                    } catch (e) { continue; }
+                }
+            }
+        }
+        
+        if (!group) {
+            console.warn(`LED TRACKER: no LED group found for playerName="${playerName}", incentiveType="${incentiveType}"`);
+            return;
+        }
+        
+        const groupLabel = group.querySelector('.led-group-label')?.textContent?.trim() || 'unknown';
+        console.log(`LED DEBUG: found group for "${playerName}" (label: ${groupLabel}), looking for data-incentive="${incentiveType}"`);
+
+        // Choose indicators based on hard positions: left 3 are `sc`, right 3 are `imp`, middle/none handled via `none`.
+        // Select `.led-item` elements whose `data-incentive` matches the requested incentive, then map to `.led-indicator`.
+        const matchingItems = Array.from(group.querySelectorAll('.led-row .led-item'))
+            .filter(item => {
+                const di = item.getAttribute('data-incentive') || 'none';
+                return di === incentiveType;
+            });
+        
+        console.log(`LED DEBUG: found ${matchingItems.length} items with data-incentive="${incentiveType}"`);
+        
+        let indicators = matchingItems
+            .map(item => item.querySelector('.led-indicator'))
+            .filter(Boolean);
+
+        // Strict matching: if no indicators found for this incentive type, log error and abort
+        if (!indicators.length) {
+            console.error(`LED TRACKER: no LED slots with data-incentive="${incentiveType}" found for ${playerName}`);
+            return;
+        }
+
+        // Pick the next left-most OFF indicator inside the incentive segment (progressive fill left→right within that segment)
+        const target = indicators.find(ind => ind.className.indexOf('off') !== -1);
+        if (!target) {
+            console.warn(`LED TRACKER: no OFF indicators available for ${playerName} ${incentiveType} (all ${indicators.length} lit)`);
+            return;
+        }
+        
+        // CRITICAL: Verify we're only lighting ONE LED
+        const targetIndex = indicators.indexOf(target);
+        console.log(`LED DEBUG: selected target at index ${targetIndex} of ${indicators.length} indicators`);
+
+        // Determine color class
+        let colorClass = 'white';
+        if (incentiveType === 'sc') colorClass = 'green';
+        else if (incentiveType === 'imp') colorClass = 'yellow';
+
+        // Apply the color class to ONLY the single target - this should persist!
+        const beforeClass = target.className;
+        target.className = `led-indicator ${colorClass}`;
+        const afterClass = target.className;
+        
+        console.log(`LED DEBUG: lit SINGLE LED - before: "${beforeClass}" -> after: "${afterClass}" (player: ${playerName}, type: ${incentiveType}, color: ${colorClass})`);
+        
+        // Verify no other indicators in this segment were modified
+        const litCount = indicators.filter(ind => ind.className.indexOf('off') === -1).length;
+        console.log(`LED DEBUG: verification - ${litCount} of ${indicators.length} ${incentiveType} indicators now lit for ${playerName}`);
+
+    } catch (e) {
+        console.warn('lightIncentiveForTarget error', e);
+    }
+}
+
+// Process a pending update item (supports legacy {condition} objects and new {incentiveType})
+function processPendingItem(item, phase = '') {
+    if (!item) return;
+    // If item already has incentiveType, use it
+    if (item.incentiveType) {
+        lightIncentiveForTarget(item.incentiveType, item.player || 'NONE', { round: item.round, phase });
+        return;
+    }
+    // Legacy format: has `condition` string
+    const cond = item.condition || item.normalizedCondition || '';
+    if (!cond) {
+        console.warn('processPendingItem: no condition/incentiveType present', item);
+        return;
+    }
+    // Map condition -> incentiveType (duplicate logic from updateConditionLED)
+    const CONDITION_MAP = {
+        'HIGH_CULTURANT': 'High Culturant',
+        'HIGH_OPERANT': 'High Operant',
+        'EQUAL_CULTURANT_OPERANT': 'Equal Culturant–Operant'
+    };
+    let normalized = cond;
+    if (typeof cond === 'string') {
+        if (CONDITION_MAP[cond]) normalized = CONDITION_MAP[cond];
+        else {
+            const keyForm = cond.toUpperCase().replace(/\s+/g, '_');
+            if (CONDITION_MAP[keyForm]) normalized = CONDITION_MAP[keyForm];
+        }
+    }
+    let incentiveType = null;
+    switch (normalized) {
+        case 'High Culturant': incentiveType = 'sc'; break;
+        case 'High Operant': incentiveType = 'imp'; break;
+        case 'Equal Culturant–Operant': incentiveType = 'none'; break;
+        default:
+            console.warn('processPendingItem: unknown condition', normalized);
+            return;
+    }
+    lightIncentiveForTarget(incentiveType, item.player || 'NONE', { round: item.round, phase });
+}
 
 // Initialize switchboard functionality
 function initializeSwitchboardFunctions() {
     // Update switchboard clock
     updateSwitchboardClock();
     setInterval(updateSwitchboardClock, 1000);
+    
+    // Collapsible header functionality
+    const switchboardHeader = document.getElementById('switchboardHeader');
+    const switchboardGrid = document.getElementById('switchboardGrid');
+    const collapseIndicator = document.getElementById('collapseIndicator');
+    
+    if (switchboardHeader && switchboardGrid && collapseIndicator) {
+        // Check if already initialized to prevent re-initialization
+        if (switchboardHeader.dataset.initialized === 'true') {
+            return; // Already initialized, skip
+        }
+        switchboardHeader.dataset.initialized = 'true';
+        
+        let isCollapsed = true; // Start collapsed on first load
+        
+        // Set initial collapsed state only on first initialization
+        switchboardGrid.classList.add('collapsed');
+        collapseIndicator.style.transform = 'translateY(-50%) rotate(180deg)';
+        
+        switchboardHeader.addEventListener('click', function() {
+            isCollapsed = !isCollapsed;
+            
+            if (isCollapsed) {
+                // Collapsing
+                switchboardGrid.classList.remove('expanding');
+                switchboardGrid.classList.add('collapsing');
+                collapseIndicator.style.transform = 'translateY(-50%) rotate(180deg)';
+                
+                setTimeout(() => {
+                    switchboardGrid.classList.add('collapsed');
+                    switchboardGrid.classList.remove('collapsing');
+                }, 400);
+            } else {
+                // Expanding
+                switchboardGrid.classList.remove('collapsed', 'collapsing');
+                switchboardGrid.classList.add('expanding');
+                collapseIndicator.style.transform = 'translateY(-50%) rotate(0deg)';
+                
+                setTimeout(() => {
+                    switchboardGrid.classList.remove('expanding');
+                }, 500);
+            }
+        });
+    }
     
     // Auto column toggle functionality
     const autoToggle = document.getElementById('autoColumnToggleSwitch');
@@ -11240,14 +13074,14 @@ function getNotificationArea() {
     return notificationArea;
 }
 
-// Show prominent incentive banner for players anchored to poker table
+// Show prominent incentive banner for players - anchored to poker table with CRT flourish
 function showIncentiveBanner(incentiveText) {
     // Remove existing banner
     hideIncentiveBanner();
     
-    // Get or create notification area
-    const notificationArea = getNotificationArea();
-    if (!notificationArea) {
+    // Get poker table for positioning
+    const pokerTable = document.getElementById('pokerTable');
+    if (!pokerTable) {
         console.error('🎁 Cannot show incentive banner: poker table not found');
         return;
     }
@@ -11255,14 +13089,18 @@ function showIncentiveBanner(incentiveText) {
     // Create incentive banner
     const banner = document.createElement('div');
     banner.id = 'incentiveBanner';
-    banner.className = 'incentive-banner';
+    banner.className = 'incentive-banner incentive-flourish';
+    
+    // Create scanline overlay for CRT effect
+    const scanlines = document.createElement('div');
+    scanlines.className = 'incentive-scanlines';
     
     // Create content
     const content = document.createElement('div');
     content.className = 'incentive-content';
     
     const title = document.createElement('h3');
-    title.textContent = '🎁 BONUS OPPORTUNITY';
+    title.textContent = '⚡ BONUS OPPORTUNITY';
     title.className = 'incentive-title';
     
     const description = document.createElement('p');
@@ -11271,65 +13109,265 @@ function showIncentiveBanner(incentiveText) {
     
     content.appendChild(title);
     content.appendChild(description);
+    banner.appendChild(scanlines);
     banner.appendChild(content);
     
-    // Style the banner to fit in notification area
-    banner.style.cssText = `
-        position: relative;
-        width: 100%;
-        background: linear-gradient(135deg, #ff6b6b, #ffd93d);
-        color: #333;
-        padding: 12px 16px;
-        border-radius: 8px;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-        font-family: Arial, sans-serif;
-        text-align: center;
-        border: 2px solid #ff6b6b;
-        animation: slideInRight 0.5s ease-out;
-        margin-bottom: 10px;
-        pointer-events: auto;
-        cursor: pointer;
-    `;
-    
-    title.style.cssText = `
-        margin: 0 0 6px 0;
-        font-size: 14px;
-        font-weight: bold;
-        text-shadow: 1px 1px 2px rgba(0,0,0,0.1);
-    `;
-    
-    description.style.cssText = `
-        margin: 0;
-        font-size: 12px;
-        line-height: 1.3;
-        font-weight: 500;
-    `;
-    
-    // Add click to close functionality
-    banner.onclick = function() {
-        hideIncentiveBanner();
-    };
-    
-    // Add animation styles
-    const style = document.createElement('style');
-    style.textContent = `
-        @keyframes slideInRight {
-            0% { transform: translateX(100%); opacity: 0; }
-            100% { transform: translateX(0); opacity: 1; }
-        }
-        @keyframes slideOutRight {
-            0% { transform: translateX(0); opacity: 1; }
-            100% { transform: translateX(100%); opacity: 0; }
-        }
-    `;
-    if (!document.querySelector('#notificationAreaStyles')) {
-        style.id = 'notificationAreaStyles';
+    // Add CRT neon styles
+    const styleId = 'incentiveBannerCRTStyles';
+    if (!document.getElementById(styleId)) {
+        const style = document.createElement('style');
+        style.id = styleId;
+        style.textContent = `
+            #incentiveBanner {
+                position: absolute;
+                top: 10px;
+                left: 10px;
+                z-index: 1000;
+                min-width: 280px;
+                max-width: 320px;
+                background: linear-gradient(180deg, 
+                    rgba(10, 10, 20, 0.92) 0%, 
+                    rgba(15, 12, 25, 0.95) 100%);
+                border: 2px solid #ff00ff;
+                border-radius: 4px;
+                padding: 0;
+                font-family: 'Courier New', monospace;
+                text-align: left;
+                box-shadow: 
+                    0 0 15px rgba(255, 0, 255, 0.4),
+                    0 0 30px rgba(255, 0, 255, 0.2),
+                    inset 0 0 20px rgba(255, 0, 255, 0.05);
+                cursor: pointer;
+                overflow: hidden;
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            
+            /* Initial flourish state - intense CRT effect */
+            #incentiveBanner.incentive-flourish {
+                animation: incentiveSlideIn 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards,
+                           incentiveCRTFlourish 0.8s ease-out forwards;
+            }
+            
+            /* Settled state - reduced effects, more legible */
+            #incentiveBanner.incentive-settled {
+                animation: none;
+                transform: translateX(0);
+                opacity: 1;
+                border-color: #cc00cc;
+                box-shadow: 
+                    0 0 10px rgba(255, 0, 255, 0.3),
+                    0 0 20px rgba(255, 0, 255, 0.15),
+                    inset 0 0 15px rgba(255, 0, 255, 0.03);
+            }
+            
+            #incentiveBanner.incentive-settled .incentive-scanlines {
+                opacity: 0.3;
+                animation: none;
+            }
+            
+            #incentiveBanner.incentive-settled .incentive-title {
+                animation: none;
+                text-shadow: 
+                    0 0 8px rgba(255, 0, 255, 0.6),
+                    0 0 15px rgba(255, 0, 255, 0.3);
+            }
+            
+            #incentiveBanner.incentive-settled .incentive-description {
+                text-shadow: 
+                    0 0 5px rgba(0, 255, 255, 0.4);
+            }
+            
+            .incentive-scanlines {
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: repeating-linear-gradient(
+                    0deg,
+                    rgba(0, 0, 0, 0.1) 0px,
+                    rgba(0, 0, 0, 0.1) 1px,
+                    transparent 1px,
+                    transparent 3px
+                );
+                pointer-events: none;
+                z-index: 10;
+                opacity: 0.6;
+            }
+            
+            .incentive-content {
+                position: relative;
+                z-index: 5;
+                padding: 12px 16px;
+            }
+            
+            #incentiveBanner .incentive-title {
+                margin: 0 0 6px 0;
+                font-size: 15px;
+                font-weight: bold;
+                color: #ff00ff;
+                letter-spacing: 2px;
+                text-transform: uppercase;
+                text-shadow: 
+                    0 0 10px #ff00ff,
+                    0 0 20px #ff00ff,
+                    0 0 30px #ff00ff;
+            }
+            
+            #incentiveBanner .incentive-description {
+                margin: 0;
+                font-size: 13px;
+                line-height: 1.4;
+                font-weight: 500;
+                color: #00ffff;
+                text-shadow: 
+                    0 0 5px #00ffff,
+                    0 0 10px rgba(0, 255, 255, 0.5);
+                letter-spacing: 0.5px;
+            }
+            
+            @keyframes incentiveSlideIn {
+                0% { 
+                    transform: translateX(120%); 
+                    opacity: 0; 
+                }
+                100% { 
+                    transform: translateX(0); 
+                    opacity: 1; 
+                }
+            }
+            
+            @keyframes incentiveCRTFlourish {
+                0% {
+                    filter: brightness(2) saturate(1.5);
+                    box-shadow: 
+                        0 0 30px rgba(255, 0, 255, 0.8),
+                        0 0 60px rgba(255, 0, 255, 0.5),
+                        0 0 90px rgba(0, 255, 255, 0.3),
+                        inset 0 0 40px rgba(255, 0, 255, 0.2);
+                }
+                30% {
+                    filter: brightness(1.8) saturate(1.3);
+                }
+                60% {
+                    filter: brightness(1.3) saturate(1.1);
+                }
+                100% {
+                    filter: brightness(1) saturate(1);
+                    box-shadow: 
+                        0 0 15px rgba(255, 0, 255, 0.4),
+                        0 0 30px rgba(255, 0, 255, 0.2),
+                        inset 0 0 20px rgba(255, 0, 255, 0.05);
+                }
+            }
+            
+            @keyframes incentiveSlideOut {
+                0% { 
+                    transform: translateX(0); 
+                    opacity: 1; 
+                }
+                100% { 
+                    transform: translateX(120%); 
+                    opacity: 0; 
+                }
+            }
+            
+            /* Success state - when bonus is earned */
+            #incentiveBanner.incentive-success {
+                border-color: #00ff00;
+                box-shadow: 
+                    0 0 15px rgba(0, 255, 0, 0.5),
+                    0 0 30px rgba(0, 255, 0, 0.3),
+                    inset 0 0 20px rgba(0, 255, 0, 0.05);
+                animation: incentiveSuccessFlash 0.5s ease-out forwards;
+            }
+            
+            #incentiveBanner.incentive-success .incentive-title {
+                color: #00ff00;
+                text-shadow: 
+                    0 0 10px #00ff00,
+                    0 0 20px rgba(0, 255, 0, 0.5);
+            }
+            
+            #incentiveBanner.incentive-success .incentive-scanlines {
+                opacity: 0.2;
+            }
+            
+            @keyframes incentiveSuccessFlash {
+                0% {
+                    filter: brightness(2) saturate(1.5);
+                    box-shadow: 
+                        0 0 40px rgba(0, 255, 0, 0.8),
+                        0 0 80px rgba(0, 255, 0, 0.5),
+                        inset 0 0 40px rgba(0, 255, 0, 0.2);
+                }
+                100% {
+                    filter: brightness(1) saturate(1);
+                    box-shadow: 
+                        0 0 15px rgba(0, 255, 0, 0.5),
+                        0 0 30px rgba(0, 255, 0, 0.3),
+                        inset 0 0 20px rgba(0, 255, 0, 0.05);
+                }
+            }
+            
+            /* Dimmed state - when user clicks to temporarily hide */
+            #incentiveBanner.incentive-dimmed {
+                opacity: 0.15;
+                transform: scale(0.95);
+                filter: brightness(0.5) saturate(0.5);
+                transition: all 0.3s ease-out;
+                pointer-events: none;
+            }
+            
+            #incentiveBanner.incentive-returning {
+                opacity: 1;
+                transform: scale(1);
+                filter: brightness(1) saturate(1);
+                transition: all 0.5s ease-out;
+                pointer-events: auto;
+            }
+        `;
         document.head.appendChild(style);
     }
     
-    notificationArea.appendChild(banner);
+    // Click to temporarily dim (NOT close) - returns after a few seconds
+    banner.onclick = function() {
+        if (banner.classList.contains('incentive-dimmed')) return; // Already dimmed
+        
+        banner.classList.add('incentive-dimmed');
+        banner.classList.remove('incentive-settled');
+        
+        // Return after 4 seconds
+        setTimeout(() => {
+            if (banner && banner.parentNode && !banner.classList.contains('incentive-success')) {
+                banner.classList.remove('incentive-dimmed');
+                banner.classList.add('incentive-returning');
+                
+                // Remove returning class after transition
+                setTimeout(() => {
+                    if (banner && banner.parentNode) {
+                        banner.classList.remove('incentive-returning');
+                        banner.classList.add('incentive-settled');
+                    }
+                }, 500);
+            }
+        }, 4000);
+    };
     
-    console.log('🎁 Incentive banner displayed in poker table area:', incentiveText);
+    // Append to poker table
+    pokerTable.style.position = 'relative';
+    pokerTable.appendChild(banner);
+    
+    // After flourish animation, settle into legible state
+    setTimeout(() => {
+        if (banner && banner.parentNode) {
+            banner.classList.remove('incentive-flourish');
+            banner.classList.add('incentive-settled');
+        }
+    }, 800);
+    
+    console.log('🎁 CRT incentive banner displayed on poker table:', incentiveText);
 }
 
 // Hide incentive banner
@@ -11340,122 +13378,430 @@ function hideIncentiveBanner() {
     }
 }
 
+// Immediate Incentive Token Animation - spawns from incentive banner and flies to wallet
+function showIncentiveTokenAnimation(blackTokens) {
+    if (blackTokens <= 0) return;
+    
+    // Get source position (incentive banner or notification area)
+    const incentiveBanner = document.getElementById('incentiveBanner');
+    const notificationArea = document.getElementById('pokerTableNotificationArea');
+    const sourceEl = incentiveBanner || notificationArea;
+    
+    // Get destination (black token wallet)
+    const blackWalletEl = document.getElementById('blackTokens');
+    
+    if (!sourceEl || !blackWalletEl) {
+        console.log('🎁 Incentive animation: Could not find source/destination elements');
+        return;
+    }
+    
+    const sourceRect = sourceEl.getBoundingClientRect();
+    const destRect = blackWalletEl.getBoundingClientRect();
+    
+    // Source: center of incentive banner
+    const sourceX = sourceRect.left + sourceRect.width / 2;
+    const sourceY = sourceRect.top + sourceRect.height / 2;
+    
+    // Add animation styles if not present
+    let style = document.getElementById('incentiveTokenAnimStyle');
+    if (!style) {
+        style = document.createElement('style');
+        style.id = 'incentiveTokenAnimStyle';
+        style.textContent = `
+            .incentive-flying-token {
+                position: fixed;
+                font-size: 32px;
+                pointer-events: none;
+                z-index: 100000;
+                opacity: 0;
+                filter: drop-shadow(0 0 10px rgba(0, 255, 0, 0.8)) drop-shadow(0 0 20px rgba(0, 255, 0, 0.5));
+            }
+            
+            @keyframes incentiveTokenSpawn {
+                0% { opacity: 0; transform: scale(0); }
+                60% { opacity: 1; transform: scale(1.3); }
+                100% { opacity: 1; transform: scale(1); }
+            }
+            
+            @keyframes incentiveTokenFly {
+                0% { 
+                    opacity: 1; 
+                    transform: scale(1); 
+                }
+                50% { 
+                    opacity: 1; 
+                    transform: scale(1.1) translateY(-15px); 
+                }
+                100% { 
+                    opacity: 0; 
+                    transform: scale(0.6); 
+                }
+            }
+        `;
+        document.head.appendChild(style);
+    }
+    
+    // Create and animate tokens
+    for (let i = 0; i < blackTokens; i++) {
+        const token = document.createElement('div');
+        token.className = 'incentive-flying-token';
+        token.textContent = '⚫';
+        token.style.left = `${sourceX}px`;
+        token.style.top = `${sourceY}px`;
+        document.body.appendChild(token);
+        
+        const staggerDelay = i * 150;
+        
+        // Phase 1: Spawn with golden glow effect
+        setTimeout(() => {
+            token.style.animation = 'incentiveTokenSpawn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards';
+        }, staggerDelay);
+        
+        // Phase 2: Fly to wallet
+        setTimeout(() => {
+            token.style.animation = 'incentiveTokenFly 0.7s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards';
+            token.style.transition = 'left 0.7s cubic-bezier(0.25, 0.46, 0.45, 0.94), top 0.7s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
+            token.style.left = `${destRect.left + destRect.width / 2}px`;
+            token.style.top = `${destRect.top + destRect.height / 2}px`;
+        }, staggerDelay + 500);
+        
+        // Cleanup
+        setTimeout(() => {
+            token.remove();
+            
+            // On last token, increment the black token count in the wallet
+            if (i === blackTokens - 1) {
+                const blackWalletDisplay = document.getElementById('blackTokens');
+                if (blackWalletDisplay) {
+                    const currentCount = parseInt(blackWalletDisplay.textContent) || 0;
+                    blackWalletDisplay.textContent = currentCount + blackTokens;
+                    
+                    // Add a brief pulse effect to the wallet
+                    blackWalletDisplay.style.transition = 'transform 0.2s ease, color 0.2s ease';
+                    blackWalletDisplay.style.transform = 'scale(1.3)';
+                    blackWalletDisplay.style.color = '#22c55e';
+                    
+                    setTimeout(() => {
+                        blackWalletDisplay.style.transform = 'scale(1)';
+                        blackWalletDisplay.style.color = '';
+                    }, 300);
+                    
+                    console.log(`🎁 Black token count updated: ${currentCount} → ${currentCount + blackTokens}`);
+                }
+            }
+        }, staggerDelay + 1300);
+    }
+    
+    // Cleanup style after all animations
+    setTimeout(() => {
+        if (style && style.parentNode) {
+            style.remove();
+        }
+    }, (blackTokens * 150) + 1500);
+    
+    console.log(`🎁 Incentive token animation: ${blackTokens} black tokens flying to wallet`);
+}
+
+// Token Animation - Shows tokens earned at end of round
+// Tokens float from moderator square → line up below poker table → fly to player's wallet
+function showTokenAnimation(whiteTokens, blackTokens) {
+    // Don't animate if no tokens
+    if (whiteTokens === 0 && blackTokens === 0) return;
+    
+    // Remove any existing animation
+    const existingTokens = document.querySelectorAll('.flying-token');
+    existingTokens.forEach(t => t.remove());
+    
+    const existingStyle = document.getElementById('tokenAnimStyle');
+    if (existingStyle) existingStyle.remove();
+    
+    // Get source position (moderator square / table center)
+    const moderatorEl = document.getElementById('moderatorPosition') || document.getElementById('tableCenter');
+    const pokerTable = document.getElementById('pokerTable');
+    
+    // Get destination positions (wallet tokens in status panel)
+    const whiteWalletEl = document.getElementById('whiteTokens');
+    const blackWalletEl = document.getElementById('blackTokens');
+    
+    if (!moderatorEl || !pokerTable) {
+        console.log('🎯 Token animation: Could not find poker table elements');
+        return;
+    }
+    
+    // Calculate positions
+    const sourceRect = moderatorEl.getBoundingClientRect();
+    const tableRect = pokerTable.getBoundingClientRect();
+    const whiteDestRect = whiteWalletEl?.getBoundingClientRect();
+    const blackDestRect = blackWalletEl?.getBoundingClientRect();
+    
+    // Source: center of moderator square
+    const sourceX = sourceRect.left + sourceRect.width / 2;
+    const sourceY = sourceRect.top + sourceRect.height / 2;
+    
+    // Staging area: below the poker table, centered
+    const stagingY = tableRect.bottom + 20;
+    const stagingBaseX = tableRect.left + tableRect.width / 2;
+    
+    // Add animation styles
+    const style = document.createElement('style');
+    style.id = 'tokenAnimStyle';
+    style.textContent = `
+        .flying-token {
+            position: fixed;
+            font-size: 28px;
+            pointer-events: none;
+            z-index: 99999;
+            opacity: 0;
+            transition: none;
+        }
+        
+        .flying-token.white-token {
+            filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.5)) drop-shadow(0 0 12px rgba(200, 200, 200, 0.3));
+        }
+        
+        .flying-token.black-token {
+            filter: drop-shadow(0 0 6px rgba(80, 80, 80, 0.6)) drop-shadow(0 0 12px rgba(60, 60, 60, 0.4));
+        }
+        
+        @keyframes tokenSpawn {
+            0% { opacity: 0; transform: scale(0) rotate(0deg); }
+            60% { opacity: 0.9; transform: scale(1.1) rotate(180deg); }
+            100% { opacity: 0.9; transform: scale(1) rotate(360deg); }
+        }
+        
+        @keyframes tokenIdle {
+            0%, 100% { transform: translateY(0) rotate(0deg); }
+            50% { transform: translateY(-3px) rotate(5deg); }
+        }
+        
+        @keyframes tokenFlyToWallet {
+            0% { 
+                opacity: 0.9; 
+                transform: scale(1) rotate(0deg); 
+            }
+            20% { 
+                opacity: 1; 
+                transform: scale(1.15) rotate(30deg) translateY(-10px); 
+            }
+            50% { 
+                opacity: 0.95; 
+                transform: scale(1.05) rotate(180deg); 
+            }
+            80% { 
+                opacity: 0.8; 
+                transform: scale(0.8) rotate(300deg); 
+            }
+            100% { 
+                opacity: 0; 
+                transform: scale(0.4) rotate(360deg); 
+            }
+        }
+    `;
+    document.head.appendChild(style);
+    
+    // Create and animate tokens
+    const totalTokens = whiteTokens + blackTokens;
+    const tokens = [];
+    
+    // Create white tokens first, then black tokens
+    for (let i = 0; i < whiteTokens; i++) {
+        tokens.push({ type: 'white', emoji: '⚪', destRect: whiteDestRect });
+    }
+    for (let i = 0; i < blackTokens; i++) {
+        tokens.push({ type: 'black', emoji: '⚫', destRect: blackDestRect });
+    }
+    
+    // Calculate side-by-side positions below table
+    const tokenSpacing = 36; // pixels between token centers
+    const totalWidth = (totalTokens - 1) * tokenSpacing;
+    const startX = stagingBaseX - totalWidth / 2;
+    
+    // Animate each token with staggered timing
+    tokens.forEach((tokenData, index) => {
+        const token = document.createElement('div');
+        token.className = `flying-token ${tokenData.type}-token`;
+        token.textContent = tokenData.emoji;
+        token.style.left = `${sourceX}px`;
+        token.style.top = `${sourceY}px`;
+        document.body.appendChild(token);
+        
+        const staggerDelay = index * 120; // 120ms between each token
+        
+        // Calculate this token's final position in the lineup
+        const lineupX = startX + (index * tokenSpacing);
+        
+        // Phase 1: Spawn at moderator square with pop animation
+        setTimeout(() => {
+            token.style.animation = 'tokenSpawn 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) forwards';
+        }, staggerDelay);
+        
+        // Phase 2: Float to lineup position below poker table
+        setTimeout(() => {
+            token.style.animation = 'none';
+            token.style.opacity = '0.9';
+            token.style.transition = 'left 0.5s cubic-bezier(0.4, 0, 0.2, 1), top 0.5s cubic-bezier(0.4, 0, 0.2, 1)';
+            token.style.left = `${lineupX}px`;
+            token.style.top = `${stagingY}px`;
+        }, staggerDelay + 350);
+        
+        // Phase 3: Gentle idle animation while waiting (longer pause)
+        setTimeout(() => {
+            token.style.transition = 'none';
+            token.style.animation = 'tokenIdle 1.5s ease-in-out infinite';
+        }, staggerDelay + 850);
+        
+        // Phase 4: Fly to wallet destination with smooth arc
+        const flyDelay = (totalTokens * 120) + 1800; // Wait for all tokens + 1.8s pause
+        setTimeout(() => {
+            const destRect = tokenData.destRect;
+            if (destRect) {
+                // Use smoother easing and longer duration for flight
+                token.style.animation = 'tokenFlyToWallet 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards';
+                token.style.transition = 'left 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94), top 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
+                token.style.left = `${destRect.left + destRect.width / 2}px`;
+                token.style.top = `${destRect.top + destRect.height / 2}px`;
+            } else {
+                // Fallback: fade out in place
+                token.style.animation = 'tokenFlyToWallet 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards';
+            }
+        }, flyDelay + (index * 100)); // Slightly more stagger for smoother cascade
+        
+        // Cleanup token
+        setTimeout(() => {
+            token.remove();
+        }, flyDelay + (index * 100) + 900);
+    });
+    
+    // Cleanup styles after all animations complete
+    const totalDuration = (totalTokens * 120) + 1800 + (totalTokens * 100) + 1000;
+    setTimeout(() => {
+        style.remove();
+    }, totalDuration);
+    
+    console.log(`🎯 Token animation: ${whiteTokens} white, ${blackTokens} black flying from moderator to wallet`);
+}
+
+// Initialize round results panel with waiting state (called when game starts)
+function initializeRoundResultsPanel() {
+    const roundResultsPanels = document.querySelectorAll('.roundResultsPanel');
+    const conversionRateInfos = document.querySelectorAll('.conversionRateInfo');
+    
+    // Show the panels with initial waiting state
+    roundResultsPanels.forEach(element => {
+        if (element.querySelector('.conversionRateInfo')) {
+            element.style.display = 'block';
+        }
+    });
+    
+    // Set initial content
+    const initialHTML = `
+        <div style="background: rgba(64, 68, 75, 0.8); backdrop-filter: blur(12px); border-radius: 8px; padding: 12px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2); border: 1px solid rgba(114, 118, 125, 0.2); max-width: 400px;">
+            <div style="background: rgba(40, 43, 48, 0.6); border-radius: 6px; padding: 16px; text-align: center;">
+                <div style="color: #b9bbbe; font-size: 14px; margin-bottom: 10px;">
+                    <i class="fas fa-hourglass-half" style="margin-right: 8px; animation: pulse 1.5s ease infinite;"></i>
+                    Waiting for first round...
+                </div>
+                <div style="display: flex; justify-content: center; gap: 30px; opacity: 0.5;">
+                    <div style="text-align: center;">
+                        <div style="font-size: 24px;">⚪</div>
+                        <div style="color: #43b581; font-size: 16px; font-weight: 600;">--</div>
+                    </div>
+                    <div style="text-align: center;">
+                        <div style="font-size: 24px;">⚫</div>
+                        <div style="color: #e74c3c; font-size: 16px; font-weight: 600;">--</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    conversionRateInfos.forEach(element => {
+        element.innerHTML = initialHTML;
+    });
+    
+    // Hide the title/message since we're showing the panel
+    document.querySelectorAll('.roundResultsTitle').forEach(el => el.style.display = 'none');
+    document.querySelectorAll('.roundResults').forEach(el => el.style.display = 'none');
+    
+    console.log('📊 Initialized round results panel with waiting state');
+}
+
 // Update Round Results Panel for Moderators
 function updateRoundResultsPanel(roundData) {
     console.log('🔍 Updating round results panel:', roundData);
     
-    const roundResultsTitle = document.getElementById('roundResultsTitle');
-    const roundResults = document.getElementById('roundResults');
-    const roundResultsPanel = document.getElementById('roundResultsPanel');
-    const roundSummary = document.getElementById('roundSummary');
-    const playerResultsTable = document.getElementById('playerResultsTable');
-    const conversionRateInfo = document.getElementById('conversionRateInfo');
-    const roundTotals = document.getElementById('roundTotals');
+    const roundResultsTitles = document.querySelectorAll('.roundResultsTitle');
+    const roundResults = document.querySelectorAll('.roundResults');
+    const roundResultsPanels = document.querySelectorAll('.roundResultsPanel');
+    const roundSummaries = document.querySelectorAll('.roundSummary');
+    const playerResultsTables = document.querySelectorAll('.playerResultsTable');
+    const conversionRateInfos = document.querySelectorAll('.conversionRateInfo');
+    const roundTotals = document.querySelectorAll('.roundTotals');
     
-    if (!roundResultsTitle || !roundResultsPanel) {
+    // Check if current user is moderator
+    const moderatorSwitchboard = document.getElementById('moderatorSwitchboard');
+    const isModerator = moderatorSwitchboard && moderatorSwitchboard.style.display === 'block';
+    
+    if (roundResultsTitles.length === 0 || roundResultsPanels.length === 0) {
         console.warn('⚠️ Round results panel elements not found');
         return;
     }
     
-    // Update title and hide waiting message
-    const isBaseline = roundData.condition === 'Baseline';
-    const conditionText = isBaseline ? 'Baseline' : roundData.condition;
-    roundResultsTitle.textContent = `${conditionText} Round ${roundData.round} completed`;
-    roundResultsTitle.style.color = '#43b581'; // Make title green
-    if (roundResults) roundResults.style.display = 'none';
-    roundResultsPanel.style.display = 'block';
+    // Hide waiting message and show panel for all versions
+    roundResults.forEach(element => element.style.display = 'none');
+    roundResultsTitles.forEach(element => element.style.display = 'none');
     
-    // 1. SEPARATE TABLE: Previous Round Player Token Distribution 
-    if (conversionRateInfo && roundData.previousRoundPlayers) {
-        let previousDistributionHTML = `
-            <div style="background: rgba(40, 43, 48, 0.6); border-radius: 6px; padding: 12px; margin-bottom: 8px;">
-                <div style="color: #ffffff; font-weight: 600; font-size: 13px; margin-bottom: 8px;">Previous Round Player Token Distribution</div>`;
-        
-        // Add token values subheader if available
-        if (roundData.tokenValues) {
-            previousDistributionHTML += `
-                <div style="color: #dcddde; font-size: 11px; margin-bottom: 8px; padding: 6px 8px; background: rgba(255, 255, 255, 0.05); border-radius: 4px;">
-                    <div style="display: flex; align-items: center; justify-content: space-around; gap: 12px;">
-                        <span style="display: flex; align-items: center; gap: 4px;">⚪ $${roundData.tokenValues.white?.toFixed(2) || '0.00'}</span>
-                        <span style="display: flex; align-items: center; gap: 4px;">⚫ $${roundData.tokenValues.black?.toFixed(2) || '0.00'}</span>
-                    </div>
-                </div>`;
+    // Only show panel if there's actual data to display
+    const hasData = (conversionRateInfos.length > 0 && roundData.previousRoundPlayers) || 
+                    (playerResultsTables.length > 0 && roundData.players && isModerator);
+    
+    if (hasData) {
+        // Only show roundResultsPanels that contain data for this user's role
+        if (isModerator && playerResultsTables.length > 0 && roundData.players) {
+            // Show panel containing cumulative data for moderators
+            roundResultsPanels.forEach(element => {
+                if (element.querySelector('.playerResultsTable')) {
+                    element.style.display = 'block';
+                }
+            });
         }
-        
-        previousDistributionHTML += `
-                <div style="display: grid; grid-template-columns: 1fr auto auto auto; gap: 8px; font-size: 12px;">
-                    <div style="color: #b9bbbe; font-weight: 500;">Player</div>
-                    <div style="color: #b9bbbe; font-weight: 500; text-align: right;">⚪</div>
-                    <div style="color: #b9bbbe; font-weight: 500; text-align: right;">⚫</div>
-                    <div style="color: #b9bbbe; font-weight: 500; text-align: right;">💲</div>
-        `;
-        
-        // Calculate totals for previous round
-        let prevTotalWhite = 0;
-        let prevTotalBlack = 0;
-        let prevTotalEarnings = 0;
-        
-        roundData.previousRoundPlayers.forEach(player => {
-            const whiteTokens = player.whiteTokens || 0;
-            const blackTokens = player.blackTokens || 0;
-            const totalEarnings = player.totalEarnings || 0;
-            const isAI = player.isAI ? ' (AI)' : '';
-            
-            prevTotalWhite += whiteTokens;
-            prevTotalBlack += blackTokens;
-            prevTotalEarnings += totalEarnings;
-            
-            previousDistributionHTML += `
-                <div style="color: #ffffff;">${player.username}${isAI}</div>
-                <div style="color: #43b581; text-align: right;">${whiteTokens}</div>
-                <div style="color: #e74c3c; text-align: right;">${blackTokens}</div>
-                <div style="color: #faa61a; text-align: right; font-weight: 500;">$${totalEarnings.toFixed(2)}</div>
-            `;
-        });
-        
-        // Add totals row for previous round
-        previousDistributionHTML += `
-                <div style="grid-column: 1 / -1; height: 1px; background: rgba(255, 255, 255, 0.1); margin: 8px 0;"></div>
-                <div style="color: #ffffff; font-weight: 600;">PREVIOUS TOTALS</div>
-                <div style="color: #43b581; text-align: right; font-weight: 600;">${prevTotalWhite}</div>
-                <div style="color: #e74c3c; text-align: right; font-weight: 600;">${prevTotalBlack}</div>
-                <div style="color: #faa61a; text-align: right; font-weight: 600;">$${prevTotalEarnings.toFixed(2)}</div>
-            </div>
-        </div>
-        `;
-        
-        conversionRateInfo.innerHTML = previousDistributionHTML;
+        if (conversionRateInfos.length > 0 && roundData.previousRoundPlayers) {
+            // Show panel containing round results for everyone
+            roundResultsPanels.forEach(element => {
+                if (element.querySelector('.conversionRateInfo')) {
+                    element.style.display = 'block';
+                }
+            });
+        }
     }
     
-    // 2. Previous Round Token Values now integrated above
-
-    // 2. Horizontal Break Separator
-    if (conversionRateInfo) {
-        conversionRateInfo.innerHTML += `
-            <div style="margin: 16px 0; border-bottom: 2px solid rgba(255, 255, 255, 0.1); position: relative;">
-                <div style="position: absolute; left: 50%; top: -1px; transform: translateX(-50%); background: rgba(40, 43, 48, 1); padding: 0 12px; color: #b9bbbe; font-size: 11px; font-weight: 500;">CURRENT ROUND</div>
-            </div>
-        `;
-    }
-    
-    // 3. Combined Player Token Earnings with Round Totals
-    if (playerResultsTable && roundData.players) {
+    // 1. Show Cumulative Totals first - MODERATOR ONLY
+    if (playerResultsTables.length > 0 && roundData.players && isModerator) {
         const totalWhite = roundData.players.reduce((sum, p) => sum + (p.whiteTokens || 0), 0);
         const totalBlack = roundData.players.reduce((sum, p) => sum + (p.blackTokens || 0), 0);
         const totalEarnings = roundData.players.reduce((sum, p) => sum + (p.totalEarnings || 0), 0);
         
+        // Sort players by their seat position (left-to-right: left, top, right)
+        const seatOrder = { 'left': 1, 'top': 2, 'right': 3 };
+        const sortedPlayers = [...roundData.players].sort((a, b) => {
+            const seatA = seatOrder[a.seatPosition] || 999;
+            const seatB = seatOrder[b.seatPosition] || 999;
+            return seatA - seatB;
+        });
+        
         let tableHTML = `
-            <div style="background: rgba(40, 43, 48, 0.6); border-radius: 6px; padding: 12px; margin-bottom: 8px;">
-                <div style="color: #ffffff; font-weight: 600; font-size: 13px; margin-bottom: 8px;">Player Token Earnings</div>
-                <div style="display: grid; grid-template-columns: 1fr auto auto auto; gap: 8px; font-size: 12px;">
-                    <div style="color: #b9bbbe; font-weight: 500;">Player</div>
-                    <div style="color: #b9bbbe; font-weight: 500; text-align: right;">⚪</div>
-                    <div style="color: #b9bbbe; font-weight: 500; text-align: right;">⚫</div>
-                    <div style="color: #b9bbbe; font-weight: 500; text-align: right;">Total</div>
+            <div style="background: rgba(64, 68, 75, 0.8); backdrop-filter: blur(12px); border-radius: 8px; padding: 12px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2); border: 1px solid rgba(114, 118, 125, 0.2); max-height: 280px; overflow-y: auto;">
+                <div style="background: rgba(40, 43, 48, 0.6); border-radius: 6px; padding: 12px; margin-bottom: 8px;">
+                    <div style="color: #ffffff; font-weight: 600; font-size: 13px; margin-bottom: 8px;">Cumulative Player Earnings</div>
+                    <div style="display: grid; grid-template-columns: 1fr auto auto auto; gap: 8px; font-size: 12px;">
+                        <div style="color: #b9bbbe; font-weight: 500;">Player</div>
+                        <div style="color: #b9bbbe; font-weight: 500; text-align: right;">⚪</div>
+                        <div style="color: #b9bbbe; font-weight: 500; text-align: right;">⚫</div>
+                        <div style="color: #b9bbbe; font-weight: 500; text-align: right;">Total $</div>
         `;
         
-        // Add individual player rows
-        roundData.players.forEach(player => {
+        // Add individual player rows in correct order
+        sortedPlayers.forEach(player => {
             const whiteTokens = player.whiteTokens || 0;
             const blackTokens = player.blackTokens || 0;
             const totalEarnings = player.totalEarnings || 0;
@@ -11472,19 +13818,231 @@ function updateRoundResultsPanel(roundData) {
         // Add separator line and totals row
         tableHTML += `
                     <div style="grid-column: 1 / -1; height: 1px; background: rgba(255, 255, 255, 0.1); margin: 8px 0;"></div>
-                    <div style="color: #ffffff; font-weight: 600;">ROUND TOTALS</div>
+                    <div style="color: #ffffff; font-weight: 600;">EXPERIMENT TOTALS</div>
                     <div style="color: #43b581; text-align: right; font-weight: 600;">${totalWhite}</div>
                     <div style="color: #e74c3c; text-align: right; font-weight: 600;">${totalBlack}</div>
                     <div style="color: #faa61a; text-align: right; font-weight: 600;">$${totalEarnings.toFixed(2)}</div>
                 </div>
             </div>
+            </div>
         `;
         
-        playerResultsTable.innerHTML = tableHTML;
+        console.log('📊 Populating cumulative earnings table for moderator');
+        playerResultsTables.forEach(element => {
+            element.innerHTML = tableHTML;
+        });
+    } else {
+        console.log('📊 Skipping cumulative earnings table - not moderator or no data');
     }
     
-    // Hide the separate round totals section since it's now integrated
-    if (roundTotals) {
-        roundTotals.style.display = 'none';
+    // 2. Show Previous Round second - update all versions
+    // For non-moderators, only show their own results
+    if (conversionRateInfos.length > 0 && roundData.previousRoundPlayers) {
+        const previousRoundNumber = roundData.round;
+        
+        // Find current player's data
+        const currentPlayerData = roundData.previousRoundPlayers.find(p => p.username === currentUsername);
+        
+        let previousDistributionHTML = `
+            <div style="background: rgba(64, 68, 75, 0.8); backdrop-filter: blur(12px); border-radius: 8px; padding: 12px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2); border: 1px solid rgba(114, 118, 125, 0.2); max-height: 280px; overflow-y: auto; max-width: 400px;">
+                <div style="background: rgba(40, 43, 48, 0.6); border-radius: 6px; padding: 12px; margin-bottom: 8px;">
+                    <div style="color: #ffffff; font-weight: 600; font-size: 13px; margin-bottom: 8px;">Round <span style="color: #43b581;">${previousRoundNumber}</span> Results</div>`;
+        
+        // Add token values subheader if available
+        if (roundData.tokenValues) {
+            previousDistributionHTML += `
+                <div style="color: #dcddde; font-size: 11px; margin-bottom: 8px; padding: 6px 8px; background: rgba(255, 255, 255, 0.05); border-radius: 4px;">
+                    <div style="display: flex; align-items: center; justify-content: space-around; gap: 12px;">
+                        <span style="display: flex; align-items: center; gap: 4px;">⚪ $${roundData.tokenValues.white?.toFixed(2) || '0.00'}</span>
+                        <span style="display: flex; align-items: center; gap: 4px;">⚫ $${roundData.tokenValues.black?.toFixed(2) || '0.00'}</span>
+                    </div>
+                </div>`;
+        }
+        
+        // Check if moderator - moderators see all players, non-moderators only see themselves
+        if (isModerator) {
+            // Moderator view - show all players
+            previousDistributionHTML += `
+                <div style="display: grid; grid-template-columns: 1fr auto auto auto; gap: 8px; font-size: 12px;">
+                    <div style="color: #b9bbbe; font-weight: 500;">Player</div>
+                    <div style="color: #b9bbbe; font-weight: 500; text-align: right;">⚪</div>
+                    <div style="color: #b9bbbe; font-weight: 500; text-align: right;">⚫</div>
+                    <div style="color: #b9bbbe; font-weight: 500; text-align: right;">Round $</div>
+            `;
+            
+            // Sort players by their seat position (left-to-right: left, top, right)
+            const seatOrder = { 'left': 1, 'top': 2, 'right': 3 };
+            const sortedPreviousPlayers = [...roundData.previousRoundPlayers].sort((a, b) => {
+                const seatA = seatOrder[a.seatPosition] || 999;
+                const seatB = seatOrder[b.seatPosition] || 999;
+                return seatA - seatB;
+            });
+            
+            // Calculate totals for previous round
+            let prevTotalWhite = 0;
+            let prevTotalBlack = 0;
+            let prevTotalRoundEarnings = 0;
+            
+            sortedPreviousPlayers.forEach(player => {
+                const whiteTokens = player.whiteTokens || 0;
+                const blackTokens = player.blackTokens || 0;
+                const incentiveBonus = player.incentiveBonus || 0;
+                const totalBlackTokens = blackTokens + incentiveBonus;
+                const roundEarnings = player.roundEarnings || 0;
+                const isAI = player.isAI ? ' (AI)' : '';
+                
+                prevTotalWhite += whiteTokens;
+                prevTotalBlack += totalBlackTokens;
+                prevTotalRoundEarnings += roundEarnings;
+                
+                previousDistributionHTML += `
+                    <div style="color: #ffffff;">${player.username}${isAI}</div>
+                    <div style="color: #43b581; text-align: right;">${whiteTokens}</div>
+                    <div style="color: #e74c3c; text-align: right;">${totalBlackTokens}</div>
+                    <div style="color: #faa61a; text-align: right; font-weight: 500;">$${roundEarnings.toFixed(2)}</div>
+                `;
+            });
+            
+            // Add totals row for previous round
+            previousDistributionHTML += `
+                    <div style="grid-column: 1 / -1; height: 1px; background: rgba(255, 255, 255, 0.1); margin: 8px 0;"></div>
+                    <div style="color: #ffffff; font-weight: 600;">ROUND TOTALS</div>
+                    <div style="color: #43b581; text-align: right; font-weight: 600;">${prevTotalWhite}</div>
+                    <div style="color: #e74c3c; text-align: right; font-weight: 600;">${prevTotalBlack}</div>
+                    <div style="color: #faa61a; text-align: right; font-weight: 600;">$${prevTotalRoundEarnings.toFixed(2)}</div>
+                </div>
+            </div>
+            </div>
+            `;
+        } else if (currentPlayerData) {
+            // Non-moderator view - only show their own results
+            const whiteTokens = currentPlayerData.whiteTokens || 0;
+            const blackTokens = currentPlayerData.blackTokens || 0;
+            const incentiveBonus = currentPlayerData.incentiveBonus || 0;
+            const totalBlackTokens = blackTokens + incentiveBonus;
+            const roundEarnings = currentPlayerData.roundEarnings || 0;
+            
+            previousDistributionHTML += `
+                <div style="text-align: center; padding: 10px 0;">
+                    <div style="color: #b9bbbe; font-size: 11px; margin-bottom: 8px;">Your Earnings last Round</div>
+                    <div style="display: flex; justify-content: center; gap: 20px; margin-bottom: 10px;">
+                        <div style="text-align: center;">
+                            <div style="font-size: 24px;">⚪</div>
+                            <div style="color: #43b581; font-size: 18px; font-weight: 600;">${whiteTokens}</div>
+                        </div>
+                        <div style="text-align: center;">
+                            <div style="font-size: 24px;">⚫</div>
+                            <div style="color: #e74c3c; font-size: 18px; font-weight: 600;">${totalBlackTokens}</div>
+                        </div>
+                    </div>
+                    <div style="color: #faa61a; font-size: 20px; font-weight: 600;">+$${roundEarnings.toFixed(2)}</div>
+                </div>
+            </div>
+            </div>
+            `;
+        } else {
+            // Fallback if player data not found
+            previousDistributionHTML += `
+                <div style="text-align: center; padding: 10px 0; color: #b9bbbe;">
+                    Waiting for results...
+                </div>
+            </div>
+            </div>
+            `;
+        }
+        
+        conversionRateInfos.forEach(element => {
+            element.innerHTML = previousDistributionHTML;
+        });
+    }
+    
+    // 2. SWAPPED: Show Cumulative Totals - MODERATOR ONLY (non-moderators see their own data in the round results above)
+    if (playerResultsTables.length > 0 && roundData.players && isModerator) {
+        const totalWhite = roundData.players.reduce((sum, p) => sum + (p.whiteTokens || 0), 0);
+        const totalBlack = roundData.players.reduce((sum, p) => sum + (p.blackTokens || 0), 0);
+        const totalEarnings = roundData.players.reduce((sum, p) => sum + (p.totalEarnings || 0), 0);
+        
+        // Sort players by their seat position (left-to-right: left, top, right)
+        const seatOrder = { 'left': 1, 'top': 2, 'right': 3 };
+        const sortedPlayers = [...roundData.players].sort((a, b) => {
+            const seatA = seatOrder[a.seatPosition] || 999;
+            const seatB = seatOrder[b.seatPosition] || 999;
+            return seatA - seatB;
+        });
+        
+        let tableHTML = `
+            <div style="background: rgba(64, 68, 75, 0.8); backdrop-filter: blur(12px); border-radius: 8px; padding: 12px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2); border: 1px solid rgba(114, 118, 125, 0.2); max-height: 280px; overflow-y: auto;">
+                <div style="background: rgba(40, 43, 48, 0.6); border-radius: 6px; padding: 12px; margin-bottom: 8px;">
+                    <div style="color: #ffffff; font-weight: 600; font-size: 13px; margin-bottom: 8px;">Cumulative Player Earnings</div>
+                    <div style="display: grid; grid-template-columns: 1fr auto auto auto; gap: 8px; font-size: 12px;">
+                        <div style="color: #b9bbbe; font-weight: 500;">Player</div>
+                        <div style="color: #b9bbbe; font-weight: 500; text-align: right;">⚪</div>
+                        <div style="color: #b9bbbe; font-weight: 500; text-align: right;">⚫</div>
+                        <div style="color: #b9bbbe; font-weight: 500; text-align: right;">Total $</div>
+        `;
+        
+        // Add individual player rows in correct order
+        sortedPlayers.forEach(player => {
+            const whiteTokens = player.whiteTokens || 0;
+            const blackTokens = player.blackTokens || 0;
+            const totalEarnings = player.totalEarnings || 0;
+            const isAI = player.isAI ? ' (AI)' : '';
+            
+            tableHTML += `
+                <div style="color: #ffffff;">${player.username}${isAI}</div>
+                <div style="color: #43b581; text-align: right;">${whiteTokens}</div>
+                <div style="color: #e74c3c; text-align: right;">${blackTokens}</div>
+                <div style="color: #faa61a; text-align: right; font-weight: 500;">$${totalEarnings.toFixed(2)}</div>
+            `;
+        });
+        
+        // Add separator line and totals row
+        tableHTML += `
+                    <div style="grid-column: 1 / -1; height: 1px; background: rgba(255, 255, 255, 0.1); margin: 8px 0;"></div>
+                    <div style="color: #ffffff; font-weight: 600;">EXPERIMENT TOTALS</div>
+                    <div style="color: #43b581; text-align: right; font-weight: 600;">${totalWhite}</div>
+                    <div style="color: #e74c3c; text-align: right; font-weight: 600;">${totalBlack}</div>
+                    <div style="color: #faa61a; text-align: right; font-weight: 600;">$${totalEarnings.toFixed(2)}</div>
+                </div>
+            </div>
+            </div>
+        `;
+        
+        playerResultsTables.forEach(element => {
+            element.innerHTML = tableHTML;
+        });
+    }
+    
+    // Hide the separate round totals section since it's now integrated - update all versions
+    roundTotals.forEach(element => {
+        element.style.display = 'none';
+    });
+}
+
+// Function to update Evaluate card visibility based on moderator/admin status
+function updateEvaluateVisibility() {
+    const evaluateCard = document.getElementById('evaluate-card');
+    const menuContext = getMenuContext();
+
+    let shouldShowEvaluate = false;
+
+    if ((isCurrentRoomModerator() || isGlobalAdmin) && (menuContext.isInRoomLobby || menuContext.isInGlobalChat)) {
+        shouldShowEvaluate = true;
+    }
+
+    if (evaluateCard) {
+        if (shouldShowEvaluate) {
+            evaluateCard.classList.remove('evaluate-hidden');
+            evaluateCard.classList.add('evaluate-visible');
+            evaluateCard.style.display = 'block';
+            evaluateCard.style.visibility = 'visible';
+            evaluateCard.style.opacity = '1';
+        } else {
+            evaluateCard.classList.remove('evaluate-visible');
+            evaluateCard.classList.add('evaluate-hidden');
+            evaluateCard.style.display = 'none';
+            evaluateCard.style.visibility = 'hidden';
+            evaluateCard.style.opacity = '0';
+        }
     }
 }
