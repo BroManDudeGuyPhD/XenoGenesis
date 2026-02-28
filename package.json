@@ -7,6 +7,9 @@
     "start": "node app.js",
     "dev": "nodemon app.js",
     "test:reconnect": "node test_reconnect.js",
+    "test:integration": "powershell -ExecutionPolicy Bypass -File ./scripts/run-integration-test.ps1",
+    "test:integration:verbose": "powershell -ExecutionPolicy Bypass -File ./scripts/run-integration-test.ps1 -VerboseOutput",
+    "test:integration:keep": "powershell -ExecutionPolicy Bypass -File ./scripts/run-integration-test.ps1 -KeepServer",
     "restart:win": "powershell -ExecutionPolicy Bypass -File ./scripts/restart-server.ps1 -Port 2000 -Debug"
     ,"restart:win:attach": "powershell -ExecutionPolicy Bypass -File ./scripts/restart-server.ps1 -Port 2000 -Debug -Attach"
   },
