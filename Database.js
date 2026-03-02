@@ -1,5 +1,6 @@
 var USE_DB = true;
 var mongojs = USE_DB ? require("mongojs") : null;
+const { c } = require('./utils/logger');
 
 // Smart connection with fallback: try ironman first, then localhost
 var db = null;
@@ -10,11 +11,11 @@ if (USE_DB) {
         const MONGO_URI = env.MONGO_URI || env.MONGODB_URI || null;
 
         if (MONGO_URI) {
-            console.log('🌐 Connecting to MongoDB using MONGO_URI from environment...');
+            console.log(`${c.net('[NET]')} Connecting to MongoDB using MONGO_URI from environment...`);
             db = mongojs(MONGO_URI, ['account','progress','invites']);
         } else {
             // First try to connect to ironman server
-            console.log('🔍 Attempting to connect to MongoDB on ironman...');
+            console.log(`${c.info('[DBG]')} Attempting to connect to MongoDB on ironman...`);
             db = mongojs('ironman:27017/xenogenesis', ['account','progress','invites']);
 
             // Test the connection
@@ -54,11 +55,11 @@ Database.isAdmin = function(data,cb){
         return cb(false);
     
     // First, let's see what's actually in the database for this user
-    console.log(`🔍 Checking admin status for user: ${data.username}`);
+    console.log(`${c.info('[DBG]')} Checking admin status for user: ${data.username}`);
     db.account.findOne({username:data.username}, function(err,user){
         if(user) {
-            console.log(`🔍 User found:`, user);
-            console.log(`🔍 Admin field value:`, user.admin, `(type: ${typeof user.admin})`);
+            console.log(`${c.info('[DBG]')} User found:`, user);
+            console.log(`${c.info('[DBG]')} Admin field value:`, user.admin, `(type: ${typeof user.admin})`);
         } else {
             console.log(`❌ User not found in database: ${data.username}`);
         }
@@ -169,7 +170,7 @@ Database.listAllInviteCodes = function(cb) {
             return cb([]);
         }
         
-        console.log('📋 All invite codes in database:');
+        console.log(`${c.data('[LIST]')} All invite codes in database:`);
         invites.forEach((invite, index) => {
             const status = invite.used ? '❌ USED' : '✅ AVAILABLE';
             const usedInfo = invite.used ? ` (by ${invite.usedBy} at ${invite.usedAt})` : '';
@@ -185,7 +186,7 @@ Database.listAllInviteCodes = function(cb) {
 Database.updateInviteCodeSchema = function(cb) {
     if (!USE_DB) return cb(true);
     
-    console.log('🔄 Updating invite code schema...');
+    console.log(`${c.net('[SYNC]')} Updating invite code schema...`);
     
     // Add isPermanent: false to all codes that don't have this field
     db.invites.update(
@@ -199,7 +200,7 @@ Database.updateInviteCodeSchema = function(cb) {
             }
             
             if (result.n > 0) {
-                console.log(`🔄 Added isPermanent flag to ${result.n} invite code(s)`);
+                console.log(`${c.net('[SYNC]')} Added isPermanent flag to ${result.n} invite code(s)`);
             }
             
             console.log('✅ Invite code schema update completed');
@@ -225,7 +226,7 @@ Database.cleanupUsedInviteCodes = function(cb) {
             }
             
             if (result.n > 0) {
-                console.log(`🧹 Cleaned up ${result.n} used invite code(s) from database`);
+                console.log(`${c.clean('[CLEAN]')} Cleaned up ${result.n} used invite code(s) from database`);
             }
             
             cb(true);
@@ -305,7 +306,7 @@ Database.generateInviteCode = function(adminUsername, targetRoom, cb) {
 Database.generatePermanentInviteCode = function(customCode, adminUsername, cb) {
     if (!USE_DB) return cb(null);
     
-    console.log(`🔍 Creating permanent invite code: ${customCode} by ${adminUsername}`);
+    console.log(`${c.info('[DBG]')} Creating permanent invite code: ${customCode} by ${adminUsername}`);
     
     // Check if code already exists
     db.invites.findOne({code: customCode}, function(err, existing) {
@@ -335,7 +336,7 @@ Database.generatePermanentInviteCode = function(customCode, adminUsername, cb) {
                 console.log('❌ Error creating permanent invite code:', err);
                 return cb(null);
             }
-            console.log(`👑 Permanent invite code ${customCode} created by ${adminUsername}`);
+            console.log(`${c.auth('[ADMIN]')} Permanent invite code ${customCode} created by ${adminUsername}`);
             cb(customCode);
         });
     });
@@ -344,7 +345,7 @@ Database.generatePermanentInviteCode = function(customCode, adminUsername, cb) {
 Database.validateInviteCode = function(code, cb) {
     if (!USE_DB) return cb(false);
     
-    console.log(`🔍 Validating invite code: ${code}`);
+    console.log(`${c.info('[DBG]')} Validating invite code: ${code}`);
     
     // Check database for the code
     db.invites.findOne({code: code}, function(err, invite) {
@@ -358,11 +359,11 @@ Database.validateInviteCode = function(code, cb) {
             return cb(false);
         }
         
-        console.log(`🔍 Found invite code ${code} in database:`, invite);
+        console.log(`${c.info('[DBG]')} Found invite code ${code} in database:`, invite);
         
         // Check if it's a permanent code
         if (invite.isPermanent) {
-            console.log(`👑 Permanent invite code ${code} - always valid`);
+            console.log(`${c.auth('[ADMIN]')} Permanent invite code ${code} - always valid`);
             return cb(true);
         }
         
@@ -380,7 +381,7 @@ Database.validateInviteCode = function(code, cb) {
 Database.useInviteCode = function(code, username, cb) {
     if (!USE_DB) return cb(false);
     
-    console.log(`🔄 Attempting to use invite code: ${code} for user: ${username}`);
+    console.log(`${c.net('[SYNC]')} Attempting to use invite code: ${code} for user: ${username}`);
     
     // First find the invite code to check if it's permanent
     db.invites.findOne({code: code}, function(err, invite) {
@@ -396,7 +397,7 @@ Database.useInviteCode = function(code, username, cb) {
         
         // Check if it's a permanent code
         if (invite.isPermanent) {
-            console.log(`👑 Permanent invite code ${code} used by ${username} - not marking as consumed`);
+            console.log(`${c.auth('[ADMIN]')} Permanent invite code ${code} used by ${username} - not marking as consumed`);
             return cb(true); // Success, but don't mark as used
         }
         

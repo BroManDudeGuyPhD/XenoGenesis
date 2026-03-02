@@ -20,6 +20,8 @@
  * - LEDs track progress within each block (resets every 21 rounds)
  */
 
+const { c } = require('./utils/logger');
+
 class ExperimentScheduler {
     constructor() {
         this.conditions = {
@@ -112,7 +114,7 @@ class ExperimentScheduler {
         
         // Generate blocks
         for (let block = 1; block <= numBlocks; block++) {
-            console.log(`📋 Generating block ${block}/${numBlocks}...`);
+            console.log(`${c.data('[LIST]')} Generating block ${block}/${numBlocks}...`);
             const blockRounds = this.generateBlock(block);
             
             // Assign round numbers to each round in this block
@@ -261,7 +263,7 @@ class ExperimentScheduler {
             validation.errors.forEach(error => console.log(`   - ${error}`));
         }
 
-        console.log('📊 Schedule summary:');
+        console.log(`${c.data('[DATA]')} Schedule summary:`);
         console.log(`   Total rounds: ${validation.totalRounds}`);
         console.log(`   Blocks: ${numBlocks} × ${this.ROUNDS_PER_BLOCK} rounds`);
         console.log(`   Conditions:`, validation.conditionCounts);
@@ -500,7 +502,7 @@ class ExperimentScheduler {
      * @returns {Object} Test results with pass/fail status
      */
     runValidationTests() {
-        console.log('🧪 Running comprehensive scheduler validation tests...');
+        console.log(`${c.game('[EXP]')} Running comprehensive scheduler validation tests...`);
         
         const testResults = {
             passed: 0,
@@ -589,11 +591,11 @@ class ExperimentScheduler {
         }
 
         // Summary
-        console.log(`\n📊 Test Summary: ${testResults.passed} passed, ${testResults.failed} failed`);
+        console.log(`\n${c.data('[DATA]')} Test Summary: ${testResults.passed} passed, ${testResults.failed} failed`);
         if (testResults.failed === 0) {
             console.log('🎉 All tests passed! Scheduler is working correctly.');
         } else {
-            console.log('⚠️ Some tests failed. Please review the scheduler logic.');
+            console.log(`${c.warn('[WARN]')} Some tests failed. Please review the scheduler logic.`);
         }
 
         return testResults;
@@ -605,7 +607,7 @@ class ExperimentScheduler {
      * @returns {Object} Detailed analysis results
      */
     analyzeSchedulerPerformance() {
-        console.log('📈 Analyzing scheduler performance and statistics...');
+        console.log(`${c.data('[METRIC]')} Analyzing scheduler performance and statistics...`);
         
         const startTime = Date.now();
         const schedule = this.generateConditionsSchedule();
@@ -646,7 +648,7 @@ class ExperimentScheduler {
             recommendation: maxCluster > 5 ? 'Consider improving randomization' : 'Good randomization'
         };
         
-        console.log('📊 Performance Analysis Results:');
+        console.log(`${c.data('[DATA]')} Performance Analysis Results:`);
         console.log(`   Generation Time: ${analysis.generationTime}`);
         console.log(`   Max Cluster Size: ${analysis.maxClusterSize} rounds`);
         console.log(`   Clustering Score: ${(analysis.clusteringScore * 100).toFixed(2)}% consecutive`);

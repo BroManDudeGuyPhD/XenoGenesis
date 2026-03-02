@@ -1,7 +1,54 @@
 // Centralized logger utility with level control and optional global console patching
 // Levels: silent < error < warn < info < debug
+// Provides ANSI color tags for structured, emoji-lite console output.
 
 const LEVELS = ["silent", "error", "warn", "info", "debug"]; 
+
+// ─── ANSI Color Helpers ─────────────────────────────────────
+// Usage:  console.log(c.grn('OK'), c.dim('details'))
+const c = {
+  // Reset
+  reset:  (s) => `\x1b[0m${s}\x1b[0m`,
+  // Styles
+  bold:   (s) => `\x1b[1m${s}\x1b[0m`,
+  dim:    (s) => `\x1b[2m${s}\x1b[0m`,
+  italic: (s) => `\x1b[3m${s}\x1b[0m`,
+  under:  (s) => `\x1b[4m${s}\x1b[0m`,
+  // Foreground colors
+  red:    (s) => `\x1b[31m${s}\x1b[0m`,
+  grn:    (s) => `\x1b[32m${s}\x1b[0m`,
+  yel:    (s) => `\x1b[33m${s}\x1b[0m`,
+  blu:    (s) => `\x1b[34m${s}\x1b[0m`,
+  mag:    (s) => `\x1b[35m${s}\x1b[0m`,
+  cyn:    (s) => `\x1b[36m${s}\x1b[0m`,
+  wht:    (s) => `\x1b[37m${s}\x1b[0m`,
+  gry:    (s) => `\x1b[90m${s}\x1b[0m`,
+  // Bright foreground
+  bred:   (s) => `\x1b[91m${s}\x1b[0m`,
+  bgrn:   (s) => `\x1b[92m${s}\x1b[0m`,
+  byel:   (s) => `\x1b[93m${s}\x1b[0m`,
+  bblu:   (s) => `\x1b[94m${s}\x1b[0m`,
+  bmag:   (s) => `\x1b[95m${s}\x1b[0m`,
+  bcyn:   (s) => `\x1b[96m${s}\x1b[0m`,
+  // Background colors
+  bgRed:  (s) => `\x1b[41m${s}\x1b[0m`,
+  bgGrn:  (s) => `\x1b[42m${s}\x1b[0m`,
+  bgYel:  (s) => `\x1b[43m${s}\x1b[0m`,
+  bgBlu:  (s) => `\x1b[44m${s}\x1b[0m`,
+  // Semantic shortcuts (maps to category → color)
+  ok:     (s) => `\x1b[32m${s}\x1b[0m`,    // green
+  err:    (s) => `\x1b[31m${s}\x1b[0m`,    // red
+  warn:   (s) => `\x1b[33m${s}\x1b[0m`,    // yellow
+  info:   (s) => `\x1b[36m${s}\x1b[0m`,    // cyan
+  net:    (s) => `\x1b[34m${s}\x1b[0m`,    // blue — network/socket
+  game:   (s) => `\x1b[35m${s}\x1b[0m`,    // magenta — game/experiment
+  data:   (s) => `\x1b[94m${s}\x1b[0m`,    // bright blue — data/csv
+  auth:   (s) => `\x1b[93m${s}\x1b[0m`,    // bright yellow — auth/session
+  clean:  (s) => `\x1b[90m${s}\x1b[0m`,    // gray — cleanup/routine
+  tag: function(label) {                     // [TAG] in color
+    return `\x1b[90m[\x1b[0m${label}\x1b[90m]\x1b[0m`;
+  }
+};
 
 function resolveLevelFromEnv() {
   const env = (typeof process !== 'undefined' && process.env) ? process.env : {};
@@ -23,7 +70,14 @@ function shouldLog(level) {
 
 function stamp(level) {
   const ts = new Date().toISOString();
-  return `[${ts}] [${level.toUpperCase()}]`;
+  const levelColors = {
+    debug: '\x1b[90m',   // gray
+    info:  '\x1b[36m',   // cyan
+    warn:  '\x1b[33m',   // yellow
+    error: '\x1b[31m',   // red
+  };
+  const color = levelColors[level] || '\x1b[0m';
+  return `\x1b[90m[${ts}]\x1b[0m ${color}[${level.toUpperCase()}]\x1b[0m`;
 }
 
 const logger = {
@@ -94,3 +148,4 @@ const logger = {
 };
 
 module.exports = logger;
+module.exports.c = c;

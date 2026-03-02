@@ -494,6 +494,32 @@ button[onclick*="setPlayerIncentive"]:hover {
 	border-color: rgba(114, 137, 255, 0.5);
 }
 
+.module-health-pill {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	background: linear-gradient(135deg,
+		rgba(16, 185, 129, 0.2) 0%,
+		rgba(5, 150, 105, 0.15) 100%);
+	backdrop-filter: blur(10px);
+	-webkit-backdrop-filter: blur(10px);
+	border: 1px solid rgba(16, 185, 129, 0.3);
+	border-radius: 20px;
+	padding: 8px 14px;
+	color: #10b981;
+	font-size: 13px;
+	font-weight: 500;
+	transition: all 0.3s ease;
+	cursor: pointer;
+	user-select: none;
+}
+
+.module-health-pill:hover {
+	transform: translateY(-2px);
+	box-shadow: 0 4px 20px rgba(16, 185, 129, 0.3);
+	border-color: rgba(16, 185, 129, 0.5);
+}
+
 .room-pill {
 	display: flex;
 	align-items: center;
@@ -735,6 +761,7 @@ body:not(.game-active) #join-card {
 	display: none !important;
 	visibility: hidden !important;
 	opacity: 0 !important;
+	pointer-events: none !important;
 }
 
 /* Evaluate card visibility classes */
@@ -748,6 +775,7 @@ body:not(.game-active) #join-card {
 	display: none !important;
 	visibility: hidden !important;
 	opacity: 0 !important;
+	pointer-events: none !important;
 }
 
 /* Show invite card for moderators even in game context */
@@ -771,6 +799,7 @@ body.game-active .invite-card.invite-hidden {
 	display: none !important;
 	visibility: hidden !important;
 	opacity: 0 !important;
+	pointer-events: none !important;
 }
 
 /* Force hide create/join cards during active games - NUCLEAR APPROACH */

@@ -2,6 +2,7 @@
 
 const formatMessage = require("./utils/messages.js");
 const { getCurrentUser, getRoomUsers } = require("./utils/users.js");
+const { c } = require('./utils/logger');
 require('./Database.js');
 const botName = "Server"
 
@@ -74,8 +75,8 @@ class Commands {
                     return;
                 }
 
-                console.log(`📢 Broadcasting message from ${player.username}: "${param}"`);
-                console.log(`📢 Connected sockets count: ${io.sockets.sockets.size}`);
+                console.log(`${c.info('[ANNOUNCE]')} Broadcasting message from ${player.username}: "${param}"`);
+                console.log(`${c.info('[ANNOUNCE]')} Connected sockets count: ${io.sockets.sockets.size}`);
                 
                 const broadcastMessage = formatMessage({
                     username: botName,
@@ -85,11 +86,11 @@ class Commands {
                     room: "Global"
                 });
                 
-                console.log(`📢 Broadcast message object:`, broadcastMessage);
+                console.log(`${c.info('[ANNOUNCE]')} Broadcast message object:`, broadcastMessage);
                 
                 io.emit("message", broadcastMessage);
                 
-                console.log(`📢 io.emit() called successfully`);
+                console.log(`${c.info('[ANNOUNCE]')} io.emit() called successfully`);
                 
                 // Confirm to admin that broadcast was sent
                 socket.emit("message", formatMessage({
@@ -160,12 +161,12 @@ class Commands {
                                             type: "status",
                                         }));
                                         targetNotified = true;
-                                        console.log(`👑 Notified ${param} (socket: ${clientSocket.id}) that they were made admin by ${player.username}`);
+                                        console.log(`${c.auth('[ADMIN]')} Notified ${param} (socket: ${clientSocket.id}) that they were made admin by ${player.username}`);
                                     }
                                 });
                                 
                                 if (!targetNotified) {
-                                    console.log(`👑 Made ${param} admin, but they are not currently online`);
+                                    console.log(`${c.auth('[ADMIN]')} Made ${param} admin, but they are not currently online`);
                                 }
                             }
                             else {
@@ -216,12 +217,12 @@ class Commands {
                                             type: 'status'
                                         }));
                                         targetNotified = true;
-                                        console.log(`👑 Notified ${param} (socket: ${clientSocket.id}) that admin privileges were removed`);
+                                        console.log(`${c.auth('[ADMIN]')} Notified ${param} (socket: ${clientSocket.id}) that admin privileges were removed`);
                                     }
                                 });
                                 
                                 if (!targetNotified) {
-                                    console.log(`👑 Removed admin from ${param}, but they are not currently online`);
+                                    console.log(`${c.auth('[ADMIN]')} Removed admin from ${param}, but they are not currently online`);
                                 }
                             }
                             else {

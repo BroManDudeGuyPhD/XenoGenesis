@@ -2751,6 +2751,10 @@
                                  style="height: 14px; border-radius: 2px;">
                         </a>
                     </div>
+                    <div class="module-health-pill" id="module-health-pill" style="display:none;" onclick="showModuleHealthModal()">
+                        <i class="fas fa-heartbeat"></i>
+                        <span>Module Health</span>
+                    </div>
                     <div class="room-pill" id="room-pill" style="display:none;">
                         <i class="fas fa-home"></i>
                         <span id="room-pill-text">Global</span>
@@ -3742,6 +3746,10 @@
                 if (adminBuildPill && window.isGlobalAdmin) {
                     adminBuildPill.style.display = 'flex';
                 }
+                // Also show module health pill for admins
+                if (typeof updateModuleHealthPillVisibility === 'function') {
+                    updateModuleHealthPillVisibility();
+                }
             }, 100);
         }
         
@@ -3756,6 +3764,21 @@
             }
         });
     </script>
+    <!-- Extracted client modules (loaded before client.js) -->
+    <script type="text/javascript" src="/client/modules/modals.js"></script>
+    <script type="text/javascript" src="/client/modules/neon-alerts.js"></script>
+    <script type="text/javascript" src="/client/modules/invite-modals.js"></script>
+    <script type="text/javascript" src="/client/modules/experiment-end-modal.js"></script>
+    <script type="text/javascript" src="/client/modules/lightning-modals.js"></script>
+    <script type="text/javascript" src="/client/modules/notifications.js"></script>
+    <script type="text/javascript" src="/client/modules/debug-utils.js"></script>
+    <script type="text/javascript" src="/client/modules/invite-system.js"></script>
+    <script type="text/javascript" src="/client/modules/confirmation-modals.js"></script>
+    <script type="text/javascript" src="/client/modules/switchboard.js"></script>
+    <script type="text/javascript" src="/client/modules/incentive-banner.js"></script>
+    <script type="text/javascript" src="/client/modules/token-animations.js"></script>
+    <script type="text/javascript" src="/client/modules/results-panel.js"></script>
+    <script type="text/javascript" src="/client/modules/module-health.js"></script>
     <script type="text/javascript" src="/client/client.js?v=2025102401"></script>
     <script>
         // Show Evaluate CSV button for moderators/admins and wire upload
@@ -3767,11 +3790,30 @@
 
                 // Wire up the file picker; visibility is handled by client.js updateEvaluateVisibility
                 console.log('🔧 Wiring Evaluate CSV button');
-                evalBtn.addEventListener('click', (e) => { console.log('🔧 Evaluate button clicked'); e.stopPropagation(); evalFile.click(); });
+                evalBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    // Guard: only moderators/admins can use evaluate functionality
+                    if (typeof isCurrentRoomModerator === 'function' && !isCurrentRoomModerator() && !window.isGlobalAdmin && !isGlobalAdmin) {
+                        console.warn('⚠️ Evaluate button clicked by non-moderator/non-admin user — ignoring');
+                        return;
+                    }
+                    console.log('🔧 Evaluate button clicked');
+                    evalFile.click();
+                });
                 // Also allow clicking the whole card to trigger file picker
                 const evaluateCard = document.getElementById('evaluate-card');
                 if (evaluateCard) {
-                    evaluateCard.addEventListener('click', (e) => { if (e.target.id !== 'evaluateCsvFile') { console.log('🔧 Evaluate card clicked, opening file picker'); evalFile.click(); } });
+                    evaluateCard.addEventListener('click', (e) => {
+                        if (e.target.id !== 'evaluateCsvFile') {
+                            // Guard: only moderators/admins can use evaluate functionality
+                            if (typeof isCurrentRoomModerator === 'function' && !isCurrentRoomModerator() && !window.isGlobalAdmin && !isGlobalAdmin) {
+                                console.warn('⚠️ Evaluate card clicked by non-moderator/non-admin user — ignoring');
+                                return;
+                            }
+                            console.log('🔧 Evaluate card clicked, opening file picker');
+                            evalFile.click();
+                        }
+                    });
                 }
 
                 evalFile.addEventListener('change', (ev) => {

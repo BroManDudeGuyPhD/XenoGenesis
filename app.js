@@ -1,5 +1,6 @@
 // Centralized logging setup
 const logger = require('./utils/logger');
+const { c } = require('./utils/logger');
 // Patch global console methods according to LOG_LEVEL/DEBUG_LOGS
 // LOG_LEVEL options: silent, error, warn, info, debug (default: warn unless DEBUG_LOGS=true)
 logger.applyGlobalPatch({ mapConsoleLogTo: 'debug' });
@@ -10,6 +11,10 @@ require('./client/Inventory')
 
 // Store user room associations for logout/login restoration
 const userRoomRestoration = new Map(); // username -> { room, timestamp, hasActiveGame }
+
+// Cache CSV data for recently ended experiments (survives GameSession cleanup)
+// Entries auto-expire after 10 minutes
+const recentCSVCache = new Map(); // room -> { csvData, timestamp }
 
 const express = require('express');
 const path = require('path');
@@ -89,7 +94,7 @@ app.get('/', function(req, res) {
         roomExists = roomIndex !== -1;
         
         if (!roomExists) {
-            console.log(`⚠️ HTTP: Room "${req.session.room}" no longer exists, defaulting to Global`);
+            console.log(`${c.warn('[WARN]')} HTTP: Room "${req.session.room}" no longer exists, defaulting to Global`);
             validatedRoom = 'Global';
         }
     }
@@ -107,7 +112,7 @@ app.get('/', function(req, res) {
         const Entity = require('./Entity.js');
         const hasActiveGame = Entity.hasActiveGameSession && Entity.hasActiveGameSession(validatedRoom);
         sessionData.hasActiveGame = hasActiveGame;
-        console.log(`🎮 HTTP session check: Active game in "${validatedRoom}": ${hasActiveGame}`);
+        console.log(`${c.game('[GAME]')} HTTP session check: Active game in "${validatedRoom}": ${hasActiveGame}`);
     } else {
         sessionData.hasActiveGame = false;
     }
@@ -119,7 +124,7 @@ app.get('/', function(req, res) {
         sessionData.isModerator = false;
     }
     
-    console.log('🌐 HTTP request session data:', sessionData);
+    console.log(c.net('[NET]'), 'HTTP request session data:', sessionData);
     
     res.render('login', { 
         sessionData: JSON.stringify(sessionData)
@@ -299,7 +304,7 @@ app.get('/api/session', function(req, res) {
         roomExists = roomIndex !== -1;
         
         if (!roomExists) {
-            console.log(`⚠️ API: Room "${req.session.room}" no longer exists, defaulting to Global`);
+            console.log(`${c.warn('[WARN]')} API: Room "${req.session.room}" no longer exists, defaulting to Global`);
             validatedRoom = 'Global';
         }
     }
@@ -316,7 +321,7 @@ app.get('/api/session', function(req, res) {
         const Entity = require('./Entity.js');
         const hasActiveGame = Entity.hasActiveGameSession && Entity.hasActiveGameSession(validatedRoom);
         sessionData.hasActiveGame = hasActiveGame;
-        console.log(`🎮 API session check: Active game in "${validatedRoom}": ${hasActiveGame}`);
+        console.log(`${c.game('[GAME]')} API session check: Active game in "${validatedRoom}": ${hasActiveGame}`);
     } else {
         sessionData.hasActiveGame = false;
     }
@@ -329,7 +334,7 @@ app.get('/api/download-experiment-csv/:roomId', function(req, res) {
     try {
         const { roomId } = req.params;
         
-        console.log(`📊 CSV download request received for room: ${roomId} by user: ${req.session.username}`);
+        console.log(`${c.data('[DATA]')} CSV download request received for room: ${roomId} by user: ${req.session.username}`);
         
         // Validate request
         if (!roomId) {
@@ -347,17 +352,25 @@ app.get('/api/download-experiment-csv/:roomId', function(req, res) {
         const ExperimentScheduler = require('./ExperimentScheduler.js');
         const Entity = require('./Entity.js');
         
-        console.log(`📊 Looking for game session in room: ${roomId}`);
+        console.log(`${c.data('[DATA]')} Looking for game session in room: ${roomId}`);
         
         // Get the game session for this room
         const gameSession = Entity.GameSession.get(roomId);
         
         if (!gameSession) {
+            // Check cache for recently ended experiments (session may have been cleaned up)
+            const cached = recentCSVCache.get(roomId);
+            if (cached) {
+                console.log(`${c.data('[DATA]')} Serving cached CSV for room ${roomId} (session ended ${Math.round((Date.now() - cached.timestamp) / 1000)}s ago)`);
+                res.setHeader('Content-Type', 'text/csv');
+                res.setHeader('Content-Disposition', `attachment; filename="experiment_${roomId}_${new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5)}.csv"`);
+                return res.send(cached.csvData);
+            }
             console.log(`❌ CSV download failed: No game session found for room ${roomId}`);
             return res.status(404).send('No active experiment found for this room');
         }
         
-        console.log(`📊 Game session found. DataLog length: ${gameSession.dataLog ? gameSession.dataLog.length : 0}`);
+        console.log(`${c.data('[DATA]')} Game session found. DataLog length: ${gameSession.dataLog ? gameSession.dataLog.length : 0}`);
         
         if (!gameSession.dataLog || gameSession.dataLog.length === 0) {
             console.log(`❌ CSV download failed: No dataLog or empty dataLog for room ${roomId}`);
@@ -368,7 +381,7 @@ app.get('/api/download-experiment-csv/:roomId', function(req, res) {
         const scheduler = new ExperimentScheduler();
         const csvData = scheduler.exportExperimentResultsToCSV(gameSession.dataLog);
         
-        console.log(`📊 CSV generated successfully. Length: ${csvData.length} characters`);
+        console.log(`${c.data('[DATA]')} CSV generated successfully. Length: ${csvData.length} characters`);
         
         if (!csvData || csvData.trim().length === 0) {
             console.log(`❌ CSV download failed: Generated CSV is empty for room ${roomId}`);
@@ -426,7 +439,7 @@ app.get('/invite', function(req, res) {
     const inviteCode = req.query.code;
     
     if (!inviteCode) {
-        console.log('⚠️ Invite link accessed without code parameter');
+        console.log(c.warn('[WARN]'), 'Invite link accessed without code parameter');
         return res.redirect('/');
     }
     
@@ -434,11 +447,11 @@ app.get('/invite', function(req, res) {
     const sanitizedCode = inviteCode.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
     
     if (sanitizedCode.length < 3) {
-        console.log('⚠️ Invalid invite code in link:', inviteCode);
+        console.log(c.warn('[WARN]'), 'Invalid invite code in link:', inviteCode);
         return res.redirect('/');
     }
     
-    console.log(`🔗 Invite link accessed with code: ${sanitizedCode}`);
+    console.log(`${c.net('[LINK]')} Invite link accessed with code: ${sanitizedCode}`);
     
     // Look up invite code details to get target room
     Database.getInviteCodeDetails(sanitizedCode, function(inviteDetails) {
@@ -463,7 +476,7 @@ app.get('/invite', function(req, res) {
         };
         
         if (inviteDetails && inviteDetails.targetRoom) {
-            console.log(`🔗 Invite code ${sanitizedCode} has target room: ${inviteDetails.targetRoom}`);
+            console.log(`${c.net('[LINK]')} Invite code ${sanitizedCode} has target room: ${inviteDetails.targetRoom}`);
         }
         
         // Check for active game
@@ -500,7 +513,7 @@ app.get('/debug/test-led-tracker', function(req, res) {
         ]
     };
     
-    console.log('🧪 Testing LED tracker with data:', testData);
+    console.log(c.game('[TEST]'), 'Testing LED tracker with data:', testData);
     
     // Emit to all connected sockets
     io.emit('conditionUpdate', testData);
@@ -521,17 +534,17 @@ server.listen(LISTEN_PORT, () => {
     setTimeout(() => {
         Database.updateInviteCodeSchema(function(schemaSuccess) {
             if (schemaSuccess) {
-                console.log('🔄 Invite code schema update completed');
+                console.log(c.net('[RESTORE]'), 'Invite code schema update completed');
                 
                 // Clean up any existing used invite codes after schema update
                 Database.cleanupUsedInviteCodes(function(cleanupSuccess) {
                     if (cleanupSuccess) {
-                        console.log('🧹 Startup cleanup of used invite codes completed');
+                        console.log(c.clean('[CLEAN]'), 'Startup cleanup of used invite codes completed');
                     }
                     
                     // Debug: List all invite codes after cleanup
                     Database.listAllInviteCodes((invites) => {
-                        console.log(`📊 Found ${invites.length} total invite codes in database`);
+                        console.log(`${c.data('[DATA]')} Found ${invites.length} total invite codes in database`);
                     });
                 });
             }
@@ -546,7 +559,7 @@ var SOCKET_LIST = {};
 
 
 io.on('connection', (socket) => {
-    console.log('🔌 New socket connection:', socket.id);
+    console.log(c.net('[SOCK]'), 'New socket connection:', socket.id);
     SOCKET_LIST[socket.id] = socket;
 
     // IMMEDIATELY capture session data before any client actions can modify it
@@ -557,9 +570,15 @@ io.on('connection', (socket) => {
 
     // Add a small delay to ensure session data is properly loaded
     setTimeout(() => {
+        // Guard: If signIn/signUp already called Player.onConnect for this socket,
+        // skip the session-restore path to avoid registering handlers twice.
+        if (socket._playerConnected) {
+            return;
+        }
+
         // Check for existing session on connection        
         if (socket.handshake.session && socket.handshake.session.username) {
-            console.log('🔄 Restoring session for user:', socket.handshake.session.username);
+            console.log(c.net('[RESTORE]'), 'Restoring session for user:', socket.handshake.session.username);
             
             // Use the ORIGINAL room we captured, not the potentially overwritten one
             let targetRoom = originalSessionRoom || 'Global';
@@ -576,11 +595,11 @@ io.on('connection', (socket) => {
                 if (roomExists) {
                     console.log(`✅ Room "${targetRoom}" still exists, will reconnect user`);
                 } else {
-                    console.log(`⚠️ Room "${targetRoom}" no longer exists, defaulting to Global`);
+                    console.log(`${c.warn('[WARN]')} Room "${targetRoom}" no longer exists, defaulting to Global`);
                     targetRoom = 'Global';
                 }
             } else {
-                console.log('⚠️ roomList not available, defaulting to Global');
+                console.log(c.warn('[WARN]'), 'roomList not available, defaulting to Global');
                 targetRoom = 'Global';
             }
             
@@ -590,7 +609,7 @@ io.on('connection', (socket) => {
                 // Check if there's an active game session in the target room
                 const Entity = require('./Entity.js');
                 const hasActiveGame = Entity.hasActiveGameSession && Entity.hasActiveGameSession(targetRoom);
-                console.log(`🎮 Checking for active game in room "${targetRoom}": ${hasActiveGame}`);
+                console.log(`${c.game('[GAME]')} Checking for active game in room "${targetRoom}": ${hasActiveGame}`);
                 
                 // Get stored player position if available
                 let playerPosition = null;
@@ -621,7 +640,7 @@ io.on('connection', (socket) => {
     }, 100); // 100ms delay
 
     socket.on('signIn', function(data) {
-        console.log('🔐 Sign in attempt for:', data.username);
+        console.log(c.auth('[AUTH]'), 'Sign in attempt for:', data.username);
         
         Database.isValidPassword(data, function(res){
             if (!res) {
@@ -634,7 +653,7 @@ io.on('connection', (socket) => {
             // Clean up used invite codes on successful login
             Database.cleanupUsedInviteCodes(function(cleanupSuccess) {
                 if (!cleanupSuccess) {
-                    console.log('⚠️ Invite code cleanup failed, but continuing with login');
+                    console.log(c.warn('[WARN]'), 'Invite code cleanup failed, but continuing with login');
                 }
             });
             
@@ -655,7 +674,7 @@ io.on('connection', (socket) => {
                     
                     if (stillActive) {
                         socket.handshake.session.room = restorationData.room;
-                        console.log(`🔄 Restored ${data.username} to room "${restorationData.room}" with active game`);
+                        console.log(`${c.net('[RESTORE]')} Restored ${data.username} to room "${restorationData.room}" with active game`);
                         
                         // Save session first
                         socket.handshake.session.save((err) => {
@@ -669,6 +688,7 @@ io.on('connection', (socket) => {
                                 socket.handshake.session.save();
                                 
                                 Player.onConnect(socket, data.username, admin, io);
+                                socket._playerConnected = true;
                                 socket.emit('signInResponse', { 
                                     success: true, 
                                     isAdmin: admin, 
@@ -698,7 +718,7 @@ io.on('connection', (socket) => {
                         
                     } else {
                         socket.handshake.session.room = 'Global';
-                        console.log(`⚠️ Game no longer active in "${restorationData.room}", defaulting ${data.username} to Global`);
+                        console.log(`${c.warn('[WARN]')} Game no longer active in "${restorationData.room}", defaulting ${data.username} to Global`);
                         
                         // Handle non-restoration case
                         socket.handshake.session.save((err) => {
@@ -712,6 +732,7 @@ io.on('connection', (socket) => {
                                 socket.handshake.session.save();
                                 
                                 Player.onConnect(socket, data.username, admin, io);
+                                socket._playerConnected = true;
                                 socket.emit('signInResponse', { 
                                     success: true, 
                                     isAdmin: admin, 
@@ -725,7 +746,7 @@ io.on('connection', (socket) => {
                     userRoomRestoration.delete(data.username);
                 } else {
                     socket.handshake.session.room = 'Global';
-                    console.log(`⚠️ Restoration data expired for ${data.username}, defaulting to Global`);
+                    console.log(`${c.warn('[WARN]')} Restoration data expired for ${data.username}, defaulting to Global`);
                     userRoomRestoration.delete(data.username);
                     
                     // Handle non-restoration case
@@ -740,6 +761,7 @@ io.on('connection', (socket) => {
                             socket.handshake.session.save();
                             
                             Player.onConnect(socket, data.username, admin, io);
+                            socket._playerConnected = true;
                             socket.emit('signInResponse', { 
                                 success: true, 
                                 isAdmin: admin, 
@@ -751,7 +773,7 @@ io.on('connection', (socket) => {
                 }
             } else {
                 socket.handshake.session.room = 'Global';
-                console.log(`🌐 No restoration data found for ${data.username}, starting in Global`);
+                console.log(`${c.net('[NET]')} No restoration data found for ${data.username}, starting in Global`);
                 
                 // Handle non-restoration case
                 socket.handshake.session.save((err) => {
@@ -765,6 +787,7 @@ io.on('connection', (socket) => {
                         socket.handshake.session.save();
                         
                         Player.onConnect(socket, data.username, admin, io);
+                        socket._playerConnected = true;
                         socket.emit('signInResponse', { 
                             success: true, 
                             isAdmin: admin, 
@@ -779,7 +802,7 @@ io.on('connection', (socket) => {
 
     // Client can request a session restore explicitly (useful after reconnect)
     socket.on('requestSessionRestore', function(req) {
-        console.log('🔁 requestSessionRestore received from socket', socket.id, 'for', req && req.room ? req.room : 'n/a');
+        console.log(c.info('[RETRY]'), 'requestSessionRestore received from socket', socket.id, 'for', req && req.room ? req.room : 'n/a');
         // Use existing session data to build the same response as on initial connect
         if (socket.handshake.session && socket.handshake.session.username) {
             let targetRoom = socket.handshake.session.room || 'Global';
@@ -812,7 +835,7 @@ io.on('connection', (socket) => {
     });
 
     socket.on('signUp', function(data) {
-        console.log('📝 Sign up attempt:', { username: data.username, inviteCode: data.inviteCode });
+        console.log(c.dim('[NOTE]'), 'Sign up attempt:', { username: data.username, inviteCode: data.inviteCode });
         
         // Validate required fields
         if (!data.username || !data.password || !data.inviteCode) {
@@ -834,7 +857,7 @@ io.on('connection', (socket) => {
             });
         }
         
-        console.log('🔒 Sanitized invite code:', sanitizedInviteCode, 'from original:', data.inviteCode);
+        console.log(c.auth('[LOCK]'), 'Sanitized invite code:', sanitizedInviteCode, 'from original:', data.inviteCode);
         
         // Validate invite code first
         Database.validateInviteCode(sanitizedInviteCode, function(isValidInvite) {
@@ -869,7 +892,7 @@ io.on('connection', (socket) => {
                     // Mark invite code as used
                     Database.useInviteCode(sanitizedInviteCode, data.username, function(codeUsed) {
                         if (!codeUsed) {
-                            console.log('⚠️ Account created but failed to mark invite code as used');
+                            console.log(c.warn('[WARN]'), 'Account created but failed to mark invite code as used');
                         }
                         
                         // Store user data in session after successful signup
@@ -885,8 +908,9 @@ io.on('connection', (socket) => {
                             
                             // Auto-login the user after successful signup
                             Database.isAdmin(data, function(admin) {
-                                console.log('📝 Sending successful signUpResponse with autoLogin for:', data.username);
+                                console.log(c.dim('[NOTE]'), 'Sending successful signUpResponse with autoLogin for:', data.username);
                                 Player.onConnect(socket, data.username, admin, io);
+                                socket._playerConnected = true;
                                 socket.emit('signUpResponse', { 
                                     success: true, 
                                     message: 'Account created successfully!',
@@ -935,7 +959,7 @@ io.on('connection', (socket) => {
                     });
                 }
                 
-                console.log('🔒 Sanitized custom code:', sanitizedCustomCode, 'from original:', data.customCode);
+                console.log(c.auth('[LOCK]'), 'Sanitized custom code:', sanitizedCustomCode, 'from original:', data.customCode);
                 
                 // Generate permanent custom code
                 Database.generatePermanentInviteCode(sanitizedCustomCode, username, function(inviteCode) {
@@ -984,7 +1008,7 @@ io.on('connection', (socket) => {
     });
 
     socket.on('logout', function() {
-        console.log('🔓 User logging out:', socket.handshake.session.username);
+        console.log(c.auth('[UNLOCK]'), 'User logging out:', socket.handshake.session.username);
         
         // Store user's room information for potential restoration after re-login
         if (socket.handshake.session && socket.handshake.session.username && socket.handshake.session.room) {
@@ -1002,11 +1026,11 @@ io.on('connection', (socket) => {
                         timestamp: Date.now(),
                         hasActiveGame: true
                     });
-                    console.log(`💾 Stored room restoration data for ${username}: room="${currentRoom}", activeGame=true`);
+                    console.log(`${c.data('[SAVE]')} Stored room restoration data for ${username}: room="${currentRoom}", activeGame=true`);
                 } else {
                     // Remove any existing restoration data if no active game
                     userRoomRestoration.delete(username);
-                    console.log(`�️ Cleared room restoration data for ${username} - no active game`);
+                    console.log(`${c.clean('[CLEAN]')} Cleared room restoration data for ${username} - no active game`);
                 }
             } else {
                 // Remove restoration data if user was in Global
@@ -1036,12 +1060,12 @@ io.on('connection', (socket) => {
             const roomName = typeof data === 'string' ? data : data.room;
             socket.handshake.session.room = roomName;
             socket.handshake.session.save();
-            console.log('💾 Room saved to session:', roomName);
+            console.log(c.data('[SAVE]'), 'Room saved to session:', roomName);
         }
     });
     
     socket.on('endExperiment', function(data) {
-        console.log('🛑 End experiment request received:', data);
+        console.log(c.err('[STOP]'), 'End experiment request received:', data);
         
         // Verify the user is a moderator (you may need to add this check)
         const username = socket.handshake.session?.username;
@@ -1057,18 +1081,49 @@ io.on('connection', (socket) => {
             return;
         }
         
-        console.log(`🛑 Moderator ${username} ending experiment in room: ${room}`);
+        console.log(`${c.err('[STOP]')} Moderator ${username} ending experiment in room: ${room}`);
+        
+        // Grab session data BEFORE cleanup destroys it
+        const Entity_stop = require('./Entity.js');
+        const stopSession = Entity_stop.GameSession.get(room);
+        const stopRoundHistory = (stopSession && stopSession.roundHistory) ? stopSession.roundHistory : [];
+        
+        // Cache CSV before cleanup destroys the GameSession
+        // This allows the client's CSV validation to work after the modal appears
+        try {
+            if (stopSession && stopSession.dataLog && stopSession.dataLog.length > 0) {
+                const ExperimentScheduler = require('./ExperimentScheduler.js');
+                const scheduler = new ExperimentScheduler();
+                const csvData = scheduler.exportExperimentResultsToCSV(stopSession.dataLog);
+                recentCSVCache.set(room, { csvData, timestamp: Date.now() });
+                console.log(`${c.data('[DATA]')} Cached CSV for room ${room} before cleanup (${csvData.length} chars)`);
+                // Auto-expire cache entry after 10 minutes
+                setTimeout(() => { recentCSVCache.delete(room); }, 10 * 60 * 1000);
+            }
+        } catch (cacheErr) {
+            console.error(`❌ Failed to cache CSV for room ${room}:`, cacheErr.message);
+        }
         
         // Clear session room for all users in the room by sending them to Global
         io.in(room).fetchSockets().then(sockets => {
-            console.log(`📡 Found ${sockets.length} users in room ${room} to process`);
+            console.log(`${c.net('[EMIT]')} Found ${sockets.length} users in room ${room} to process`);
+            
+            // Identify the room creator (moderator) for per-socket isModerator flag
+            const currentRoom = typeof roomList !== 'undefined' ? roomList.find(r => r.name === room) : null;
+            const moderatorUsername = currentRoom ? currentRoom.creator : username;
             
             // First, send events to all sockets while they're still in the room
             sockets.forEach(socket => {
+                const socketUsername = socket.handshake.session?.username;
+                const isSocketModerator = socketUsername === moderatorUsername;
+                
                 // Send experimentEnded event to each socket individually
                 socket.emit('experimentEnded', {
                     message: `The experiment has been ended by the moderator.`,
-                    moderator: username
+                    moderator: username,
+                    isModerator: isSocketModerator,
+                    roomName: room,
+                    roundHistory: stopRoundHistory
                 });
                 
                 // Send leftRoom event to each socket individually
@@ -1077,7 +1132,7 @@ io.on('connection', (socket) => {
                     reason: 'Experiment ended by moderator'
                 });
                 
-                console.log(`📡 Sent end experiment events to: ${socket.handshake.session?.username || 'unknown user'}`);
+                console.log(`${c.net('[EMIT]')} Sent end experiment events to: ${socket.handshake.session?.username || 'unknown user'}`);
             });
             
             // Then update sessions and move sockets
@@ -1085,12 +1140,12 @@ io.on('connection', (socket) => {
                 if (socket.handshake.session) {
                     socket.handshake.session.room = 'Global';
                     socket.handshake.session.save();
-                    console.log(`🧹 Cleared session room for user: ${socket.handshake.session.username}`);
+                    console.log(`${c.clean('[CLEAN]')} Cleared session room for user: ${socket.handshake.session.username}`);
                     
                     // Force socket to leave the experiment room and join Global
                     socket.leave(room);
                     socket.join('Global');
-                    console.log(`🚪 Moved socket from ${room} to Global for user: ${socket.handshake.session.username}`);
+                    console.log(`${c.info('[ROOM]')} Moved socket from ${room} to Global for user: ${socket.handshake.session.username}`);
                     
                     // Send joinRoom confirmation to the socket
                     socket.emit('joinRoom', 'Global');
@@ -1106,7 +1161,7 @@ io.on('connection', (socket) => {
             const cleanupSuccess = Entity.cleanupRoom(room);
             
             if (!cleanupSuccess) {
-                console.warn(`⚠️ Room cleanup had some issues for room: ${room}`);
+                console.warn(`${c.warn('[WARN]')} Room cleanup had some issues for room: ${room}`);
             }
             
             console.log(`✅ Experiment ended in room: ${room}`);
@@ -1116,9 +1171,13 @@ io.on('connection', (socket) => {
             // Fallback: send events to individual sockets if main flow failed
             io.in(room).fetchSockets().then(fallbackSockets => {
                 fallbackSockets.forEach(socket => {
+                    const socketUser = socket.handshake.session?.username;
                     socket.emit('experimentEnded', {
                         message: `The experiment has been ended by the moderator.`,
-                        moderator: username
+                        moderator: username,
+                        isModerator: socketUser === username,
+                        roomName: room,
+                        roundHistory: stopRoundHistory
                     });
                     
                     socket.emit('leftRoom', {
@@ -1131,6 +1190,85 @@ io.on('connection', (socket) => {
             }).catch(fallbackError => {
                 console.error(`❌ Fallback also failed:`, fallbackError);
             });
+        });
+    });
+
+    // ─── Integration Test Runner (admin/moderator only) ─────────
+    // Spawns test_integration.js as a child process, streams output
+    // back to the requesting client via Socket.IO events.
+    let activeTestProcess = null;
+
+    socket.on('runIntegrationTest', function(opts) {
+        // Guard: admin or moderator only
+        const isAdmin = socket.handshake.session && socket.handshake.session.isAdmin;
+        const userRoom = socket.handshake.session && socket.handshake.session.room;
+        const username = socket.handshake.session && socket.handshake.session.username;
+        // Check if user is room creator (moderator)
+        let isMod = false;
+        if (userRoom && userRoom !== 'Global' && typeof roomList !== 'undefined') {
+            const room = roomList.find(r => r.name === userRoom);
+            isMod = room && room.creator === username;
+        }
+
+        if (!isAdmin && !isMod) {
+            socket.emit('integrationTestOutput', { line: '❌ Permission denied — admin or moderator required', type: 'error' });
+            socket.emit('integrationTestComplete', { code: 1, signal: null });
+            return;
+        }
+
+        if (activeTestProcess) {
+            socket.emit('integrationTestOutput', { line: '⚠️ A test is already running — please wait', type: 'warn' });
+            return;
+        }
+
+        const { spawn } = require('child_process');
+        const testArgs = ['test_integration.js', '--rounds', String((opts && opts.rounds) || 21)];
+
+        // If an invite code was passed, forward it
+        if (opts && opts.inviteCode) {
+            testArgs.push('--invite', opts.inviteCode);
+        }
+
+        console.log(`${c.game('[TEST]')} Integration test triggered by ${socket.handshake.session.username}: node ${testArgs.join(' ')}`);
+        socket.emit('integrationTestOutput', { line: `Starting integration test (${(opts && opts.rounds) || 21} rounds / 1 full block)…`, type: 'info' });
+
+        const child = spawn(process.execPath, testArgs, {
+            cwd: __dirname,
+            env: { ...process.env, FORCE_COLOR: '0' },   // no ANSI in piped output
+            stdio: ['ignore', 'pipe', 'pipe']
+        });
+        activeTestProcess = child;
+
+        function sendLine(raw, type) {
+            const line = raw.toString().replace(/\r?\n$/, '');
+            if (line.length === 0) return;
+            // Split multi-line chunks
+            line.split(/\r?\n/).forEach(l => {
+                socket.emit('integrationTestOutput', { line: l, type: type });
+            });
+        }
+
+        child.stdout.on('data', chunk => sendLine(chunk, 'stdout'));
+        child.stderr.on('data', chunk => sendLine(chunk, 'stderr'));
+
+        child.on('close', (code, signal) => {
+            activeTestProcess = null;
+            console.log(`${c.game('[TEST]')} Integration test finished (code=${code}, signal=${signal})`);
+            socket.emit('integrationTestComplete', { code: code, signal: signal });
+        });
+
+        child.on('error', (err) => {
+            activeTestProcess = null;
+            socket.emit('integrationTestOutput', { line: `❌ Failed to start test: ${err.message}`, type: 'error' });
+            socket.emit('integrationTestComplete', { code: 1, signal: null });
+        });
+
+        // Allow the client to abort a running test
+        socket.once('cancelIntegrationTest', () => {
+            if (activeTestProcess) {
+                console.log(`${c.err('[STOP]')} Integration test cancelled by ${socket.handshake.session.username}`);
+                activeTestProcess.kill('SIGINT');
+            }
         });
     });
 
@@ -1151,7 +1289,7 @@ io.on('connection', (socket) => {
                         timestamp: Date.now(),
                         hasActiveGame: true
                     });
-                    console.log(`💾 Stored room restoration data on disconnect for ${username}: room="${currentRoom}", activeGame=true`);
+                    console.log(`${c.data('[SAVE]')} Stored room restoration data on disconnect for ${username}: room="${currentRoom}", activeGame=true`);
                 } else {
                     // Remove any existing restoration data if no active game
                     userRoomRestoration.delete(username);

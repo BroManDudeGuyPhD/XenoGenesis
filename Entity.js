@@ -8,6 +8,7 @@ let Room = require('./Room')
 const formatMessage = require("./utils/messages");
 const fs = require('fs');
 const path = require('path');
+const { c } = require('./utils/logger');
 
 // Custom dictionaries for room name generation (simpler, shorter names)
 const simpleColors = [
@@ -63,7 +64,7 @@ function checkUserAdminStatus(username, callback) {
     
     // Check database admin status
     Database.isAdmin({ username: username }, function(isDbAdmin) {
-        console.log(`🔍 Database admin check for ${username}: ${isDbAdmin}`);
+        console.log(`${c.dim('[DBG]')} Database admin check for ${username}: ${isDbAdmin}`);
         callback(isDbAdmin);
     });
 }
@@ -77,7 +78,7 @@ var ExperimentManager = {
     
     // Initialize experiment for a room
     initializeExperiment: function(roomName, mode = 'conditions') {
-        console.log(`🧪 Initializing conditions experiment for room: ${roomName}`);
+        console.log(`${c.game('[EXP]')} Initializing conditions experiment for room: ${roomName}`);
         
         // Direct conditions mode - no baseline phase
         return {
@@ -93,14 +94,14 @@ var ExperimentManager = {
         // Get schedule data for the round
         const currentRound = this.scheduler.getCurrentRound(experiment.schedule, roundNumber);
         if (!currentRound) {
-            console.log(`⚠️ No schedule data found for round ${roundNumber}`);
+            console.log(`${c.warn('[WARN]')} No schedule data found for round ${roundNumber}`);
             return null;
         }
         
         // Map condition name to condition object
         let condition = this.mapConditionNameToObject(currentRound.condition);
         
-        console.log(`🔍 Scheduler data for round ${roundNumber}:`, {
+        console.log(`${c.dim('[DBG]')} Scheduler data for round ${roundNumber}:`, {
             condition: currentRound.condition,
             incentive: currentRound.incentive,
             player: currentRound.player,
@@ -126,7 +127,7 @@ var ExperimentManager = {
             case 'Equal Culturant–Operant':
                 return Conditions.EQUAL_CULTURANT_OPERANT;
             default:
-                console.log(`⚠️ Unknown condition: ${conditionName}`);
+                console.log(`${c.warn('[WARN]')} Unknown condition: ${conditionName}`);
                 return Conditions.BASELINE;
         }
     },
@@ -150,14 +151,14 @@ var GlobalTokenPool = {
     // Initialize token pool based on experiment
     initialize: function(experiment) {
         this.whiteTokens = experiment.whiteTokenPool; // CONDITIONS_TOKENS (1250)
-        console.log(`🪙 Token pool initialized for conditions mode: ${this.whiteTokens} white tokens`);
+        console.log(`${c.data('[COIN]')} Token pool initialized for conditions mode: ${this.whiteTokens} white tokens`);
     },
     
     // Reset token pool to default state for new experiments
     reset: function() {
         this.whiteTokens = TOKEN_CONFIG.CONDITIONS_TOKENS; // Start with conditions tokens (1250)
         this.blackTokens = Infinity; // Always unlimited
-        console.log(`🧹 GlobalTokenPool reset to defaults: ${this.whiteTokens} white tokens, ∞ black tokens`);
+        console.log(`${c.clean('[CLEAN]')} GlobalTokenPool reset to defaults: ${this.whiteTokens} white tokens, ∞ black tokens`);
     }
 };
 
@@ -288,14 +289,14 @@ var AIPlayer = {
                     // Force all AI to choose odd rows (impulsive)
                     const impulsiveRows = [1, 3, 5, 7];
                     chosenRow = impulsiveRows[Math.floor(Math.random() * impulsiveRows.length)];
-                    console.log(`🧪 AI ${aiPlayer.username} forced to impulsive behavior: row ${chosenRow}`);
+                    console.log(`${c.game('[EXP]')} AI ${aiPlayer.username} forced to impulsive behavior: row ${chosenRow}`);
                     break;
                     
                 case 'all_selfcontrol':
                     // Force all AI to choose even rows (self-control)
                     const selfControlRows = [2, 4, 6, 8];
                     chosenRow = selfControlRows[Math.floor(Math.random() * selfControlRows.length)];
-                    console.log(`🧪 AI ${aiPlayer.username} forced to self-control behavior: row ${chosenRow}`);
+                    console.log(`${c.game('[EXP]')} AI ${aiPlayer.username} forced to self-control behavior: row ${chosenRow}`);
                     break;
                     
                 case 'mixed':
@@ -307,12 +308,12 @@ var AIPlayer = {
                         // Even index = impulsive
                         const impulsiveRows = [1, 3, 5, 7];
                         chosenRow = impulsiveRows[Math.floor(Math.random() * impulsiveRows.length)];
-                        console.log(`🧪 AI ${aiPlayer.username} (${aiIndex}) forced to impulsive in mixed pattern: row ${chosenRow}`);
+                        console.log(`${c.game('[EXP]')} AI ${aiPlayer.username} (${aiIndex}) forced to impulsive in mixed pattern: row ${chosenRow}`);
                     } else {
                         // Odd index = self-control
                         const selfControlRows = [2, 4, 6, 8];
                         chosenRow = selfControlRows[Math.floor(Math.random() * selfControlRows.length)];
-                        console.log(`🧪 AI ${aiPlayer.username} (${aiIndex}) forced to self-control in mixed pattern: row ${chosenRow}`);
+                        console.log(`${c.game('[EXP]')} AI ${aiPlayer.username} (${aiIndex}) forced to self-control in mixed pattern: row ${chosenRow}`);
                     }
                     break;
                     
@@ -321,11 +322,11 @@ var AIPlayer = {
                     const targetRow = session.aiSpecificRow;
                     if (targetRow >= 1 && targetRow <= 8) {
                         chosenRow = targetRow;
-                        console.log(`🧪 AI ${aiPlayer.username} forced to specific row: ${chosenRow}`);
+                        console.log(`${c.game('[EXP]')} AI ${aiPlayer.username} forced to specific row: ${chosenRow}`);
                     } else {
                         // Fallback to random if invalid row
                         chosenRow = Math.floor(Math.random() * 8) + 1;
-                        console.log(`🧪 AI ${aiPlayer.username} invalid specific row, using random: ${chosenRow}`);
+                        console.log(`${c.game('[EXP]')} AI ${aiPlayer.username} invalid specific row, using random: ${chosenRow}`);
                     }
                     break;
                     
@@ -367,7 +368,7 @@ var AIPlayer = {
     processAIDecisions: function(room, gameSession) {
         // Check if experiment is paused
         if (gameSession && gameSession.isPaused) {
-            console.log(`⏸️ AI decisions paused for room ${room}`);
+            console.log(`${c.warn('[PAUSE]')} AI decisions paused for room ${room}`);
             return;
         }
         
@@ -400,7 +401,7 @@ var AIPlayer = {
                 // Double-check pause state before making decision
                 const session = GameSessions[room];
                 if (session && session.isPaused) {
-                    console.log(`⏸️ AI decision cancelled for ${aiPlayer.username} due to pause`);
+                    console.log(`${c.warn('[PAUSE]')} AI decision cancelled for ${aiPlayer.username} due to pause`);
                     return;
                 }
                 
@@ -419,7 +420,7 @@ var AIPlayer = {
         setTimeout(() => {
             // Double-check pause state before making decision
             if (gameSession && gameSession.isPaused) {
-                console.log(`⏸️ AI decision cancelled for ${aiPlayer.username} due to pause`);
+                console.log(`${c.warn('[PAUSE]')} AI decision cancelled for ${aiPlayer.username} due to pause`);
                 return;
             }
             
@@ -500,7 +501,7 @@ var AIPlayer = {
                         }
                     });
                 } else {
-                    console.log(`🏁 AI ${aiPlayer.username} was the last to lock in, pausing turn advancement until round processes`);
+                    console.log(`${c.game('[END]')} AI ${aiPlayer.username} was the last to lock in, pausing turn advancement until round processes`);
                 }
             }
             
@@ -541,7 +542,7 @@ var AIPlayer = {
                         };
                         
                         moderatorPlayer.socket.emit('playerStatusUpdate', updateData);
-                        console.log(`📊 Targeted AI player status update sent to moderator ${currentRoom.creator} only`);
+                        console.log(`${c.data('[DATA]')} Targeted AI player status update sent to moderator ${currentRoom.creator} only`);
                     }
                 }
             }
@@ -557,7 +558,7 @@ var AIPlayer = {
             console.log(`🤖 AI ${aiPlayer.username} finished decision. Lock-in status: ${votingPlayers.filter(p => p.isLockedIn).length}/${votingPlayers.length}`);
             
             if (allLockedIn) {
-                console.log(`🎯 All voting players locked in after AI decision! Processing round...`);
+                console.log(`${c.game('[AIM]')} All voting players locked in after AI decision! Processing round...`);
                 setTimeout(() => {
                     processRound(room, gameSession);
                 }, 500);
@@ -570,12 +571,12 @@ var AIPlayer = {
 function triggerAIDecisions(room) {
     const session = GameSessions[room];
     if (!session) {
-        console.log(`🚫 No session found for room ${room}`);
+        console.log(`${c.err('[DENY]')} No session found for room ${room}`);
         return;
     }
     
     if (session.isPaused) {
-        console.log(`⏸️ AI decisions skipped for paused room ${room}`);
+        console.log(`${c.warn('[PAUSE]')} AI decisions skipped for paused room ${room}`);
         return;
     }
     
@@ -800,11 +801,11 @@ GameSession = {
         // Initialize the global token pool based on experiment
         GlobalTokenPool.initialize(experiment);
         
-        console.log(`🎮 Created new GameSession for room: ${roomName}`);
-        console.log(`🧪 Experiment mode: ${experiment.mode}`);
-        console.log(`🔍 Initial condition: ${GameSessions[roomName].currentCondition.name}`);
-        console.log(`� Initial white token pool: ${experiment.whiteTokenPool}`);
-        console.log(`🔍 Max rounds: ${experiment.maxRounds}`);
+        console.log(`${c.game('[GAME]')} Created new GameSession for room: ${roomName}`);
+        console.log(`${c.game('[EXP]')} Experiment mode: ${experiment.mode}`);
+        console.log(`${c.dim('[DBG]')} Initial condition: ${GameSessions[roomName].currentCondition.name}`);
+        console.log(`${c.data('[COIN]')} Initial white token pool: ${experiment.whiteTokenPool}`);
+        console.log(`${c.dim('[DBG]')} Max rounds: ${experiment.maxRounds}`);
         return GameSessions[roomName];
     },
     
@@ -845,19 +846,19 @@ GameSession = {
     selectColumnForRound: function(gameSession) {
         const columns = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
         
-        console.log(`🔍 Column selection debug: mode=${gameSession.columnMode}, manualColumn=${gameSession.manualColumn}`);
+        console.log(`${c.dim('[DBG]')} Column selection debug: mode=${gameSession.columnMode}, manualColumn=${gameSession.manualColumn}`);
         
         if (gameSession.columnMode === 'manual' && gameSession.manualColumn) {
-            console.log(`📌 Using manually selected column: ${gameSession.manualColumn}`);
+            console.log(`${c.info('[PIN]')} Using manually selected column: ${gameSession.manualColumn}`);
             return gameSession.manualColumn;
         } else if (gameSession.columnMode === 'manual' && !gameSession.manualColumn) {
-            console.log(`⚠️ Manual mode but no column selected - falling back to random`);
+            console.log(`${c.warn('[WARN]')} Manual mode but no column selected - falling back to random`);
             const randomColumn = columns[Math.floor(Math.random() * columns.length)];
-            console.log(`🎲 Fallback random column: ${randomColumn}`);
+            console.log(`${c.game('[DICE]')} Fallback random column: ${randomColumn}`);
             return randomColumn;
         } else {
             const randomColumn = columns[Math.floor(Math.random() * columns.length)];
-            console.log(`🎲 Auto-selected random column: ${randomColumn}`);
+            console.log(`${c.game('[DICE]')} Auto-selected random column: ${randomColumn}`);
             return randomColumn;
         }
     },
@@ -884,13 +885,13 @@ GameSession = {
         // Filter out moderator from position assignment - moderators NEVER get seats
         const playersInRoom = allPlayersInRoom.filter(p => p.username !== moderatorUsername);
         
-        console.log(`🎯 Position assignment for ${roomName}: ${allPlayersInRoom.length} total, ${playersInRoom.length} participants (excluding moderator: ${moderatorUsername})`);
+        console.log(`${c.game('[AIM]')} Position assignment for ${roomName}: ${allPlayersInRoom.length} total, ${playersInRoom.length} participants (excluding moderator: ${moderatorUsername})`);
         
         // Clean up stored positions for players no longer in room
         const currentUsernames = new Set(playersInRoom.map(p => p.username));
         Object.keys(session.playerPositions).forEach(username => {
             if (!currentUsernames.has(username)) {
-                console.log(`🧹 Removing stored position for disconnected player: ${username}`);
+                console.log(`${c.clean('[CLEAN]')} Removing stored position for disconnected player: ${username}`);
                 delete session.playerPositions[username];
             }
         });
@@ -923,7 +924,7 @@ GameSession = {
                 if (positionIndex !== -1) {
                     occupiedPositions.add(positionIndex);
                     playersWithPositions.push({ player, positionIndex });
-                    console.log(`🔄 Restored ${player.username} from server storage: ${storedPosition.seatPosition} (${storedPosition.x}, ${storedPosition.y})`);
+                    console.log(`${c.info('[SYNC]')} Restored ${player.username} from server storage: ${storedPosition.seatPosition} (${storedPosition.x}, ${storedPosition.y})`);
                 }
             } else if (player.seatPosition && player.triadPosition) {
                 // Fallback: preserve existing client position
@@ -931,7 +932,7 @@ GameSession = {
                 if (positionIndex !== -1) {
                     occupiedPositions.add(positionIndex);
                     playersWithPositions.push({ player, positionIndex });
-                    console.log(`🔄 Preserving ${player.username}'s existing position: ${player.seatPosition} (${player.x}, ${player.y})`);
+                    console.log(`${c.info('[SYNC]')} Preserving ${player.username}'s existing position: ${player.seatPosition} (${player.x}, ${player.y})`);
                 }
             } else {
                 playersNeedingPositions.push(player);
@@ -960,13 +961,13 @@ GameSession = {
                         seatPosition: player.seatPosition
                     };
                     
-                    console.log(`🎯 Assigned ${player.username} to ${position.description} (${position.x}, ${position.y})`);
+                    console.log(`${c.game('[AIM]')} Assigned ${player.username} to ${position.description} (${position.x}, ${position.y})`);
                     break;
                 }
             }
         });
         
-        console.log(`🃏 Poker table setup complete for ${roomName}: ${playersInRoom.length} players positioned`);
+        console.log(`${c.game('[CARD]')} Poker table setup complete for ${roomName}: ${playersInRoom.length} players positioned`);
         console.log(`   Moderator space available at bottom center (250, 350)`);
     },
     
@@ -1019,8 +1020,8 @@ GameSession = {
         session.playersReady = [];
         
         const firstPlayer = session.turnOrder[0];
-        console.log(`🎯 Turn order initialized: ${session.turnOrder.join(' → ')}`);
-        console.log(`🎯 First player: ${firstPlayer}`);
+        console.log(`${c.game('[AIM]')} Turn order initialized: ${session.turnOrder.join(' → ')}`);
+        console.log(`${c.game('[AIM]')} First player: ${firstPlayer}`);
         
         // If the first player is an AI, trigger their decision after initialization
         setTimeout(() => {
@@ -1049,13 +1050,13 @@ GameSession = {
         session.currentTurnIndex = (session.currentTurnIndex + 1) % session.turnOrder.length;
         const currentPlayer = session.turnOrder[session.currentTurnIndex];
         
-        console.log(`🔄 Turn advanced to: ${currentPlayer} (index ${session.currentTurnIndex})`);
+        console.log(`${c.info('[SYNC]')} Turn advanced to: ${currentPlayer} (index ${session.currentTurnIndex})`);
         
         // Immediately broadcast turn update to all players when turn advances
         const playersInRoom = Object.values(Player.list).filter(p => p.room === roomName);
         playersInRoom.forEach(p => {
             if (p.socket) {
-                console.log(`📡 Sending turnUpdate to ${p.username} (${p.socket.id}): ${currentPlayer}'s turn`);
+                console.log(`${c.net('[EMIT]')} Sending turnUpdate to ${p.username} (${p.socket.id}): ${currentPlayer}'s turn`);
                 p.socket.emit('turnUpdate', {
                     currentTurnPlayer: currentPlayer,
                     turnOrder: session.turnOrder,
@@ -1065,7 +1066,7 @@ GameSession = {
                 });
             }
         });
-        console.log(`📡 Broadcasted turn update: ${currentPlayer}'s turn to all players`);
+        console.log(`${c.net('[EMIT]')} Broadcasted turn update: ${currentPlayer}'s turn to all players`);
         
         // If the current player is an AI, trigger their decision after a brief delay
         setTimeout(() => {
@@ -1090,7 +1091,7 @@ GameSession = {
         session.playersReady = [];
         
         const startingPlayer = session.turnOrder[session.roundStartPlayer];
-        console.log(`🆕 New round started. Starting player: ${startingPlayer}`);
+        console.log(`${c.info('[NEW]')} New round started. Starting player: ${startingPlayer}`);
         
         // Clear all player choices and lock-in status
         const playersInRoom = Object.values(Player.list).filter(p => p.room === roomName);
@@ -1110,7 +1111,7 @@ GameSession = {
                 });
             }
         });
-        console.log(`📡 Broadcasted new round turn update: ${startingPlayer}'s turn to all players`);
+        console.log(`${c.net('[EMIT]')} Broadcasted new round turn update: ${startingPlayer}'s turn to all players`);
         
         // Don't trigger AI decision here - let advanceTurn handle it if needed
         // The turn system will handle AI decisions through the normal flow
@@ -1141,7 +1142,7 @@ GameSession = {
         session.currentPlayer = conditionInfo.player;
         session.currentBlockNumber = conditionInfo.blockNumber;
         
-        console.log(`🔄 Updated condition for round ${roundNumber}:`, {
+        console.log(`${c.info('[SYNC]')} Updated condition for round ${roundNumber}:`, {
             condition: conditionInfo.conditionName,
             incentive: conditionInfo.incentive,
             player: conditionInfo.player,
@@ -1158,7 +1159,7 @@ GameSession = {
 
             // Special case: If this is a no incentive round, treat as no recipient
             if (conditionInfo.incentive === 'No Incentive') {
-                console.log(`🔍 Forcing null assignment for round with no incentive`);
+                console.log(`${c.dim('[DBG]')} Forcing null assignment for round with no incentive`);
                 return null;
             }
             
@@ -1185,13 +1186,13 @@ GameSession = {
         // Use null to indicate no incentive recipient for this round
         session.currentPlayer = actualPlayerName || null;
         
-        console.log(`🔍 Player mapping debug:`);
+        console.log(`${c.dim('[DBG]')} Player mapping debug:`);
         console.log(`   conditionInfo.player: "${conditionInfo.player}" (type: ${typeof conditionInfo.player})`);
         console.log(`   actualPlayerName: "${actualPlayerName}"`);
         console.log(`   playersInRoom count: ${playersInRoom.length}`);
         console.log(`   playersInRoom names: [${playersInRoom.map(p => p.username).join(', ')}]`);
         
-        console.log(`🧪 Updated condition for round ${roundNumber}:`);
+        console.log(`${c.game('[EXP]')} Updated condition for round ${roundNumber}:`);
         console.log(`   Condition: ${conditionInfo.conditionName}`);
         console.log(`   Incentive: ${conditionInfo.incentive}`);
         console.log(`   Player: ${actualPlayerName} (scheduler: ${conditionInfo.player})`);
@@ -1207,7 +1208,7 @@ GameSession = {
                 
                 const isModerator = currentRoom && p.username === currentRoom.creator;
                 
-                console.log(`📡 Sending conditionUpdate to ${p.username}: player=${actualPlayerName}, incentive=${conditionInfo.incentive}`);
+                console.log(`${c.net('[EMIT]')} Sending conditionUpdate to ${p.username}: player=${actualPlayerName}, incentive=${conditionInfo.incentive}`);
                 
                 // Prepare conditionUpdate data
                 const conditionUpdateData = {
@@ -1232,17 +1233,17 @@ GameSession = {
                         id: player.id,
                         isAI: player.id.startsWith('AI_')
                     }));
-                    console.log(`📡 LED TRACKER: Added ${conditionUpdateData.players.length} players for moderator ${p.username}`);
-                    console.log(`📡 LED TRACKER DEBUG: Players array for ${p.username}:`, JSON.stringify(conditionUpdateData.players, null, 2));
+                    console.log(`${c.net('[EMIT]')} LED TRACKER: Added ${conditionUpdateData.players.length} players for moderator ${p.username}`);
+                    console.log(`${c.net('[EMIT]')} LED TRACKER DEBUG: Players array for ${p.username}:`, JSON.stringify(conditionUpdateData.players, null, 2));
                 }
                 
-                console.log(`📡 conditionUpdate data for ${p.username}:`, JSON.stringify(conditionUpdateData, null, 2));
+                console.log(`${c.net('[EMIT]')} conditionUpdate data for ${p.username}:`, JSON.stringify(conditionUpdateData, null, 2));
                 
                 p.socket.emit('conditionUpdate', conditionUpdateData);
                 
                 // Also send targeted incentiveChanged event to the specific player
                 if (actualPlayerName && p.username === actualPlayerName && conditionInfo.incentive && conditionInfo.incentive !== 'No Incentive') {
-                    console.log(`🎯 Sending targeted incentiveChanged to ${p.username}: ${incentiveDisplayName}`);
+                    console.log(`${c.game('[AIM]')} Sending targeted incentiveChanged to ${p.username}: ${incentiveDisplayName}`);
                     
                     // Set the player's active incentive on the server side
                     p.activeIncentive = conditionInfo.incentive;
@@ -1266,6 +1267,24 @@ GameSession = {
                 }
             }
         });
+
+        // Also set activeIncentive on AI players (no socket, so skipped above)
+        playersInRoom.forEach(p => {
+            if (!p.socket && p.isAI) {
+                if (actualPlayerName && p.username === actualPlayerName && conditionInfo.incentive && conditionInfo.incentive !== 'No Incentive') {
+                    p.activeIncentive = conditionInfo.incentive;
+                    console.log(`🤖✅ Set AI ${p.username}.activeIncentive = ${conditionInfo.incentive}`);
+                } else if (p.username === actualPlayerName) {
+                    p.activeIncentive = null;
+                    console.log(`🤖✅ Cleared AI ${p.username}.activeIncentive (no incentive for this condition)`);
+                } else {
+                    if (p.activeIncentive) {
+                        p.activeIncentive = null;
+                        console.log(`🤖✅ Cleared AI ${p.username}.activeIncentive (not assigned player this round)`);
+                    }
+                }
+            }
+        });
         
         return conditionInfo;
     },
@@ -1282,7 +1301,7 @@ GameSession = {
         );
         
         if (endStatus.shouldEnd) {
-            console.log(`🏁 Experiment ending: ${endStatus.reason}`);
+            console.log(`${c.game('[END]')} Experiment ending: ${endStatus.reason}`);
             session.gameState = 'finished';
             
             // Get room to identify moderator (room creator)
@@ -1348,7 +1367,7 @@ GameSession = {
             const sessionDuration = session.sessionStartTime ? 
                 Math.floor((new Date() - session.sessionStartTime) / 1000) : 0;
             
-            console.log(`📊 Experiment stats: ${selfControlChoices} self-control, ${impulsiveChoices} impulsive, ${tokensUsed} tokens used (pool: ${startingPool} -> ${remainingPool})`);
+            console.log(`${c.data('[DATA]')} Experiment stats: ${selfControlChoices} self-control, ${impulsiveChoices} impulsive, ${tokensUsed} tokens used (pool: ${startingPool} -> ${remainingPool})`);
             
             // Broadcast experiment end to all players with comprehensive stats
             playersInRoom.forEach(p => {
@@ -1367,7 +1386,8 @@ GameSession = {
                         impulsiveChoices: impulsiveChoices,
                         sessionDuration: sessionDuration,
                         playerStats: playerStats,
-                        isModerator: isPlayerModerator
+                        isModerator: isPlayerModerator,
+                        roundHistory: session.roundHistory || []
                     });
                 }
             });
@@ -1427,7 +1447,7 @@ Player.onConnect = function(socket,username,admin,io){
     // Don't add user to chat system immediately - wait for them to join a room
 
     socket.on('leaveRoom', (room) => {
-        console.log(`🚪 ${playerData.username} leaving room: ${room}`);
+        console.log(`${c.info('[ROOM]')} ${playerData.username} leaving room: ${room}`);
         
         const userLeaving = userLeave(socket.id);
         if (userLeaving) {
@@ -1451,11 +1471,11 @@ Player.onConnect = function(socket,username,admin,io){
         if (room !== mainChat && room !== "Global") {
             const leavingPlayer = Object.values(Player.list).find(p => p.socket && p.socket.id === socket.id && p.room === room);
             if (leavingPlayer) {
-                console.log(`🔌 ${leavingPlayer.username} disconnected from active game in room: ${room} - preserving player state for reconnection`);
+                console.log(`${c.net('[SOCK]')} ${leavingPlayer.username} disconnected from active game in room: ${room} - preserving player state for reconnection`);
                 
                 // Instead of deleting, just mark socket as disconnected and set to null
                 leavingPlayer.socket = null;  // Clear socket but keep player data
-                console.log(`🔄 Player ${leavingPlayer.username} state preserved: isLockedIn=${leavingPlayer.isLockedIn}, currentChoice=${leavingPlayer.currentChoice}`);
+                console.log(`${c.info('[SYNC]')} Player ${leavingPlayer.username} state preserved: isLockedIn=${leavingPlayer.isLockedIn}, currentChoice=${leavingPlayer.currentChoice}`);
                 
                 // Don't delete the player - they can reconnect and resume their game state
                 // delete Player.list[leavingPlayer.id]; // ❌ REMOVED - this was causing state loss
@@ -1464,7 +1484,7 @@ Player.onConnect = function(socket,username,admin,io){
                 const gameSession = GameSession.get(room);
                 if (gameSession) {
                     const remainingPlayers = Object.values(Player.list).filter(p => p.room === room);
-                    console.log(`👥 ${remainingPlayers.length} players remaining in ${room}`);
+                    console.log(`${c.info('[PLAYERS]')} ${remainingPlayers.length} players remaining in ${room}`);
                     
                     // Reassign poker positions for remaining players
                     GameSession.assignTriadPositions(room);
@@ -1505,7 +1525,7 @@ Player.onConnect = function(socket,username,admin,io){
                         });
                     });
                     
-                    console.log(`📡 Emitting updated playersInRoom for ${room} after player left:`, playersWithModerator);
+                    console.log(`${c.net('[EMIT]')} Emitting updated playersInRoom for ${room} after player left:`, playersWithModerator);
                     io.to(room).emit('playersInRoom', {
                         room: room,
                         players: playersWithModerator
@@ -1574,7 +1594,7 @@ Player.onConnect = function(socket,username,admin,io){
                 const timeSinceDisconnect = Date.now() - disconnectionData.timestamp;
                 
                 if (timeSinceDisconnect < 5000) { // 5 second window for reconnection
-                    console.log(`🔄 Quick reconnection detected for ${playerData.username} (${timeSinceDisconnect}ms) - suppressing leave/join messages`);
+                    console.log(`${c.info('[SYNC]')} Quick reconnection detected for ${playerData.username} (${timeSinceDisconnect}ms) - suppressing leave/join messages`);
                     
                     // Cancel the delayed leave message
                     if (disconnectionData.timeout) {
@@ -1587,7 +1607,7 @@ Player.onConnect = function(socket,username,admin,io){
                     // Skip join message for quick reconnections
                     var skipJoinMessage = true;
                 } else {
-                    console.log(`🔄 Reconnection detected for ${playerData.username} but too slow (${timeSinceDisconnect}ms) - showing join message`);
+                    console.log(`${c.info('[SYNC]')} Reconnection detected for ${playerData.username} but too slow (${timeSinceDisconnect}ms) - showing join message`);
                     var skipJoinMessage = false;
                 }
             } else {
@@ -1613,7 +1633,7 @@ Player.onConnect = function(socket,username,admin,io){
             
             // Only broadcast join message if this is NOT a reconnection AND not a quick refresh
             if (!isReconnectingUser && !skipJoinMessage) {
-                console.log(`📡 Broadcasting join message for ${playerData.username} (new join, not reconnection or refresh)`);
+                console.log(`${c.net('[EMIT]')} Broadcasting join message for ${playerData.username} (new join, not reconnection or refresh)`);
                 // Broadcast when a user connects
                 // io.emit() sends to EVERYONE, this omits the user who joined
                 socket.broadcast
@@ -1626,11 +1646,11 @@ Player.onConnect = function(socket,username,admin,io){
                             admin: "admin"
                         }));
             } else {
-                console.log(`🔄 Suppressing join message for ${playerData.username} (reconnection: ${isReconnectingUser}, refresh: ${skipJoinMessage})`);
+                console.log(`${c.info('[SYNC]')} Suppressing join message for ${playerData.username} (reconnection: ${isReconnectingUser}, refresh: ${skipJoinMessage})`);
             }
 
             // Send users and room info
-            console.log(`📡 Server emitting roomUsers for room ${room} to all clients in room. Users count: ${getRoomUsers(user.room).length}, Total players: ${Player.getLength()}`);
+            console.log(`${c.net('[EMIT]')} Server emitting roomUsers for room ${room} to all clients in room. Users count: ${getRoomUsers(user.room).length}, Total players: ${Player.getLength()}`);
             io.to(user.room).emit("roomUsers", {
                 room: room,
                 users: getRoomUsers(user.room),
@@ -1638,12 +1658,12 @@ Player.onConnect = function(socket,username,admin,io){
             });
 
             // Create player list with moderator info and position data (onConnect)
-            console.log(`🔍 Building player list for ${room}. CurrentRoom creator: ${currentRoom?.creator}`);
+            console.log(`${c.dim('[DBG]')} Building player list for ${room}. CurrentRoom creator: ${currentRoom?.creator}`);
             const playersWithModerator = allRoomUsers.map(user => {
                 const playerObj = playersInRoom.find(p => p.username === user.username);
                 const isModerator = currentRoom && user.username === currentRoom.creator;
                 
-                console.log(`🔍 Player ${user.username}: isModerator=${isModerator}, creator=${currentRoom?.creator}`);
+                console.log(`${c.dim('[DBG]')} Player ${user.username}: isModerator=${isModerator}, creator=${currentRoom?.creator}`);
                 
                 return {
                     username: user.username,
@@ -1675,7 +1695,7 @@ Player.onConnect = function(socket,username,admin,io){
                 });
             });
             
-            console.log(`📡 Emitting playersInRoom to individual socket for ${playerData.username} in ${room}:`, playersWithModerator.map(p => ({username: p.username, isModerator: p.isModerator})));
+            console.log(`${c.net('[EMIT]')} Emitting playersInRoom to individual socket for ${playerData.username} in ${room}:`, playersWithModerator.map(p => ({username: p.username, isModerator: p.isModerator})));
             // Only send playersInRoom to the specific joining/reconnecting player
             // Don't disrupt other players' UIs who are already in the room
             socket.emit('playersInRoom', {
@@ -1683,12 +1703,12 @@ Player.onConnect = function(socket,username,admin,io){
                 players: playersWithModerator
             });
             
-            console.log(`📡 Also sent playersInRoom directly to ${playerData.username}`);
+            console.log(`${c.net('[EMIT]')} Also sent playersInRoom directly to ${playerData.username}`);
             
             // If this is a new player joining (not reconnecting), broadcast to room so moderator sees the new player
             const isReconnection = allRoomUsers.some(user => user.username === playerData.username && user.id !== socket.id);
             if (!isReconnection && room !== "Global") {
-                console.log(`📡 Broadcasting new player join to room ${room} (not a reconnection)`);
+                console.log(`${c.net('[EMIT]')} Broadcasting new player join to room ${room} (not a reconnection)`);
                 io.to(room).emit('playersInRoom', {
                     room: room,
                     players: playersWithModerator
@@ -1697,7 +1717,7 @@ Player.onConnect = function(socket,username,admin,io){
 
             // Send another playersInRoom event with a slight delay to ensure client is ready
             setTimeout(() => {
-                console.log(`⏰ Delayed playersInRoom emission for ${playerData.username} in ${room}`);
+                console.log(`${c.warn('[TIMEOUT]')} Delayed playersInRoom emission for ${playerData.username} in ${room}`);
                 socket.emit('playersInRoom', {
                     room: room,
                     players: playersWithModerator
@@ -1708,10 +1728,10 @@ Player.onConnect = function(socket,username,admin,io){
             // Only auto-join if the user is joining a room that's not Global and has active players
             if (room !== "Global" && room !== mainChat) {
                 const playersInRoom = Object.values(Player.list).filter(p => p.room === room);
-                console.log(`🔍 JOIN ROOM DEBUG - User: ${playerData.username}, Room: ${room}, Total Players in list: ${Object.keys(Player.list).length}, Players in this room: ${playersInRoom.length}`);
+                console.log(`${c.dim('[DBG]')} JOIN ROOM DEBUG - User: ${playerData.username}, Room: ${room}, Total Players in list: ${Object.keys(Player.list).length}, Players in this room: ${playersInRoom.length}`);
                 
                 if (playersInRoom.length > 0) {
-                    console.log(`🎮 Auto-joining ${playerData.username} to existing game in room: ${room}`);
+                    console.log(`${c.game('[GAME]')} Auto-joining ${playerData.username} to existing game in room: ${room}`);
                     
                     // Auto-start the game for the joining player (they become a player immediately)
                     Database.getPlayerProgress(playerData.username, function(progress) {
@@ -1758,7 +1778,7 @@ Player.onConnect = function(socket,username,admin,io){
                                 });
                             });
                             
-                            console.log(`📡 Broadcasting playersInRoom after ${playerData.username} reconnected to ${room}:`, allReconnectionPlayersData);
+                            console.log(`${c.net('[EMIT]')} Broadcasting playersInRoom after ${playerData.username} reconnected to ${room}:`, allReconnectionPlayersData);
                             io.to(room).emit('playersInRoom', {
                                 room: room,
                                 players: allReconnectionPlayersData
@@ -1773,7 +1793,7 @@ Player.onConnect = function(socket,username,admin,io){
                     console.log(`❌ No active game in room ${room} for ${playerData.username} to join`);
                 }
             } else {
-                console.log(`⏩ Skipping game init for ${playerData.username} joining ${room} (Global or main chat)`);
+                console.log(`${c.info('[SKIP]')} Skipping game init for ${playerData.username} joining ${room} (Global or main chat)`);
             }
 
             if(room !== "Global")
@@ -1909,7 +1929,7 @@ Player.onConnect = function(socket,username,admin,io){
 
     // Connection test for debugging
     socket.on('test-connection', function(data) {
-        console.log(`🔧 Connection test from ${data.username} (${socket.id})`);
+        console.log(`${c.dim('[FIX]')} Connection test from ${data.username} (${socket.id})`);
         socket.emit('test-connection-reply', { 
             message: 'Connection OK', 
             socketId: socket.id,
@@ -1925,7 +1945,7 @@ Player.onConnect = function(socket,username,admin,io){
     socket.on("disconnect", () => {
         const user = getCurrentUser(socket.id);
         if (user) {
-            console.log(`🔌 ${user.username} disconnected from room: ${user.room}`);
+            console.log(`${c.net('[SOCK]')} ${user.username} disconnected from room: ${user.room}`);
             
             // Store disconnection info and delay the leave message
             const disconnectionData = {
@@ -1946,7 +1966,7 @@ Player.onConnect = function(socket,username,admin,io){
             disconnectionData.timeout = setTimeout(() => {
                 // Check if user is still disconnected (not reconnected)
                 if (recentDisconnections.has(user.username)) {
-                    console.log(`📤 Showing delayed leave message for ${user.username} (no quick reconnect detected)`);
+                    console.log(`${c.net('[SEND]')} Showing delayed leave message for ${user.username} (no quick reconnect detected)`);
                     // Send leave message to the room the user was in
                     io.to(user.room).emit(
                         "message",
@@ -1968,11 +1988,11 @@ Player.onConnect = function(socket,username,admin,io){
             // Handle player in game sessions - PRESERVE player state for potential reconnection  
             const leavingPlayer = Object.values(Player.list).find(p => p.socket && p.socket.id === socket.id && p.room === user.room);
             if (leavingPlayer) {
-                console.log(`🔌 ${leavingPlayer.username} disconnected from active game in room: ${user.room} - preserving player state for reconnection`);
+                console.log(`${c.net('[SOCK]')} ${leavingPlayer.username} disconnected from active game in room: ${user.room} - preserving player state for reconnection`);
                 
                 // Instead of deleting, just mark socket as disconnected  
                 leavingPlayer.socket = null;  // Clear socket but keep player data
-                console.log(`🔄 Player ${leavingPlayer.username} state preserved: isLockedIn=${leavingPlayer.isLockedIn}, currentChoice=${leavingPlayer.currentChoice}`);
+                console.log(`${c.info('[SYNC]')} Player ${leavingPlayer.username} state preserved: isLockedIn=${leavingPlayer.isLockedIn}, currentChoice=${leavingPlayer.currentChoice}`);
                 
                 // Don't delete the player - they can reconnect and resume their game state
                 // delete Player.list[leavingPlayer.id]; // ❌ REMOVED - this was causing state loss
@@ -1981,7 +2001,7 @@ Player.onConnect = function(socket,username,admin,io){
                 const gameSession = GameSession.get(user.room);
                 if (gameSession && user.room !== 'Global') {
                     const remainingPlayers = Object.values(Player.list).filter(p => p.room === user.room);
-                    console.log(`👥 ${remainingPlayers.length} players remaining in ${user.room} after disconnect`);
+                    console.log(`${c.info('[PLAYERS]')} ${remainingPlayers.length} players remaining in ${user.room} after disconnect`);
                     
                     // Reassign poker positions for remaining players
                     GameSession.assignTriadPositions(user.room);
@@ -2025,7 +2045,7 @@ Player.onConnect = function(socket,username,admin,io){
                         });
                     });
                     
-                    console.log(`📡 Emitting updated playersInRoom for ${user.room} after disconnect:`, playersWithModerator);
+                    console.log(`${c.net('[EMIT]')} Emitting updated playersInRoom for ${user.room} after disconnect:`, playersWithModerator);
                     io.to(user.room).emit('playersInRoom', {
                         room: user.room,
                         players: playersWithModerator
@@ -2047,13 +2067,13 @@ Player.onConnect = function(socket,username,admin,io){
 
 
     socket.on('startGame', (data) => {
-        console.log('🎮 Starting game for room:', data.room);
-        console.log('🧪 Experiment mode:', data.experimentMode || 'baseline (default)');
+        console.log(`${c.game('[GAME]')} Starting game for room:`, data.room);
+        console.log(`${c.game('[EXP]')} Experiment mode:`, data.experimentMode || 'baseline (default)');
         
         try {
             // Get all users in the room (chat users, not game players yet)
             const usersInRoom = getRoomUsers(data.room);
-            console.log('🎮 Users in room:', usersInRoom.map(u => u.username));
+            console.log(`${c.game('[GAME]')} Users in room:`, usersInRoom.map(u => u.username));
             
             if (!usersInRoom || usersInRoom.length === 0) {
                 console.log('❌ No users found in room:', data.room);
@@ -2063,17 +2083,17 @@ Player.onConnect = function(socket,username,admin,io){
             
             // Check if players already exist in this room (from previous game start or AI addition)
             const existingPlayers = Object.values(Player.list).filter(p => p.room === data.room);
-            console.log('🎮 Existing players in room:', existingPlayers.map(p => `${p.username} (${p.isAI ? 'AI' : 'Human'})`));
+            console.log(`${c.game('[GAME]')} Existing players in room:`, existingPlayers.map(p => `${p.username} (${p.isAI ? 'AI' : 'Human'})`));
             
             // Only create players for users who don't already have a Player object
             const usersNeedingPlayers = usersInRoom.filter(user => 
                 !existingPlayers.find(p => p.id === user.id)
             );
             
-            console.log('🎮 Users needing Player objects:', usersNeedingPlayers.map(u => u.username));
+            console.log(`${c.game('[GAME]')} Users needing Player objects:`, usersNeedingPlayers.map(u => u.username));
             
             if (usersNeedingPlayers.length === 0) {
-                console.log('🎮 All users already have Player objects, starting game...');
+                console.log(`${c.game('[GAME]')} All users already have Player objects, starting game...`);
                 // All users already have players, just start the game
                 startGameForExistingPlayers(data.room, socket, data.experimentMode);
                 return;
@@ -2089,7 +2109,7 @@ Player.onConnect = function(socket,username,admin,io){
                     const userSocket = io.sockets.sockets.get(user.id);
                     
                     if (userSocket) {
-                        console.log(`🎮 Creating Player object for user: ${user.username} (${user.id})`);
+                        console.log(`${c.game('[GAME]')} Creating Player object for user: ${user.username} (${user.id})`);
                         Database.getPlayerProgress(user.username, function(progress){
                             try {
                                 // Determine if user is admin (only the person who clicked start game is admin for now)
@@ -2102,7 +2122,7 @@ Player.onConnect = function(socket,username,admin,io){
                                 
                                 // After all players are created, start the game
                                 if (playersCreated === totalPlayersToCreate) {
-                                    console.log('🎮 All new players created, starting game...');
+                                    console.log(`${c.game('[GAME]')} All new players created, starting game...`);
                                     startGameForExistingPlayers(data.room, socket, data.experimentMode);
                                 }
                             } catch (error) {
@@ -2136,14 +2156,14 @@ Player.onConnect = function(socket,username,admin,io){
     // Helper function to start game for existing players
     function startGameForExistingPlayers(room, initiatingSocket, experimentMode = 'conditions') {
         try {
-            console.log('🎮 Starting game for existing players in room:', room);
-            console.log('🧪 Using experiment mode:', experimentMode);
+            console.log(`${c.game('[GAME]')} Starting game for existing players in room:`, room);
+            console.log(`${c.game('[EXP]')} Using experiment mode:`, experimentMode);
             
             // Get all players in the room (both human and AI)
             const roomPlayers = Object.values(Player.list).filter(p => p.room === room);
             const humanPlayers = roomPlayers.filter(p => !p.isAI);
             
-            console.log(`🎮 Room ${room} has ${roomPlayers.length} total players (${humanPlayers.length} human, ${roomPlayers.length - humanPlayers.length} AI)`);
+            console.log(`${c.game('[GAME]')} Room ${room} has ${roomPlayers.length} total players (${humanPlayers.length} human, ${roomPlayers.length - humanPlayers.length} AI)`);
             
             // Get or create game session with experiment mode
             const gameSession = GameSession.get(room) || GameSession.create(room, experimentMode);
@@ -2153,14 +2173,14 @@ Player.onConnect = function(socket,username,admin,io){
             const roomPlayerData = roomPlayers.map(p => p.getInitPack());
             humanPlayers.forEach(player => {
                 if (player.socket && typeof player.socket.emit === 'function') {
-                    console.log(`📡 Sending init to ${player.username} (${player.socket.id})`);
+                    console.log(`${c.net('[EMIT]')} Sending init to ${player.username} (${player.socket.id})`);
                     player.socket.emit('init', {
                         selfId: player.socket.id,
                         player: roomPlayerData,
                     });
                     
                     // Send game start notification
-                    console.log(`🎯 Sending triadComplete to ${player.username} (${player.socket.id})`);
+                    console.log(`${c.game('[AIM]')} Sending triadComplete to ${player.username} (${player.socket.id})`);
                     player.socket.emit('triadComplete', {
                         message: 'Game started! Get ready to make choices.',
                         playerPosition: player.triadPosition,
@@ -2179,13 +2199,13 @@ Player.onConnect = function(socket,username,admin,io){
                         }
                     });
                 } else {
-                    console.warn(`⚠️ Player ${player.username} has invalid socket`);
+                    console.warn(`${c.warn('[WARN]')} Player ${player.username} has invalid socket`);
                 }
             });
             
             // Notify all sockets in the room that the game started
             io.to(room).emit("gameStarted");
-            console.log(`🎮 Game started successfully in ${room} with ${roomPlayers.length} players`);
+            console.log(`${c.game('[GAME]')} Game started successfully in ${room} with ${roomPlayers.length} players`);
             
             // Send updated playersInRoom to all players so they see the complete player list
             const gameStartRoomUsers = getRoomUsers(room);
@@ -2224,7 +2244,7 @@ Player.onConnect = function(socket,username,admin,io){
                 });
             });
             
-            console.log(`📡 Emitting playersInRoom after game start for ${room}:`, allPlayersData);
+            console.log(`${c.net('[EMIT]')} Emitting playersInRoom after game start for ${room}:`, allPlayersData);
             io.to(room).emit('playersInRoom', {
                 room: room,
                 players: allPlayersData
@@ -2252,9 +2272,9 @@ Player.onConnect = function(socket,username,admin,io){
                     }
                 });
                 
-                console.log(`🎯 Turn-based system initialized. Starting player: ${currentTurnPlayer}`);
+                console.log(`${c.game('[AIM]')} Turn-based system initialized. Starting player: ${currentTurnPlayer}`);
                 
-                console.log(`🧪 Starting behavioral experiment Round ${gameSession.currentRound} in ${room}`);
+                console.log(`${c.game('[EXP]')} Starting behavioral experiment Round ${gameSession.currentRound} in ${room}`);
                 
                 // IMPORTANT: Call updateConditionForRound for round 1 to convert scheduler player letter (A/B/C) 
                 // to actual player name BEFORE sending yourTurn events
@@ -2297,7 +2317,7 @@ Player.onConnect = function(socket,username,admin,io){
                             playerPosition: player.triadPosition,
                             totalPlayers: roomPlayers.length
                         });
-                        console.log(`🎯 Sent yourTurn to ${player.username} (canVote: ${canVote}, moderator: ${isModerator}, incentive: ${gameSession.currentIncentive}, player: ${gameSession.currentPlayer})`);
+                        console.log(`${c.game('[AIM]')} Sent yourTurn to ${player.username} (canVote: ${canVote}, moderator: ${isModerator}, incentive: ${gameSession.currentIncentive}, player: ${gameSession.currentPlayer})`);
                     }
                 });
                 
@@ -2351,7 +2371,7 @@ Player.onConnect = function(socket,username,admin,io){
                 });
             });
             
-            console.log(`🎮 Emitting playersInRoom for ${room} to reconnecting player only:`, playersWithModerator);
+            console.log(`${c.game('[GAME]')} Emitting playersInRoom for ${room} to reconnecting player only:`, playersWithModerator);
             initiatingSocket.emit('playersInRoom', {
                 room: room,
                 players: playersWithModerator
@@ -2407,13 +2427,13 @@ Player.onConnect = function(socket,username,admin,io){
             
             // ONLY emit to specific target socket, NEVER broadcast to room
             if (targetSocket && typeof targetSocket.emit === 'function') {
-                console.log(`� Targeted playersInRoom emission for ${room}:`, playersWithModerator);
+                console.log(`${c.net('[EMIT]')} Targeted playersInRoom emission for ${room}:`, playersWithModerator);
                 targetSocket.emit('playersInRoom', {
                     room: room,
                     players: playersWithModerator
                 });
             } else {
-                console.log(`⚠️ updateRoomPlayersDisplay called without valid target socket - skipping emission to prevent UI disruption`);
+                console.log(`${c.warn('[WARN]')} updateRoomPlayersDisplay called without valid target socket - skipping emission to prevent UI disruption`);
             }
         } catch (error) {
             console.error('❌ Error updating room players display:', error);
@@ -2499,7 +2519,7 @@ Player.onConnect = function(socket,username,admin,io){
         
         // Reassign positions after adding AI players
         GameSession.assignTriadPositions(room);
-        console.log(`🃏 Reassigned positions after adding AI players to ${room}`);
+        console.log(`${c.game('[CARD]')} Reassigned positions after adding AI players to ${room}`);
         
         // Notify all players in the room about the new AI players
         // Use the same data format as other playersInRoom events
@@ -2541,7 +2561,7 @@ Player.onConnect = function(socket,username,admin,io){
             });
         });
         
-        console.log(`📡 Emitting playersInRoom after AI addition for ${room}:`, playersWithModerator);
+        console.log(`${c.net('[EMIT]')} Emitting playersInRoom after AI addition for ${room}:`, playersWithModerator);
         io.to(room).emit('playersInRoom', { 
             room: room, 
             players: playersWithModerator
@@ -2569,7 +2589,7 @@ Player.onConnect = function(socket,username,admin,io){
         const username = sessionUser ? sessionUser.username : 'Unknown';
         const room = data.room || "Global";
         
-        console.log(`🚫 ${username} requested to remove AI players from room: ${room}`);
+        console.log(`${c.err('[DENY]')} ${username} requested to remove AI players from room: ${room}`);
         
         // Check if the player has permission to remove AI
         if (room === "Global") {
@@ -2593,7 +2613,7 @@ Player.onConnect = function(socket,username,admin,io){
         let removedCount = 0;
         try {
             aiPlayersInRoom.forEach(aiPlayer => {
-                console.log(`🚫 Removing AI player: ${aiPlayer.username} (${aiPlayer.id})`);
+                console.log(`${c.err('[DENY]')} Removing AI player: ${aiPlayer.username} (${aiPlayer.id})`);
                 delete Player.list[aiPlayer.id];
                 removedCount++;
             });
@@ -2626,7 +2646,7 @@ Player.onConnect = function(socket,username,admin,io){
                 };
             });
             
-            console.log(`📡 Emitting playersInRoom after AI removal for ${room}:`, playersWithModerator);
+            console.log(`${c.net('[EMIT]')} Emitting playersInRoom after AI removal for ${room}:`, playersWithModerator);
             io.to(room).emit('playersInRoom', { 
                 room: room, 
                 players: playersWithModerator
@@ -2639,7 +2659,7 @@ Player.onConnect = function(socket,username,admin,io){
             });
             
             // Emit specific AI removal event to force UI updates
-            console.log(`📡 Emitting aiPlayersRemoved event to socket ${socket.id}`);
+            console.log(`${c.net('[EMIT]')} Emitting aiPlayersRemoved event to socket ${socket.id}`);
             socket.emit('aiPlayersRemoved', {
                 room: room,
                 removedCount: removedCount,
@@ -2655,7 +2675,7 @@ Player.onConnect = function(socket,username,admin,io){
     });
 
     socket.on('runSpeedTest', (data) => {
-        console.log(`🔍 DEBUG runSpeedTest: socket.id = ${socket.id}`);
+        console.log(`${c.dim('[DBG]')} DEBUG runSpeedTest: socket.id = ${socket.id}`);
         
         // Try to get user from session-based system first
         const sessionUser = getCurrentUser(socket.id);
@@ -2663,9 +2683,9 @@ Player.onConnect = function(socket,username,admin,io){
         const username = sessionUser ? sessionUser.username : (player ? player.username : 'Unknown');
         const room = data.room || "Global";
         
-        console.log(`⚡ ${username} requested speed test for room: ${room}`);
-        console.log(`🔍 DEBUG: sessionUser = ${!!sessionUser}, player = ${!!player}`);
-        if (sessionUser) console.log(`🔍 DEBUG: sessionUser.username = ${sessionUser.username}`);
+        console.log(`${c.warn('[BOLT]')} ${username} requested speed test for room: ${room}`);
+        console.log(`${c.dim('[DBG]')} DEBUG: sessionUser = ${!!sessionUser}, player = ${!!player}`);
+        if (sessionUser) console.log(`${c.dim('[DBG]')} DEBUG: sessionUser.username = ${sessionUser.username}`);
         
         // Check if user exists in either system
         if (!sessionUser && !player) {
@@ -2694,7 +2714,7 @@ Player.onConnect = function(socket,username,admin,io){
             return;
         }
         
-        console.log(`⚡ Starting lightning test in room: ${room}`);
+        console.log(`${c.warn('[BOLT]')} Starting lightning test in room: ${room}`);
         
         try {
             // Clear existing players and AI in the room
@@ -2702,7 +2722,7 @@ Player.onConnect = function(socket,username,admin,io){
             existingPlayers.forEach(player => {
                 if (player.isAI) {
                     delete Player.list[player.id];
-                    console.log(`🗑️ Removed existing AI player: ${player.username}`);
+                    console.log(`${c.clean('[DEL]')} Removed existing AI player: ${player.username}`);
                 }
             });
             
@@ -2714,7 +2734,7 @@ Player.onConnect = function(socket,username,admin,io){
                 Player.list[aiPlayer.id] = aiPlayer;
                 // Initialize wallet for tracking
                 aiPlayer.wallet = aiPlayer.wallet || 0;
-                console.log(`⚡ Added lightning test AI player: ${aiPlayer.username}`);
+                console.log(`${c.warn('[BOLT]')} Added lightning test AI player: ${aiPlayer.username}`);
             }
             
             // Update players in room display
@@ -2762,7 +2782,7 @@ Player.onConnect = function(socket,username,admin,io){
             
             // Start the lightning test experiment
             setTimeout(() => {
-                console.log(`⚡ Starting lightning test experiment in ${room}`);
+                console.log(`${c.warn('[BOLT]')} Starting lightning test experiment in ${room}`);
                 
                 // Create or reset game session for lightning test
                 const gameSession = GameSession.get(room) || GameSession.create(room, 'conditions');
@@ -2805,8 +2825,8 @@ Player.onConnect = function(socket,username,admin,io){
                     gameSession.conditionsSchedule = scheduler.generateConditionsSchedule(9);
                     gameSession.conditionsRoundIndex = 0; // Track conditions round
                     
-                    console.log(`⚡ Lightning test initialized: ${gameSession.conditionsSchedule.length} conditions rounds`);
-                    console.log(`⚡ Using balanced round distribution system`);
+                    console.log(`${c.warn('[BOLT]')} Lightning test initialized: ${gameSession.conditionsSchedule.length} conditions rounds`);
+                    console.log(`${c.warn('[BOLT]')} Using balanced round distribution system`);
                     
                     // Log validation summary for verification
                     const conditionCounts = {};
@@ -2817,7 +2837,7 @@ Player.onConnect = function(socket,username,admin,io){
                         incentiveCounts[round.incentive] = (incentiveCounts[round.incentive] || 0) + 1;
                         playerCounts[round.player] = (playerCounts[round.player] || 0) + 1;
                     });
-                    console.log(`⚡ Schedule distribution check:`, {
+                    console.log(`${c.warn('[BOLT]')} Schedule distribution check:`, {
                         conditions: conditionCounts,
                         incentives: incentiveCounts,
                         players: playerCounts
@@ -2849,7 +2869,7 @@ Player.onConnect = function(socket,username,admin,io){
         const sessionUser = getCurrentUser(socket.id);
         const username = sessionUser ? sessionUser.username : 'Unknown';
         
-        console.log(`🔍 ${username} requesting room state for: ${room}`);
+        console.log(`${c.dim('[DBG]')} ${username} requesting room state for: ${room}`);
         
         if (room === 'Global') {
             return; // Don't send room state for Global chat
@@ -2894,7 +2914,7 @@ Player.onConnect = function(socket,username,admin,io){
             });
         });
         
-        console.log(`📡 Sending room state to ${username} for ${room}:`, playersWithModerator);
+        console.log(`${c.net('[EMIT]')} Sending room state to ${username} for ${room}:`, playersWithModerator);
         socket.emit('playersInRoom', {
             room: room,
             players: playersWithModerator
@@ -2903,7 +2923,7 @@ Player.onConnect = function(socket,username,admin,io){
         // Also send game session info if there's an active game
         const gameSession = GameSession.get(room);
         if (gameSession) {
-            console.log(`🎮 Sending game session info to ${username}`);
+            console.log(`${c.game('[GAME]')} Sending game session info to ${username}`);
             socket.emit('triadComplete', {
                 room: room,
                 gameSession: gameSession
@@ -2963,7 +2983,7 @@ function broadcastPlayerStatusUpdate(roomName) {
         
         if (moderatorSocket) {
             moderatorSocket.emit('playerStatusUpdate', updateData);
-            console.log(`📊 Auto-broadcast player status update to moderator in ${roomName}`);
+            console.log(`${c.data('[DATA]')} Auto-broadcast player status update to moderator in ${roomName}`);
         }
     }
 }
@@ -2972,29 +2992,29 @@ function broadcastPlayerStatusUpdate(roomName) {
 // Player Starts a Game
 Player.onGameStart = function(socket,username, progress, io, room, admin){
     try {
-        console.log(`🎯 Player.onGameStart called for ${username} in room ${room}`);
+        console.log(`${c.game('[AIM]')} Player.onGameStart called for ${username} in room ${room}`);
         
         // Debug: Show all players in Player.list
         const allPlayers = Object.values(Player.list);
-        console.log(`🔍 All players in Player.list (${allPlayers.length}):`, allPlayers.map(p => `${p.username} (room: ${p.room}, id: ${p.id})`));
+        console.log(`${c.dim('[DBG]')} All players in Player.list (${allPlayers.length}):`, allPlayers.map(p => `${p.username} (room: ${p.room}, id: ${p.id})`));
         
         // Check if this player already exists in this room
         const existingPlayer = Object.values(Player.list).find(p => p.room === room && p.username === username);
-        console.log(`🔍 Looking for existing player: ${username} in room ${room}, found: ${!!existingPlayer}`);
+        console.log(`${c.dim('[DBG]')} Looking for existing player: ${username} in room ${room}, found: ${!!existingPlayer}`);
         
         if (existingPlayer) {
-            console.log(`🔄 Player ${username} already exists in room ${room}, updating socket reference`);
-            console.log(`🔍 Before socket update - ${username}: isLockedIn=${existingPlayer.isLockedIn}, currentChoice=${existingPlayer.currentChoice}`);
+            console.log(`${c.info('[SYNC]')} Player ${username} already exists in room ${room}, updating socket reference`);
+            console.log(`${c.dim('[DBG]')} Before socket update - ${username}: isLockedIn=${existingPlayer.isLockedIn}, currentChoice=${existingPlayer.currentChoice}`);
             
             // Update the existing player with the new socket
             existingPlayer.socket = socket;
             existingPlayer.id = socket.id;
             
-            console.log(`🔍 After socket update - ${username}: isLockedIn=${existingPlayer.isLockedIn}, currentChoice=${existingPlayer.currentChoice}`);
+            console.log(`${c.dim('[DBG]')} After socket update - ${username}: isLockedIn=${existingPlayer.isLockedIn}, currentChoice=${existingPlayer.currentChoice}`);
             console.log(`✅ Updated socket reference for ${username} in room ${room}`);
             
             // RE-REGISTER ESSENTIAL SOCKET HANDLERS for reconnected player
-            console.log(`🔗 Re-registering essential socket handlers for ${username}`);
+            console.log(`${c.net('[LINK]')} Re-registering essential socket handlers for ${username}`);
             
             // Re-register makeChoice handler using the same logic as the original
             socket.on('makeChoice', function(data) {
@@ -3024,14 +3044,14 @@ Player.onGameStart = function(socket,username, progress, io, room, admin){
                 if (data.lockedIn) {
                     // Validate that player has made a choice
                     if (!data.choice || data.choice === null || data.choice === undefined) {
-                        console.log(`🚫 ${existingPlayer.username} tried to lock in without making a choice`);
+                        console.log(`${c.err('[DENY]')} ${existingPlayer.username} tried to lock in without making a choice`);
                         socket.emit('error', { message: 'You must select a row before locking in your choice' });
                         return;
                     }
                     
                     existingPlayer.currentChoice = data.choice; // Row number 1-8
                     existingPlayer.isLockedIn = true;
-                    console.log(`🔒 ${existingPlayer.username} locked in choice: ${data.choice} - AFTER SETTING: currentChoice=${existingPlayer.currentChoice}, isLockedIn=${existingPlayer.isLockedIn}`);
+                    console.log(`${c.auth('[LOCK]')} ${existingPlayer.username} locked in choice: ${data.choice} - AFTER SETTING: currentChoice=${existingPlayer.currentChoice}, isLockedIn=${existingPlayer.isLockedIn}`);
                     
                     // Check if all non-moderator players have locked in their choices BEFORE advancing turn
                     const currentRoomPlayers = Object.values(Player.list).filter(p => p.room === room);
@@ -3044,10 +3064,10 @@ Player.onGameStart = function(socket,username, progress, io, room, admin){
                     
                     // Only advance turn in turn-based mode if not all players have locked in yet
                     if (gameSession.turnBased && !allLockedInBeforeAI) {
-                        console.log(`🔄 Not all players locked in yet, advancing turn...`);
+                        console.log(`${c.info('[SYNC]')} Not all players locked in yet, advancing turn...`);
                         GameSession.advanceTurn(room);
                     } else if (gameSession.turnBased && allLockedInBeforeAI) {
-                        console.log(`🏁 All players have locked in, pausing turn advancement until round processes`);
+                        console.log(`${c.game('[END]')} All players have locked in, pausing turn advancement until round processes`);
                     }
                     
                     // Broadcast lock-in event to all players in the room for visual feedback
@@ -3090,7 +3110,7 @@ Player.onGameStart = function(socket,username, progress, io, room, admin){
                             };
                             
                             moderatorPlayer.socket.emit('playerStatusUpdate', updateData);
-                            console.log(`📊 Targeted player status update sent to moderator ${currentRoom.creator} only`);
+                            console.log(`${c.data('[DATA]')} Targeted player status update sent to moderator ${currentRoom.creator} only`);
                         }
                     }
                     
@@ -3101,7 +3121,7 @@ Player.onGameStart = function(socket,username, progress, io, room, admin){
                         return !(playerRoom && p.username === playerRoom.creator); // Exclude moderator
                     });
                     const allLockedIn = votingPlayers.every(p => p.isLockedIn && p.currentChoice !== null);
-                    console.log(`🎯 Lock-in status: ${votingPlayers.filter(p => p.isLockedIn).length}/${votingPlayers.length} players locked in, allLockedIn=${allLockedIn}`);
+                    console.log(`${c.game('[AIM]')} Lock-in status: ${votingPlayers.filter(p => p.isLockedIn).length}/${votingPlayers.length} players locked in, allLockedIn=${allLockedIn}`);
                     
                     // AI players auto-lock-in when they make decisions
                     if (!allLockedIn) {
@@ -3112,38 +3132,38 @@ Player.onGameStart = function(socket,username, progress, io, room, admin){
                     const allFinallyLockedIn = votingPlayers.every(p => p.isLockedIn && p.currentChoice !== null);
 
                     if (allFinallyLockedIn) {
-                        console.log(`🎯 All players locked in! Processing round...`);
+                        console.log(`${c.game('[AIM]')} All players locked in! Processing round...`);
                         // Small delay to ensure all UI updates are complete
                         setTimeout(() => {
                             processRound(room, gameSession);
                         }, 500);
                     } else {
-                        console.log(`🚫 DEBUG: Not all players locked in, cannot process round`);
+                        console.log(`${c.err('[DENY]')} DEBUG: Not all players locked in, cannot process round`);
                     }
                 } else {
                     // Just a selection, not a lock-in yet
-                    console.log(`🎯 ${existingPlayer.username} selected (not locked): ${data.choice}`);
+                    console.log(`${c.game('[AIM]')} ${existingPlayer.username} selected (not locked): ${data.choice}`);
                     existingPlayer.currentChoice = data.choice; // Update selection immediately
                 }
             });
             
             // Re-register disconnect handler  
             socket.removeAllListeners('disconnect');
-            console.log(`🧹 Cleared existing disconnect handlers for ${username}`);
+            console.log(`${c.clean('[CLEAN]')} Cleared existing disconnect handlers for ${username}`);
             socket.on('disconnect', () => {
-                console.log(`🔌 Preserving player ${existingPlayer.username} state in room ${room} for potential reconnection`);
+                console.log(`${c.net('[SOCK]')} Preserving player ${existingPlayer.username} state in room ${room} for potential reconnection`);
                 existingPlayer.socket = null;
-                console.log(`🔄 Preserved state: isLockedIn=${existingPlayer.isLockedIn}, currentChoice=${existingPlayer.currentChoice}, totalEarnings=${existingPlayer.totalEarnings}`);
+                console.log(`${c.info('[SYNC]')} Preserved state: isLockedIn=${existingPlayer.isLockedIn}, currentChoice=${existingPlayer.currentChoice}, totalEarnings=${existingPlayer.totalEarnings}`);
             });
             
-            console.log(`🔗 Essential socket handlers re-registered for ${username}`);
+            console.log(`${c.net('[LINK]')} Essential socket handlers re-registered for ${username}`);
             // TRIGGER COMPREHENSIVE GAME STATE RESTORATION
-            console.log(`🎮 Triggering comprehensive game state restoration for reconnecting ${username}`);
+            console.log(`${c.game('[GAME]')} Triggering comprehensive game state restoration for reconnecting ${username}`);
             Player.sendCompleteGameState(existingPlayer, room);
             const gameSession = GameSessions[room];
             if (gameSession) {
                 // Send game state restoration events
-                console.log(`🔄 Restoring game state for reconnecting player: ${existingPlayer.username} in room ${room}`);
+                console.log(`${c.info('[SYNC]')} Restoring game state for reconnecting player: ${existingPlayer.username} in room ${room}`);
                 
                 // Send init event to restore game UI
                 existingPlayer.socket.emit('init', { 
@@ -3161,7 +3181,7 @@ Player.onGameStart = function(socket,username, progress, io, room, admin){
                 });
                 
                 // Send comprehensive game state restoration
-                console.log(`🎮 Sending comprehensive game state restoration to reconnecting ${existingPlayer.username}`);
+                console.log(`${c.game('[GAME]')} Sending comprehensive game state restoration to reconnecting ${existingPlayer.username}`);
                 
                 // Get all players in the room for wallet and state restoration
                 const currentPlayersInRoom = Object.values(Player.list).filter(p => p.room === room);
@@ -3197,24 +3217,24 @@ Player.onGameStart = function(socket,username, progress, io, room, admin){
                     isModerator: currentRoom && roomPlayer.username === currentRoom.creator
                 }));
                 
-                console.log(`� Sending complete wallet data for all ${allPlayersWalletData.length} players to ${existingPlayer.username}`);
+                console.log(`${c.net('[EMIT]')} Sending complete wallet data for all ${allPlayersWalletData.length} players to ${existingPlayer.username}`);
                 existingPlayer.socket.emit('allPlayersWalletRestore', {
                     players: allPlayersWalletData
                 });
                 
                 // Also broadcast wallet data to all OTHER players in the room to ensure they see updated totals
-                console.log(`📡 Broadcasting wallet data to all other players in room ${room} due to ${existingPlayer.username} reconnection`);
+                console.log(`${c.net('[EMIT]')} Broadcasting wallet data to all other players in room ${room} due to ${existingPlayer.username} reconnection`);
                 existingPlayer.socket.broadcast.to(room).emit('allPlayersWalletRestore', {
                     players: allPlayersWalletData
                 });
                 
                 // 3. Send locked-in states for all players
-                console.log(`�🔍 Checking ${currentPlayersInRoom.length} players for locked-in status:`);
+                console.log(`${c.data('[DATA]')}${c.dim('[DBG]')} Checking ${currentPlayersInRoom.length} players for locked-in status:`);
                 currentPlayersInRoom.forEach(roomPlayer => {
-                    console.log(`🔍 Player ${roomPlayer.username}: isLockedIn=${roomPlayer.isLockedIn}, currentChoice=${roomPlayer.currentChoice}`);
+                    console.log(`${c.dim('[DBG]')} Player ${roomPlayer.username}: isLockedIn=${roomPlayer.isLockedIn}, currentChoice=${roomPlayer.currentChoice}`);
                     
                     if (roomPlayer.isLockedIn && roomPlayer.currentChoice !== null) {
-                        console.log(`📡 Sending playerLockedIn for ${roomPlayer.username} to reconnecting ${existingPlayer.username}`);
+                        console.log(`${c.net('[EMIT]')} Sending playerLockedIn for ${roomPlayer.username} to reconnecting ${existingPlayer.username}`);
                         existingPlayer.socket.emit('playerLockedIn', {
                             username: roomPlayer.username,
                             row: roomPlayer.currentChoice,
@@ -3233,7 +3253,7 @@ Player.onGameStart = function(socket,username, progress, io, room, admin){
                 // 4. Send turn update to sync current turn state
                 if (gameSession.turnBased) {
                     const currentTurnPlayer = GameSession.getCurrentTurnPlayer(room);
-                    console.log(`📡 Sending turnUpdate to reconnecting ${existingPlayer.username}: currentTurnPlayer=${currentTurnPlayer}`);
+                    console.log(`${c.net('[EMIT]')} Sending turnUpdate to reconnecting ${existingPlayer.username}: currentTurnPlayer=${currentTurnPlayer}`);
                     existingPlayer.socket.emit('turnUpdate', {
                         currentTurnPlayer: currentTurnPlayer,
                         turnOrder: gameSession.turnOrder,
@@ -3246,14 +3266,14 @@ Player.onGameStart = function(socket,username, progress, io, room, admin){
                 
                 // 5. Send previous round results for history display
                 if (gameSession.roundHistory && gameSession.roundHistory.length > 0) {
-                    console.log(`📚 Sending ${gameSession.roundHistory.length} previous round results to ${existingPlayer.username}`);
+                    console.log(`${c.data('[SCHED]')} Sending ${gameSession.roundHistory.length} previous round results to ${existingPlayer.username}`);
                     existingPlayer.socket.emit('roundHistoryRestore', {
                         username: existingPlayer.username,
                         roundHistory: gameSession.roundHistory,
                         currentRound: gameSession.currentRound
                     });
                 } else {
-                    console.log(`📚 No previous round results to send to ${existingPlayer.username}`);
+                    console.log(`${c.data('[SCHED]')} No previous round results to send to ${existingPlayer.username}`);
                 }
                 
                 // Send yourTurn event to restore game controls
@@ -3264,11 +3284,11 @@ Player.onGameStart = function(socket,username, progress, io, room, admin){
                     const currentRoom = roomList?.find(r => r.name === room);
                     isModerator = currentRoom && existingPlayer.username === currentRoom.creator;
                 } catch (error) {
-                    console.log(`⚠️ Could not determine moderator status for ${existingPlayer.username}, defaulting to false`);
+                    console.log(`${c.warn('[WARN]')} Could not determine moderator status for ${existingPlayer.username}, defaulting to false`);
                     isModerator = false;
                 }
-                console.log(`📡 Sending yourTurn to reconnecting ${existingPlayer.username}: isPlayerTurn=${isPlayerTurn}, isModerator=${isModerator}`);
-                console.log(`🔄 Player ${existingPlayer.username} restoration: currentChoice=${existingPlayer.currentChoice}, isLockedIn=${existingPlayer.isLockedIn}`);
+                console.log(`${c.net('[EMIT]')} Sending yourTurn to reconnecting ${existingPlayer.username}: isPlayerTurn=${isPlayerTurn}, isModerator=${isModerator}`);
+                console.log(`${c.info('[SYNC]')} Player ${existingPlayer.username} restoration: currentChoice=${existingPlayer.currentChoice}, isLockedIn=${existingPlayer.isLockedIn}`);
                 existingPlayer.socket.emit('yourTurn', {
                     isYourTurn: isPlayerTurn,
                     isModerator: isModerator,
@@ -3304,7 +3324,7 @@ Player.onGameStart = function(socket,username, progress, io, room, admin){
         const humanPlayersInRoom = currentPlayersInRoom.filter(p => !p.isAI);
         const aiPlayersInRoom = currentPlayersInRoom.filter(p => p.isAI);
         
-        console.log(`🔍 Room ${room} capacity check: ${currentPlayersInRoom.length} total (${humanPlayersInRoom.length} human + ${aiPlayersInRoom.length} AI)`);
+        console.log(`${c.dim('[DBG]')} Room ${room} capacity check: ${currentPlayersInRoom.length} total (${humanPlayersInRoom.length} human + ${aiPlayersInRoom.length} AI)`);
         
         // More flexible capacity: Allow multiple human players + AI up to reasonable limit
         // For behavioral experiments: typically 1 moderator + 2-3 participants = 3-4 total
@@ -3335,7 +3355,7 @@ Player.onGameStart = function(socket,username, progress, io, room, admin){
         player.inventory = new Inventory(progress.items,socket,true);
         player.inventory.refreshRender();
 
-        console.log(`🧠 ${player.username} joined behavioral experiment in room: ${player.room}`);
+        console.log(`${c.game('[AI]')} ${player.username} joined behavioral experiment in room: ${player.room}`);
         
         // Create or get game session for this room
         const gameSession = GameSession.create(room);
@@ -3349,7 +3369,7 @@ Player.onGameStart = function(socket,username, progress, io, room, admin){
         // Always show triad status and allow experiment to start with 1+ players
         const allPlayersInRoom = Object.values(Player.list).filter(p => p.room === room);
         const humanPlayers = allPlayersInRoom.filter(p => !p.isAI);
-        console.log(`👥 Current players in room ${room}: ${allPlayersInRoom.length}/3 (${humanPlayers.length} human, ${allPlayersInRoom.length - humanPlayers.length} AI)`);
+        console.log(`${c.info('[PLAYERS]')} Current players in room ${room}: ${allPlayersInRoom.length}/3 (${humanPlayers.length} human, ${allPlayersInRoom.length - humanPlayers.length} AI)`);
         
         // Assign poker table positions immediately when any player joins
         GameSession.assignTriadPositions(room);
@@ -3358,7 +3378,7 @@ Player.onGameStart = function(socket,username, progress, io, room, admin){
         gameSession.gameState = 'ready';
         
         // Send comprehensive game state to the new player
-        console.log(`🎮 Sending comprehensive game state to new player ${player.username}`);
+        console.log(`${c.game('[GAME]')} Sending comprehensive game state to new player ${player.username}`);
         Player.sendCompleteGameState(player, room);
     
     // Notify all human players (AI players don't need notifications)
@@ -3385,11 +3405,11 @@ Player.onGameStart = function(socket,username, progress, io, room, admin){
                 }
             });
         } else {
-            console.warn(`⚠️ Player ${p.username} has invalid socket, skipping triadComplete notification`);
+            console.warn(`${c.warn('[WARN]')} Player ${p.username} has invalid socket, skipping triadComplete notification`);
         }
     });
     if(allPlayersInRoom.length === 3) {
-        console.log(`🎯 Triad complete in ${room}! Initializing behavioral experiment...`);
+        console.log(`${c.game('[AIM]')} Triad complete in ${room}! Initializing behavioral experiment...`);
         
         // Assign positions (P1, P2, P3) for turn order
         GameSession.assignTriadPositions(room);
@@ -3454,7 +3474,7 @@ Player.onGameStart = function(socket,username, progress, io, room, admin){
         if (data.lockedIn) {            
             // Validate that player has made a choice
             if (!data.choice || data.choice === null || data.choice === undefined) {
-                console.log(`🚫 ${player.username} tried to lock in without making a choice`);
+                console.log(`${c.err('[DENY]')} ${player.username} tried to lock in without making a choice`);
                 socket.emit('error', { message: 'You must select a row before locking in your choice' });
                 return;
             }
@@ -3469,7 +3489,7 @@ Player.onGameStart = function(socket,username, progress, io, room, admin){
 
             const choiceStr = String(data.choice);
             if (gsSession.takenRows.includes(choiceStr)) {
-                console.log(`🚫 ${player.username} attempted to select taken row ${choiceStr}`);
+                console.log(`${c.err('[DENY]')} ${player.username} attempted to select taken row ${choiceStr}`);
                 socket.emit('error', { message: 'That row has already been taken by another player' });
                 return;
             }
@@ -3481,7 +3501,7 @@ Player.onGameStart = function(socket,username, progress, io, room, admin){
             // Add this row to takenRows so other players can't select it
             gsSession.takenRows.push(choiceStr);
 
-            console.log(`🔒 ${player.username} locked in choice: ${choiceStr} - AFTER SETTING: currentChoice=${player.currentChoice}, isLockedIn=${player.isLockedIn}, takenRows=${JSON.stringify(gsSession.takenRows)}`);
+            console.log(`${c.auth('[LOCK]')} ${player.username} locked in choice: ${choiceStr} - AFTER SETTING: currentChoice=${player.currentChoice}, isLockedIn=${player.isLockedIn}, takenRows=${JSON.stringify(gsSession.takenRows)}`);
             
             // Check for IMMEDIATE incentive bonus (Impulse or Self Control incentive)
             // This triggers the incentive token animation right away, not at end of round
@@ -3489,7 +3509,7 @@ Player.onGameStart = function(socket,username, progress, io, room, admin){
             const isAssignedPlayer = gameSession && gameSession.currentPlayer === player.username;
             const hasActiveIncentive = player.activeIncentive && !player.isAI;
             
-            console.log(`🎁 Checking incentive for ${player.username}: activeIncentive="${player.activeIncentive}", isAI=${player.isAI}, isAssignedPlayer=${isAssignedPlayer}, choice=${data.choice}`);
+            console.log(`${c.game('[BONUS]')} Checking incentive for ${player.username}: activeIncentive="${player.activeIncentive}", isAI=${player.isAI}, isAssignedPlayer=${isAssignedPlayer}, choice=${data.choice}`);
             
             if ((hasActiveIncentive || isAssignedPlayer) && !player.isAI) {
                 const chosenRow = parseInt(data.choice);
@@ -3497,7 +3517,7 @@ Player.onGameStart = function(socket,username, progress, io, room, admin){
                 const currentIncentive = player.activeIncentive || gameSession?.currentIncentive;
                 let immediateBonus = 0;
                 
-                console.log(`🎁 ${player.username} has incentive "${currentIncentive}", chose row ${chosenRow} (${rowType})`);
+                console.log(`${c.game('[BONUS]')} ${player.username} has incentive "${currentIncentive}", chose row ${chosenRow} (${rowType})`);
                 
                 if (currentIncentive === 'Impulse Incentive' && rowType === 'odd') {
                     immediateBonus = 1;
@@ -3506,17 +3526,17 @@ Player.onGameStart = function(socket,username, progress, io, room, admin){
                 }
                 
                 if (immediateBonus > 0 && player.socket) {
-                    console.log(`🎁 ${player.username} earned immediate incentive bonus: ${immediateBonus} black token(s)`);
+                    console.log(`${c.game('[BONUS]')} ${player.username} earned immediate incentive bonus: ${immediateBonus} black token(s)`);
                     player.socket.emit('incentiveBonusNotification', {
                         bonusTokens: immediateBonus
                     });
                     // Mark that we've already notified this player for this round to avoid double notifications
                     player.incentiveBonusNotified = true;
                 } else {
-                    console.log(`🎁 ${player.username} did NOT earn incentive bonus: currentIncentive="${currentIncentive}", rowType=${rowType}, immediateBonus=${immediateBonus}`);
+                    console.log(`${c.game('[BONUS]')} ${player.username} did NOT earn incentive bonus: currentIncentive="${currentIncentive}", rowType=${rowType}, immediateBonus=${immediateBonus}`);
                 }
             } else {
-                console.log(`🎁 ${player.username} skipped incentive check: activeIncentive=${player.activeIncentive}, isAI=${player.isAI}, isAssignedPlayer=${isAssignedPlayer}`);
+                console.log(`${c.game('[BONUS]')} ${player.username} skipped incentive check: activeIncentive=${player.activeIncentive}, isAI=${player.isAI}, isAssignedPlayer=${isAssignedPlayer}`);
             }
             
             // Check if all non-moderator players have locked in their choices BEFORE advancing turn
@@ -3530,10 +3550,10 @@ Player.onGameStart = function(socket,username, progress, io, room, admin){
             
             // Only advance turn in turn-based mode if not all players have locked in yet
             if (gameSession.turnBased && !allLockedInBeforeAI) {
-                console.log(`🔄 Not all players locked in yet, advancing turn...`);
+                console.log(`${c.info('[SYNC]')} Not all players locked in yet, advancing turn...`);
                 GameSession.advanceTurn(room);
             } else if (gameSession.turnBased && allLockedInBeforeAI) {
-                console.log(`🏁 All players have locked in, pausing turn advancement until round processes`);
+                console.log(`${c.game('[END]')} All players have locked in, pausing turn advancement until round processes`);
             }
             
             // Broadcast lock-in event to all players in the room for visual feedback
@@ -3594,7 +3614,7 @@ Player.onGameStart = function(socket,username, progress, io, room, admin){
                         };
                         
                         moderatorPlayer.socket.emit('playerStatusUpdate', updateData);
-                        console.log(`📊 Targeted player status update sent to moderator ${currentRoom.creator} only`);
+                        console.log(`${c.data('[DATA]')} Targeted player status update sent to moderator ${currentRoom.creator} only`);
                     }
                 }
             }
@@ -3608,7 +3628,7 @@ Player.onGameStart = function(socket,username, progress, io, room, admin){
             
             const allLockedIn = votingPlayers.every(p => p.isLockedIn && p.currentChoice !== null);
             
-            console.log(`🎯 Lock-in status: ${votingPlayers.filter(p => p.isLockedIn).length}/${votingPlayers.length} players locked in, allLockedIn=${allLockedIn}`);
+            console.log(`${c.game('[AIM]')} Lock-in status: ${votingPlayers.filter(p => p.isLockedIn).length}/${votingPlayers.length} players locked in, allLockedIn=${allLockedIn}`);
             
             // AI players auto-lock-in when they make decisions
             if (!allLockedIn) {
@@ -3620,17 +3640,17 @@ Player.onGameStart = function(socket,username, progress, io, room, admin){
             const allFinallyLockedIn = votingPlayers.every(p => p.isLockedIn && p.currentChoice !== null);
             
             if (allFinallyLockedIn) {
-                console.log(`🎯 All players locked in! Processing round...`);
+                console.log(`${c.game('[AIM]')} All players locked in! Processing round...`);
                 // Small delay to ensure all UI updates are complete
                 setTimeout(() => {
                     processRound(room, gameSession);
                 }, 500);
             } else {
-                console.log(`🚫 DEBUG: Not all players locked in, cannot process round`);
+                console.log(`${c.err('[DENY]')} DEBUG: Not all players locked in, cannot process round`);
             }
         } else {
             // Just a selection, not a lock-in yet - still update moderator display
-            console.log(`🎯 ${player.username} selected (not locked): ${data.choice}`);
+            console.log(`${c.game('[AIM]')} ${player.username} selected (not locked): ${data.choice}`);
             player.currentChoice = data.choice; // Update selection immediately
             
             // Broadcast the selection update to moderators
@@ -3645,7 +3665,7 @@ Player.onGameStart = function(socket,username, progress, io, room, admin){
         
         const player = Player.list[socket.id];
         if (!player) {
-            console.log(`🚫 Unknown player tried to set column mode`);
+            console.log(`${c.err('[DENY]')} Unknown player tried to set column mode`);
             return;
         }
         
@@ -3654,7 +3674,7 @@ Player.onGameStart = function(socket,username, progress, io, room, admin){
         const isModerator = currentRoom && player.username === currentRoom.creator;
         
         if (!isModerator) {
-            console.log(`🚫 Non-moderator ${player.username} tried to set column mode`);
+            console.log(`${c.err('[DENY]')} Non-moderator ${player.username} tried to set column mode`);
             return;
         }
         
@@ -3663,7 +3683,7 @@ Player.onGameStart = function(socket,username, progress, io, room, admin){
         // If game hasn't started yet, apply immediately
         if (gameSession.currentRound === 0) {
             gameSession.columnMode = newMode;
-            console.log(`🎛️ Moderator ${player.username} set column mode to: ${gameSession.columnMode} (immediate - game not started)`);
+            console.log(`${c.info('[CTRL]')} Moderator ${player.username} set column mode to: ${gameSession.columnMode} (immediate - game not started)`);
             
             // Clear manual column when switching to auto
             if (data.autoMode) {
@@ -3673,7 +3693,7 @@ Player.onGameStart = function(socket,username, progress, io, room, admin){
             // Game is in progress, schedule change for next round
             gameSession.pendingColumnMode = newMode;
             gameSession.pendingChangeRound = gameSession.currentRound + 1;
-            console.log(`🎛️ Moderator ${player.username} scheduled column mode change to: ${newMode} starting round ${gameSession.pendingChangeRound}`);
+            console.log(`${c.info('[CTRL]')} Moderator ${player.username} scheduled column mode change to: ${newMode} starting round ${gameSession.pendingChangeRound}`);
             
             // Clear manual column when scheduling switch to auto
             if (data.autoMode) {
@@ -3715,7 +3735,7 @@ Player.onGameStart = function(socket,username, progress, io, room, admin){
         
         const player = Player.list[socket.id];
         if (!player) {
-            console.log(`🚫 Unknown player tried to select column`);
+            console.log(`${c.err('[DENY]')} Unknown player tried to select column`);
             return;
         }
         
@@ -3724,17 +3744,17 @@ Player.onGameStart = function(socket,username, progress, io, room, admin){
         const isModerator = currentRoom && player.username === currentRoom.creator;
         
         if (!isModerator) {
-            console.log(`🚫 Non-moderator ${player.username} tried to select column`);
+            console.log(`${c.err('[DENY]')} Non-moderator ${player.username} tried to select column`);
             return;
         }
         
         if (gameSession.columnMode !== 'manual') {
-            console.log(`🚫 Column selection ignored - not in manual mode`);
+            console.log(`${c.err('[DENY]')} Column selection ignored - not in manual mode`);
             return;
         }
         
         gameSession.manualColumn = data.column;
-        console.log(`📌 Moderator ${player.username} selected column: ${data.column}`);
+        console.log(`${c.info('[PIN]')} Moderator ${player.username} selected column: ${data.column}`);
         
         // Notify all players in room
         const roomSockets = Object.values(Player.list)
@@ -3760,13 +3780,13 @@ Player.onGameStart = function(socket,username, progress, io, room, admin){
         const isModerator = currentRoom && player.username === currentRoom.creator;
         
         if (!isModerator) {
-            console.log(`🚫 Non-moderator ${player.username} tried to set token pool`);
+            console.log(`${c.err('[DENY]')} Non-moderator ${player.username} tried to set token pool`);
             return;
         }
         
         const gameSession = GameSession.get(player.room);
         if (!gameSession || !gameSession.experiment) {
-            console.log(`🚫 No active experiment to modify`);
+            console.log(`${c.err('[DENY]')} No active experiment to modify`);
             return;
         }
         
@@ -3776,7 +3796,7 @@ Player.onGameStart = function(socket,username, progress, io, room, admin){
         GlobalTokenPool.whiteTokens = newTokens;
         gameSession.whiteTokenPool = newTokens;
         
-        console.log(`⚡ Moderator ${player.username} set token pool: ${oldTokens} → ${newTokens}`);
+        console.log(`${c.warn('[BOLT]')} Moderator ${player.username} set token pool: ${oldTokens} → ${newTokens}`);
         
         // Notify all players in room about token pool change
         const roomPlayers = Object.values(Player.list).filter(p => p.room === player.room);
@@ -3812,24 +3832,24 @@ Player.onGameStart = function(socket,username, progress, io, room, admin){
         const isModerator = currentRoom && player.username === currentRoom.creator;
         
         if (!isModerator) {
-            console.log(`🚫 Non-moderator ${player.username} tried to force end experiment`);
+            console.log(`${c.err('[DENY]')} Non-moderator ${player.username} tried to force end experiment`);
             return;
         }
         
         const gameSession = GameSession.get(player.room);
         if (!gameSession) {
-            console.log(`🚫 No active game session to end`);
+            console.log(`${c.err('[DENY]')} No active game session to end`);
             return;
         }
         
-        console.log(`⚡ Moderator ${player.username} forcing experiment end`);
+        console.log(`${c.warn('[BOLT]')} Moderator ${player.username} forcing experiment end`);
         endExperiment(player.room, gameSession);
     });
 
     // Legacy map change handler (keep for compatibility but not used in behavioral experiment)
     socket.on('changeMap',function(data){
         // Disabled for behavioral experiment
-        console.log(`🚫 Map change disabled in behavioral experiment mode`);
+        console.log(`${c.err('[DENY]')} Map change disabled in behavioral experiment mode`);
     });
 
     // Player Sockets
@@ -3851,13 +3871,13 @@ Player.onGameStart = function(socket,username, progress, io, room, admin){
                 
                 // Only restore game state for the CURRENT player who is joining/reconnecting
                 // Don't mess up other players' states who are already in the game
-                console.log(`🔍 Checking restoration condition for ${existingPlayer.username}: existingPlayer.socket.id=${existingPlayer.socket.id}, socket.id=${socket.id}`);
+                console.log(`${c.dim('[DBG]')} Checking restoration condition for ${existingPlayer.username}: existingPlayer.socket.id=${existingPlayer.socket.id}, socket.id=${socket.id}`);
                 if (existingPlayer.socket.id === socket.id) {
                     console.log(`✅ Restoration condition passed for ${existingPlayer.username}`);
                     // Check if there's an active game session and restore game state for reconnecting player
                     const gameSession = GameSession.get(room);
                     if (gameSession && (gameSession.gameState === 'playing' || gameSession.gameState === 'ready')) {
-                        console.log(`🔄 Restoring game state for reconnecting player: ${existingPlayer.username} in room ${room}`);
+                        console.log(`${c.info('[SYNC]')} Restoring game state for reconnecting player: ${existingPlayer.username} in room ${room}`);
                         
                         // Determine if player is moderator
                         const currentRoom = roomList.find(r => r.name === room);
@@ -3905,16 +3925,16 @@ Player.onGameStart = function(socket,username, progress, io, room, admin){
                         
                         // Send current player status and lock-in information
                         const currentPlayersInRoom = Object.values(Player.list).filter(p => p.room === room);
-                        console.log(`🔍 Checking ${currentPlayersInRoom.length} players for locked-in status:`);
+                        console.log(`${c.dim('[DBG]')} Checking ${currentPlayersInRoom.length} players for locked-in status:`);
                         
                         currentPlayersInRoom.forEach(roomPlayer => {
-                            console.log(`🔍 Player ${roomPlayer.username}: isLockedIn=${roomPlayer.isLockedIn}, currentChoice=${roomPlayer.currentChoice}`);
+                            console.log(`${c.dim('[DBG]')} Player ${roomPlayer.username}: isLockedIn=${roomPlayer.isLockedIn}, currentChoice=${roomPlayer.currentChoice}`);
                             
                             if (roomPlayer.isLockedIn && roomPlayer.currentChoice !== null) {
                                 // Show locked in players to moderator or to all players if game rules allow
                                 const showChoice = isModerator || !gameSession.turnBased; // Show details to moderator or in simultaneous mode
                                 
-                                console.log(`📡 Sending playerLockedIn for ${roomPlayer.username} to reconnecting ${existingPlayer.username}`);
+                                console.log(`${c.net('[EMIT]')} Sending playerLockedIn for ${roomPlayer.username} to reconnecting ${existingPlayer.username}`);
                                 existingPlayer.socket.emit('playerLockedIn', {
                                     username: roomPlayer.username,
                                     row: showChoice ? roomPlayer.currentChoice : null, // Only show choice if allowed
@@ -3933,7 +3953,7 @@ Player.onGameStart = function(socket,username, progress, io, room, admin){
                         // Send turn update to sync current turn state
                         if (gameSession.turnBased) {
                             const currentTurnPlayer = GameSession.getCurrentTurnPlayer(room);
-                            console.log(`📡 Sending turnUpdate to reconnecting ${existingPlayer.username}: currentTurnPlayer=${currentTurnPlayer}`);
+                            console.log(`${c.net('[EMIT]')} Sending turnUpdate to reconnecting ${existingPlayer.username}: currentTurnPlayer=${currentTurnPlayer}`);
                             existingPlayer.socket.emit('turnUpdate', {
                                 currentTurnPlayer: currentTurnPlayer,
                                 turnOrder: gameSession.turnOrder,
@@ -3945,7 +3965,7 @@ Player.onGameStart = function(socket,username, progress, io, room, admin){
                         }
                         
                         // Send wallet restoration specifically for the reconnecting player
-                        console.log(`💰 Sending wallet restoration to ${existingPlayer.username}: earnings=${existingPlayer.totalEarnings}, white=${existingPlayer.whiteTokens}, black=${existingPlayer.blackTokens}`);
+                        console.log(`${c.data('[TOKEN]')} Sending wallet restoration to ${existingPlayer.username}: earnings=${existingPlayer.totalEarnings}, white=${existingPlayer.whiteTokens}, black=${existingPlayer.blackTokens}`);
                         existingPlayer.socket.emit('walletRestore', {
                             username: existingPlayer.username,
                             whiteTokens: existingPlayer.whiteTokens || 0,
@@ -3955,14 +3975,14 @@ Player.onGameStart = function(socket,username, progress, io, room, admin){
                         
                         // Send previous round results for reconnection restoration
                         if (gameSession.roundHistory && gameSession.roundHistory.length > 0) {
-                            console.log(`📚 Sending ${gameSession.roundHistory.length} previous round results to ${existingPlayer.username}`);
+                            console.log(`${c.data('[SCHED]')} Sending ${gameSession.roundHistory.length} previous round results to ${existingPlayer.username}`);
                             existingPlayer.socket.emit('roundHistoryRestore', {
                                 username: existingPlayer.username,
                                 roundHistory: gameSession.roundHistory,
                                 currentRound: gameSession.currentRound
                             });
                         } else {
-                            console.log(`📚 No previous round results to send to ${existingPlayer.username}`);
+                            console.log(`${c.data('[SCHED]')} No previous round results to send to ${existingPlayer.username}`);
                         }
                         
                         // Send targeted player status update to only the reconnecting player
@@ -3997,7 +4017,7 @@ Player.onGameStart = function(socket,username, progress, io, room, admin){
                             
                             // Send update only to the reconnecting player (not room-wide broadcast)
                             existingPlayer.socket.emit('playerStatusUpdate', updateData);
-                            console.log(`📊 Targeted player status update sent to reconnecting player ${existingPlayer.username}`);
+                            console.log(`${c.data('[DATA]')} Targeted player status update sent to reconnecting player ${existingPlayer.username}`);
                         }
                         
                         console.log(`✅ Restored game state for ${existingPlayer.username} - moderator: ${isModerator}, canVote: ${canVote}, turn: ${gameSession.turnBased ? GameSession.getCurrentTurnPlayer(room) : 'simultaneous'}`);
@@ -4006,7 +4026,7 @@ Player.onGameStart = function(socket,username, progress, io, room, admin){
                     console.log(`❌ Restoration condition failed for ${existingPlayer.username}: not the reconnecting player`);
                 }
             } else {
-                console.log(`⚠️ Skipping init emit for ${existingPlayer.username} - socket not available`);
+                console.log(`${c.warn('[WARN]')} Skipping init emit for ${existingPlayer.username} - socket not available`);
             }
         });
     }
@@ -4030,11 +4050,11 @@ Player.onGameStart = function(socket,username, progress, io, room, admin){
         // Verify user is moderator
         const currentRoom = roomList.find(r => r.name === data.room);
         if (!currentRoom || currentRoom.creator !== player.username) {
-            console.log(`🚫 Non-moderator ${player.username} attempted to send system message`);
+            console.log(`${c.err('[DENY]')} Non-moderator ${player.username} attempted to send system message`);
             return;
         }
         
-        console.log(`📢 System message from ${player.username} to room ${data.room}: "${data.message}"`);
+        console.log(`${c.info('[ANNOUNCE]')} System message from ${player.username} to room ${data.room}: "${data.message}"`);
         
         // Broadcast to all players in room
         const roomSockets = Object.values(Player.list)
@@ -4092,7 +4112,7 @@ Player.onGameStart = function(socket,username, progress, io, room, admin){
         // Set the incentive
         targetPlayer.activeIncentive = data.incentiveType || null;
         
-        console.log(`🎯 ${player.username} set incentive for ${data.playerName}: ${data.incentiveType || 'none'}`);
+        console.log(`${c.game('[AIM]')} ${player.username} set incentive for ${data.playerName}: ${data.incentiveType || 'none'}`);
         
         // Notify moderator
         socket.emit('incentiveSetResult', { 
@@ -4130,7 +4150,7 @@ Player.onGameStart = function(socket,username, progress, io, room, admin){
         // Verify user is moderator
         const currentRoom = roomList.find(r => r.name === data.room);
         if (!currentRoom || currentRoom.creator !== player.username) {
-            console.log(`🚫 Non-moderator ${player.username} requested player status`);
+            console.log(`${c.err('[DENY]')} Non-moderator ${player.username} requested player status`);
             return;
         }
         
@@ -4163,7 +4183,7 @@ Player.onGameStart = function(socket,username, progress, io, room, admin){
         // Verify user is moderator
         const currentRoom = roomList.find(r => r.name === data.room);
         if (!currentRoom || currentRoom.creator !== player.username) {
-            console.log(`🚫 Non-moderator ${player.username} attempted to change AI behavior`);
+            console.log(`${c.err('[DENY]')} Non-moderator ${player.username} attempted to change AI behavior`);
             return;
         }
         
@@ -4189,20 +4209,20 @@ Player.onGameStart = function(socket,username, progress, io, room, admin){
         // Verify user is moderator
         const currentRoom = roomList.find(r => r.name === data.room);
         if (!currentRoom || currentRoom.creator !== player.username) {
-            console.log(`🚫 Non-moderator ${player.username} attempted to change experimental condition`);
+            console.log(`${c.err('[DENY]')} Non-moderator ${player.username} attempted to change experimental condition`);
             return;
         }
         
         // Validate condition key
         if (!Conditions[data.conditionKey]) {
-            console.log(`🚫 Invalid condition key: ${data.conditionKey}`);
+            console.log(`${c.err('[DENY]')} Invalid condition key: ${data.conditionKey}`);
             return;
         }
         
         // Update session condition
         session.currentCondition = Conditions[data.conditionKey];
         
-        console.log(`💰 Experimental condition changed to: ${session.currentCondition.name} by ${player.username} in room ${data.room}`);
+        console.log(`${c.data('[TOKEN]')} Experimental condition changed to: ${session.currentCondition.name} by ${player.username} in room ${data.room}`);
         
         // Notify only moderators in the room about the condition change (players don't need details)
         const room = roomList.find(r => r.name === data.room);
@@ -4233,12 +4253,12 @@ Player.onGameStart = function(socket,username, progress, io, room, admin){
         // Verify user is moderator
         const currentRoom = roomList.find(r => r.name === data.room);
         if (!currentRoom || currentRoom.creator !== player.username) {
-            console.log(`🚫 Non-moderator ${player.username} attempted to pause experiment`);
+            console.log(`${c.err('[DENY]')} Non-moderator ${player.username} attempted to pause experiment`);
             return;
         }
         
         session.isPaused = true;
-        console.log(`⏸️ Experiment paused by ${player.username} in room ${data.room}`);
+        console.log(`${c.warn('[PAUSE]')} Experiment paused by ${player.username} in room ${data.room}`);
         
         socket.emit('experimentPaused', { room: data.room });
     });
@@ -4252,12 +4272,12 @@ Player.onGameStart = function(socket,username, progress, io, room, admin){
         // Verify user is moderator
         const currentRoom = roomList.find(r => r.name === data.room);
         if (!currentRoom || currentRoom.creator !== player.username) {
-            console.log(`🚫 Non-moderator ${player.username} attempted to resume experiment`);
+            console.log(`${c.err('[DENY]')} Non-moderator ${player.username} attempted to resume experiment`);
             return;
         }
         
         session.isPaused = false;
-        console.log(`▶️ Experiment resumed by ${player.username} in room ${data.room}`);
+        console.log(`${c.info('[RESUME]')} Experiment resumed by ${player.username} in room ${data.room}`);
         
         socket.emit('experimentResumed', { room: data.room });
         
@@ -4279,11 +4299,11 @@ Player.onGameStart = function(socket,username, progress, io, room, admin){
         // Verify user is moderator
         const currentRoom = roomList.find(r => r.name === data.room);
         if (!currentRoom || currentRoom.creator !== player.username) {
-            console.log(`🚫 Non-moderator ${player.username} attempted to reset round`);
+            console.log(`${c.err('[DENY]')} Non-moderator ${player.username} attempted to reset round`);
             return;
         }
         
-        console.log(`🔄 Round reset by ${player.username} in room ${data.room}`);
+        console.log(`${c.info('[SYNC]')} Round reset by ${player.username} in room ${data.room}`);
         
         // Reset all players in room
         const playersInRoom = Object.values(Player.list).filter(p => p.room === data.room);
@@ -4360,9 +4380,9 @@ Player.onDisconnect = function(socket, io){
     
     // For game sessions, preserve player state instead of deleting
     if (player.room !== 'Global' && player.room !== mainChat) {
-        console.log(`🔌 Preserving player ${player.username} state in room ${player.room} for potential reconnection`);
+        console.log(`${c.net('[SOCK]')} Preserving player ${player.username} state in room ${player.room} for potential reconnection`);
         player.socket = null; // Clear socket but keep all game data
-        console.log(`🔄 Preserved state: isLockedIn=${player.isLockedIn}, currentChoice=${player.currentChoice}, totalEarnings=${player.totalEarnings}`);
+        console.log(`${c.info('[SYNC]')} Preserved state: isLockedIn=${player.isLockedIn}, currentChoice=${player.currentChoice}, totalEarnings=${player.totalEarnings}`);
         return; // Don't delete player or add to removePack
     }
     
@@ -4392,8 +4412,8 @@ Player.getLength = function(){
 function startNewRound(roomName, gameSession) {
     if (!gameSession) return;
     
-    console.log(`🔄 Starting round ${gameSession.currentRound} in room ${roomName}`);
-    console.log(`🔍 Round ${gameSession.currentRound} state:`, {
+    console.log(`${c.info('[SYNC]')} Starting round ${gameSession.currentRound} in room ${roomName}`);
+    console.log(`${c.dim('[DBG]')} Round ${gameSession.currentRound} state:`, {
         condition: gameSession.currentCondition?.name,
         culturants: gameSession.culturantsProduced,
         isBaseline: gameSession.currentCondition === Conditions.BASELINE
@@ -4402,7 +4422,7 @@ function startNewRound(roomName, gameSession) {
     // Apply any pending column mode changes
     if (gameSession.pendingColumnMode && gameSession.pendingChangeRound === gameSession.currentRound) {
         gameSession.columnMode = gameSession.pendingColumnMode;
-        console.log(`🎛️ Applied pending column mode change: ${gameSession.columnMode} for round ${gameSession.currentRound}`);
+        console.log(`${c.info('[CTRL]')} Applied pending column mode change: ${gameSession.columnMode} for round ${gameSession.currentRound}`);
         
         // Clear pending change
         gameSession.pendingColumnMode = null;
@@ -4433,7 +4453,7 @@ function startNewRound(roomName, gameSession) {
     // Start new round with rotating starting player (turn-based system)
     if (gameSession.turnBased && gameSession.turnOrder.length > 0) {
         const currentTurnPlayer = GameSession.startNewRound(roomName);
-        console.log(`🔄 Round ${gameSession.currentRound}: ${currentTurnPlayer} starts this round`);
+        console.log(`${c.info('[SYNC]')} Round ${gameSession.currentRound}: ${currentTurnPlayer} starts this round`);
         
         // Broadcast turn information to all players
         roomPlayers.forEach(p => {
@@ -4493,7 +4513,7 @@ function startNewRound(roomName, gameSession) {
                     gameSession.initialWhiteTokens,
                 culturantsProduced: gameSession.culturantsProduced // Add culturant count
             });
-            console.log(`🎯 Sent yourTurn for round ${gameSession.currentRound} to ${player.username} (canVote: ${canVote}, moderator: ${isModerator}, incentive: ${gameSession.currentIncentive}, player: ${gameSession.currentPlayer})`);
+            console.log(`${c.game('[AIM]')} Sent yourTurn for round ${gameSession.currentRound} to ${player.username} (canVote: ${canVote}, moderator: ${isModerator}, incentive: ${gameSession.currentIncentive}, player: ${gameSession.currentPlayer})`);
         }
     });
     
@@ -4524,28 +4544,28 @@ function startNewRound(roomName, gameSession) {
 
 // Calculate incentive bonus tokens for a player based on their active incentive
 function calculateIncentiveBonus(player, chosenRow, gameSession) {
-    console.log(`🔍 calculateIncentiveBonus called for ${player.username}: activeIncentive="${player.activeIncentive}", chosenRow=${chosenRow}`);
+    console.log(`${c.dim('[DBG]')} calculateIncentiveBonus called for ${player.username}: activeIncentive="${player.activeIncentive}", chosenRow=${chosenRow}`);
     
     if (!player.activeIncentive) {
-        console.log(`⚠️ ${player.username} has no activeIncentive, returning 0`);
+        console.log(`${c.warn('[WARN]')} ${player.username} has no activeIncentive, returning 0`);
         return 0;
     }
     
     let bonusTokens = 0;
     const rowType = chosenRow % 2 === 1 ? 'odd' : 'even';
-    console.log(`🔍 ${player.username}: rowType=${rowType} (row ${chosenRow})`);
+    console.log(`${c.dim('[DBG]')} ${player.username}: rowType=${rowType} (row ${chosenRow})`);
     
     switch (player.activeIncentive) {
         case 'Impulse Incentive':
             // Impulse incentive: +1 black token for choosing odd rows (high performance choice)
-            console.log(`🔍 ${player.username}: Checking Impulse Incentive - needs odd row, got ${rowType}`);
+            console.log(`${c.dim('[DBG]')} ${player.username}: Checking Impulse Incentive - needs odd row, got ${rowType}`);
             if (rowType === 'odd') {
                 bonusTokens = 1;
             }
             break;
         case 'Self Control Incentive':
             // Self Control incentive: +1 black token for choosing even rows (cooperative choice)
-            console.log(`🔍 ${player.username}: Checking Self Control Incentive - needs even row, got ${rowType}`);
+            console.log(`${c.dim('[DBG]')} ${player.username}: Checking Self Control Incentive - needs even row, got ${rowType}`);
             if (rowType === 'even') {
                 bonusTokens = 1;
             }
@@ -4582,7 +4602,7 @@ function calculateIncentiveBonus(player, chosenRow, gameSession) {
     }
     
     if (bonusTokens > 0) {
-        console.log(`🎁 ${player.username} earned ${bonusTokens} incentive bonus tokens (${player.activeIncentive}, row ${chosenRow})`);
+        console.log(`${c.game('[BONUS]')} ${player.username} earned ${bonusTokens} incentive bonus tokens (${player.activeIncentive}, row ${chosenRow})`);
     }
     
     return bonusTokens;
@@ -4591,14 +4611,14 @@ function calculateIncentiveBonus(player, chosenRow, gameSession) {
 function processRound(roomName, gameSession) {
     // Prevent double processing of the same round
     if (gameSession.roundProcessing) {
-        console.log(`⚠️ Round ${gameSession.currentRound} is already being processed, skipping duplicate call`);
+        console.log(`${c.warn('[WARN]')} Round ${gameSession.currentRound} is already being processed, skipping duplicate call`);
         return;
     }
     
     gameSession.roundProcessing = true;
     const roomPlayers = Object.values(Player.list).filter(p => p.room === roomName);
     const currentRoom = roomList.find(r => r.name === roomName);
-    console.log(`⚙️ Processing round ${gameSession.currentRound} in room ${roomName}`);
+    console.log(`${c.dim('[CFG]')} Processing round ${gameSession.currentRound} in room ${roomName}`);
     
     // Determine current incentive info once and reuse (use round-scoped names to avoid collisions)
     const roundCurrentIncentive = gameSession.currentIncentive || 'No Incentive';
@@ -4610,7 +4630,7 @@ function processRound(roomName, gameSession) {
     // 3. The next round's updateConditionForRound will properly update it when that round starts
     
     const currentPlayerName = gameSession.currentPlayer; // Now contains actual player name (after updateConditionForRound)
-    console.log(`🎯 Processing round ${gameSession.currentRound} with incentive "${roundCurrentIncentive}" for player "${currentPlayerName}"`);
+    console.log(`${c.game('[AIM]')} Processing round ${gameSession.currentRound} with incentive "${roundCurrentIncentive}" for player "${currentPlayerName}"`);
     
     // Sort players by turn order for consistent token distribution
     // Token distribution should follow the same order as the round that just ended
@@ -4618,29 +4638,29 @@ function processRound(roomName, gameSession) {
         gameSession.turnOrder.map(username => roomPlayers.find(p => p.username === username)).filter(p => p) :
         roomPlayers;
     
-    console.log(`🎯 DEBUG: Token distribution will use player order: ${orderedRoomPlayers.map(p => p.username).join(' → ')}`)
+    console.log(`${c.game('[AIM]')} DEBUG: Token distribution will use player order: ${orderedRoomPlayers.map(p => p.username).join(' → ')}`)
 
     // Select column for this round (experimenter/system picks)
     const selectedColumn = GameSession.selectColumnForRound(gameSession);
     gameSession.selectedColumn = selectedColumn;
     
-    console.log(`🎯 Selected column for round ${gameSession.currentRound}: ${selectedColumn}`);
+    console.log(`${c.game('[AIM]')} Selected column for round ${gameSession.currentRound}: ${selectedColumn}`);
     
     // Notify all players which column was selected
     const roomSockets = roomPlayers.map(p => p.socket).filter(s => s);
-    console.log(`📡 Notifying ${roomSockets.length} players about column selection`);
+    console.log(`${c.net('[EMIT]')} Notifying ${roomSockets.length} players about column selection`);
     
     // Always notify all players about the selected column, regardless of mode
     roomSockets.forEach(sock => {
         if (gameSession.columnMode === 'auto') {
-            console.log(`📡 Sending autoColumnSelected: ${selectedColumn} to player`);
+            console.log(`${c.net('[EMIT]')} Sending autoColumnSelected: ${selectedColumn} to player`);
             sock.emit('autoColumnSelected', {
                 column: selectedColumn,
                 round: gameSession.currentRound
             });
         } else {
             // Manual mode - notify about the manually selected column
-            console.log(`📡 Sending columnSelected: ${selectedColumn} to player`);
+            console.log(`${c.net('[EMIT]')} Sending columnSelected: ${selectedColumn} to player`);
             sock.emit('columnSelected', {
                 column: selectedColumn,
                 round: gameSession.currentRound,
@@ -4656,7 +4676,7 @@ function processRound(roomName, gameSession) {
     
     // Check available token pool for distribution limiting
     const availableTokens = gameSession.experiment ? gameSession.whiteTokenPool : GlobalTokenPool.whiteTokens;
-    console.log(`🎯 DEBUG: Available token pool before distribution: ${availableTokens}`);
+    console.log(`${c.game('[AIM]')} DEBUG: Available token pool before distribution: ${availableTokens}`);
     
     // Check if all voting players (excluding moderator) chose even rows (self-control) = culturant
     const votingPlayers = roomPlayers.filter(p => {
@@ -4672,7 +4692,7 @@ function processRound(roomName, gameSession) {
     if (allChooseEvenRows) {
         culturantProduced = true;
         gameSession.culturantsProduced++;
-        console.log(`🎯 Culturant produced! All players chose even rows. Total culturants: ${gameSession.culturantsProduced}`);
+        console.log(`${c.game('[AIM]')} Culturant produced! All players chose even rows. Total culturants: ${gameSession.culturantsProduced}`);
     }
     
     // Pre-calculate all player token requirements to implement order-based distribution
@@ -4696,7 +4716,7 @@ function processRound(roomName, gameSession) {
         });
     });
     
-    console.log(`🎯 DEBUG: ${playerTokenRequests.length} players requesting total ${playerTokenRequests.reduce((sum, req) => sum + req.whiteTokensEarned, 0)} white tokens`);
+    console.log(`${c.game('[AIM]')} DEBUG: ${playerTokenRequests.length} players requesting total ${playerTokenRequests.reduce((sum, req) => sum + req.whiteTokensEarned, 0)} white tokens`);
     
     // Distribute tokens in turn order, limited by available pool
     let remainingTokens = availableTokens;
@@ -4710,7 +4730,7 @@ function processRound(roomName, gameSession) {
         const isModerator = currentRoom && player.username === currentRoom.creator;
         
         if (isModerator) {
-            console.log(`🎯 ${player.username}: Moderator - no tokens awarded`);
+            console.log(`${c.game('[AIM]')} ${player.username}: Moderator - no tokens awarded`);
             return; // Skip token awarding for moderators
         }
         
@@ -4729,7 +4749,7 @@ function processRound(roomName, gameSession) {
         
         // Log token distribution for debugging
         if (whiteTokensEarned < whiteTokensDesired) {
-            console.log(`🎯 DEBUG: ${player.username} limited to ${whiteTokensEarned}/${whiteTokensDesired} white tokens (pool depleted)`);
+            console.log(`${c.game('[AIM]')} DEBUG: ${player.username} limited to ${whiteTokensEarned}/${whiteTokensDesired} white tokens (pool depleted)`);
         }
         tokenDistributionLog.push(`${player.username}: ${whiteTokensEarned}/${whiteTokensDesired} white tokens`);
         
@@ -4765,30 +4785,30 @@ function processRound(roomName, gameSession) {
         player.previousChoice = player.currentChoice;
         
         const rowType = chosenRow % 2 === 1 ? 'odd' : 'even';
-        console.log(`🎯 ${player.username}: Row ${chosenRow} (${rowType})`);
+        console.log(`${c.game('[AIM]')} ${player.username}: Row ${chosenRow} (${rowType})`);
         console.log(`   White tokens: ${whiteTokensEarned} ($${whiteEarnings.toFixed(2)})`);
         console.log(`   Black tokens: ${blackTokensEarned} + ${playerIncentiveBonus} incentive ($${blackEarnings.toFixed(2)})`);
         console.log(`   Total earnings: $${totalEarnings.toFixed(2)}`);
     });
     
     // Log token distribution summary
-    console.log(`🎯 DEBUG: Token distribution summary:`);
+    console.log(`${c.game('[AIM]')} DEBUG: Token distribution summary:`);
     tokenDistributionLog.forEach(log => console.log(`   ${log}`));
-    console.log(`🎯 DEBUG: Remaining tokens after distribution: ${remainingTokens}`);
+    console.log(`${c.game('[AIM]')} DEBUG: Remaining tokens after distribution: ${remainingTokens}`);
     
     // Deduct white tokens from experiment's token pool
     if (gameSession.experiment) {
-        console.log(`🎯 Token pool BEFORE deduction: ${gameSession.whiteTokenPool}, deducting: ${whiteTokensAwarded}`);
+        console.log(`${c.game('[AIM]')} Token pool BEFORE deduction: ${gameSession.whiteTokenPool}, deducting: ${whiteTokensAwarded}`);
         gameSession.whiteTokenPool -= whiteTokensAwarded;
-        console.log(`🎯 Token pool AFTER deduction: ${gameSession.whiteTokenPool}`);
+        console.log(`${c.game('[AIM]')} Token pool AFTER deduction: ${gameSession.whiteTokenPool}`);
         
         // Also update global pool for backward compatibility
         GlobalTokenPool.whiteTokens = gameSession.whiteTokenPool;
     } else {
         // Legacy behavior for non-experiment sessions
-        console.log(`🎯 Token pool BEFORE deduction: ${GlobalTokenPool.whiteTokens}, deducting: ${whiteTokensAwarded}`);
+        console.log(`${c.game('[AIM]')} Token pool BEFORE deduction: ${GlobalTokenPool.whiteTokens}, deducting: ${whiteTokensAwarded}`);
         GlobalTokenPool.whiteTokens -= whiteTokensAwarded;
-        console.log(`🎯 Token pool AFTER deduction: ${GlobalTokenPool.whiteTokens}`);
+        console.log(`${c.game('[AIM]')} Token pool AFTER deduction: ${GlobalTokenPool.whiteTokens}`);
     }
     
     // Log data for CSV export with experimental context
@@ -4875,7 +4895,7 @@ function processRound(roomName, gameSession) {
         timestamp: new Date().toISOString()
     };
     gameSession.roundHistory.push(roundResult);
-    console.log(`📚 Saved round ${gameSession.currentRound} result to history`);
+    console.log(`${c.data('[SCHED]')} Saved round ${gameSession.currentRound} result to history`);
     
     // Send round results to all human players
     orderedRoomPlayers.forEach(player => {
@@ -4950,7 +4970,7 @@ function processRound(roomName, gameSession) {
                     player.incentiveBonusNotified = true;
                 }
             } catch (err) {
-                console.warn(`⚠️ Failed to send incentiveBonusNotification to ${player.username}:`, err.message || err);
+                console.warn(`${c.warn('[WARN]')} Failed to send incentiveBonusNotification to ${player.username}:`, err.message || err);
             }
             
             // Removed: incentive bonus notification banner for players
@@ -5032,7 +5052,7 @@ function processRound(roomName, gameSession) {
                 player.socket.emit('roundResultsPanel', roundResultsData);
             });
         
-        console.log(`📊 Sent round results panel data to all players in room ${roomName} for round ${gameSession.currentRound} (${previousRoundPlayers.length} previous round players)`);
+        console.log(`${c.data('[DATA]')} Sent round results panel data to all players in room ${roomName} for round ${gameSession.currentRound} (${previousRoundPlayers.length} previous round players)`);
     }
     
     // Reset round processing flag
@@ -5053,7 +5073,7 @@ function processRound(roomName, gameSession) {
 
     // Start next round after delay
     gameSession.currentRound++;
-    console.log(`🔄 Advanced to round ${gameSession.currentRound}`);
+    console.log(`${c.info('[SYNC]')} Advanced to round ${gameSession.currentRound}`);
     
     // Update condition for the new round based on scheduler
     if (gameSession.experiment && gameSession.experiment.mode === 'conditions') {
@@ -5064,7 +5084,7 @@ function processRound(roomName, gameSession) {
 }
 
 function endExperiment(roomName, gameSession) {
-    console.log(`🏁 Ending experiment in room ${roomName} after ${gameSession.currentRound} rounds`);
+    console.log(`${c.game('[END]')} Ending experiment in room ${roomName} after ${gameSession.currentRound} rounds`);
     gameSession.gameState = 'finished';
     
     const roomPlayers = Object.values(Player.list).filter(p => p.room === roomName);
@@ -5096,8 +5116,8 @@ function endExperiment(roomName, gameSession) {
         
         // Write CSV file
         fs.writeFileSync(filepath, csvData, 'utf8');
-        console.log(`📊 Experiment results exported to CSV: ${filepath}`);
-        console.log(`📊 CSV contains ${gameSession.dataLog.length} rounds of data`);
+        console.log(`${c.data('[DATA]')} Experiment results exported to CSV: ${filepath}`);
+        console.log(`${c.data('[DATA]')} CSV contains ${gameSession.dataLog.length} rounds of data`);
         
         // Also save the raw data as JSON for backup
         const jsonFilename = `experiment_data_${roomName}_${timestamp}.json`;
@@ -5119,7 +5139,7 @@ function endExperiment(roomName, gameSession) {
         };
         
         fs.writeFileSync(jsonFilepath, JSON.stringify(exportData, null, 2), 'utf8');
-        console.log(`📊 Raw experiment data exported to JSON: ${jsonFilepath}`);
+        console.log(`${c.data('[DATA]')} Raw experiment data exported to JSON: ${jsonFilepath}`);
         
     } catch (error) {
         console.error(`❌ Error exporting experiment results: ${error.message}`);
@@ -5140,7 +5160,7 @@ function endExperiment(roomName, gameSession) {
     });
     
     // Clean up all game elements for the room to reset for next experiment
-    console.log(`🧹 Cleaning up room ${roomName} after experiment end`);
+    console.log(`${c.clean('[CLEAN]')} Cleaning up room ${roomName} after experiment end`);
     Player.cleanupRoom(roomName);
     
     // Also reset any global token pool state
@@ -5174,7 +5194,7 @@ function exportGameData(roomName) {
  * Add new game elements here to automatically include them in reconnection restoration.
  */
 Player.sendCompleteGameState = function(player, roomName) {
-    console.log(`🎮 Starting comprehensive game state restoration for ${player.username} in room ${roomName}`);
+    console.log(`${c.game('[GAME]')} Starting comprehensive game state restoration for ${player.username} in room ${roomName}`);
     
     const gameSession = GameSessions[roomName];
     if (!gameSession) {
@@ -5193,13 +5213,13 @@ Player.sendCompleteGameState = function(player, roomName) {
     try {
         isModerator = currentRoom && player.username === currentRoom.creator;
     } catch (error) {
-        console.log(`⚠️ Could not determine moderator status for ${player.username}, defaulting to false`);
+        console.log(`${c.warn('[WARN]')} Could not determine moderator status for ${player.username}, defaulting to false`);
     }
 
-    console.log(`🔄 Restoring complete game state for: ${player.username} in room: ${roomName}`);
+    console.log(`${c.info('[SYNC]')} Restoring complete game state for: ${player.username} in room: ${roomName}`);
     
     // 1. BASIC GAME UI INITIALIZATION
-    console.log(`🎮 Step 1: Basic UI initialization`);
+    console.log(`${c.game('[GAME]')} Step 1: Basic UI initialization`);
     player.socket.emit('init', { 
         selfId: player.id 
     });
@@ -5214,7 +5234,7 @@ Player.sendCompleteGameState = function(player, roomName) {
     });
 
     // 2. CORE GAME SESSION STATE
-    console.log(`🎯 Step 2: Core game session restoration`);
+    console.log(`${c.game('[AIM]')} Step 2: Core game session restoration`);
     player.socket.emit('gameStateRestore', {
         gameSession: {
             roomName: roomName,
@@ -5241,7 +5261,7 @@ Player.sendCompleteGameState = function(player, roomName) {
     });
 
     // 3. ALL PLAYER WALLETS AND STATUS (with slight delay)
-    console.log(`💰 Step 3: All player wallets restoration`);
+    console.log(`${c.data('[TOKEN]')} Step 3: All player wallets restoration`);
     setTimeout(() => {
         const allPlayersWalletData = currentPlayersInRoom.map(roomPlayer => ({
             username: roomPlayer.username,
@@ -5257,14 +5277,14 @@ Player.sendCompleteGameState = function(player, roomName) {
         player.socket.emit('allPlayersWalletRestore', {
             players: allPlayersWalletData
         });
-        console.log(`💰 Sent wallet data for ${allPlayersWalletData.length} players to ${player.username}`);
+        console.log(`${c.data('[TOKEN]')} Sent wallet data for ${allPlayersWalletData.length} players to ${player.username}`);
     }, 100);
 
     // 4. PLAYER LOCKED-IN STATES
-    console.log(`🔒 Step 4: Player lock-in states restoration`);
+    console.log(`${c.auth('[LOCK]')} Step 4: Player lock-in states restoration`);
     currentPlayersInRoom.forEach(roomPlayer => {
         if (roomPlayer.isLockedIn && roomPlayer.currentChoice !== null) {
-            console.log(`📡 Restoring locked-in state for ${roomPlayer.username} (choice: ${roomPlayer.currentChoice})`);
+            console.log(`${c.net('[EMIT]')} Restoring locked-in state for ${roomPlayer.username} (choice: ${roomPlayer.currentChoice})`);
             player.socket.emit('playerLockedIn', {
                 username: roomPlayer.username,
                 row: roomPlayer.currentChoice,
@@ -5279,7 +5299,7 @@ Player.sendCompleteGameState = function(player, roomName) {
     });
 
     // 5. TURN SYSTEM STATE
-    console.log(`🔄 Step 5: Turn system restoration`);
+    console.log(`${c.info('[SYNC]')} Step 5: Turn system restoration`);
     if (gameSession.turnBased && currentTurnPlayer) {
         player.socket.emit('turnUpdate', {
             currentTurnPlayer: currentTurnPlayer,
@@ -5290,11 +5310,11 @@ Player.sendCompleteGameState = function(player, roomName) {
     }
 
     // 6. ROUND HISTORY AND RESULTS - REMOVED (now handled by unified restoration)
-    console.log(`📚 Step 6: Round history restoration (handled by unified event)`);
+    console.log(`${c.data('[SCHED]')} Step 6: Round history restoration (handled by unified event)`);
     // Round history is now included in the unified comprehensive data
 
     // 7. CURRENT PLAYER CONTROLS AND STATUS
-    console.log(`🎮 Step 7: Player controls restoration`);
+    console.log(`${c.game('[GAME]')} Step 7: Player controls restoration`);
     player.socket.emit('yourTurn', {
         isYourTurn: isPlayerTurn,
         isModerator: isModerator,
@@ -5326,7 +5346,7 @@ Player.sendCompleteGameState = function(player, roomName) {
     // TODO: Custom status trackers restoration
     
     // 9. UNIFIED COMPREHENSIVE RESTORATION (New approach)
-    console.log(`🔄 Step 9: Sending unified comprehensive restoration event`);
+    console.log(`${c.info('[SYNC]')} Step 9: Sending unified comprehensive restoration event`);
     setTimeout(() => {
         const comprehensiveData = {
             // Game session data
@@ -5389,7 +5409,7 @@ Player.sendCompleteGameState = function(player, roomName) {
     }, 300); // Delay to ensure it comes after other events
     
     console.log(`✅ Comprehensive game state restoration completed for ${player.username}`);
-    console.log(`📊 Restoration summary: ${currentPlayersInRoom.length} players, round ${gameSession.currentRound}/${gameSession.maxRounds}, ${gameSession.roundHistory?.length || 0} historical rounds`);
+    console.log(`${c.data('[DATA]')} Restoration summary: ${currentPlayersInRoom.length} players, round ${gameSession.currentRound}/${gameSession.maxRounds}, ${gameSession.roundHistory?.length || 0} historical rounds`);
 };
 
 // Helper function to check if a room has an active game session
@@ -5400,7 +5420,7 @@ Player.hasActiveGameSession = function(roomName) {
     
     const gameSession = GameSessions[roomName];
     if (!gameSession) {
-        console.log(`🔍 No game session found for room "${roomName}"`);
+        console.log(`${c.dim('[DBG]')} No game session found for room "${roomName}"`);
         return false;
     }
     
@@ -5412,11 +5432,11 @@ Player.hasActiveGameSession = function(roomName) {
                     (gameSession.currentRound > 0 || 
                      (gameSession.players && Object.keys(gameSession.players).length > 0));
                     
-    console.log(`🔍 Checking active game session for room "${roomName}": ${isActive ? 'ACTIVE' : 'INACTIVE'}`);
-    console.log(`🔍 Game session details - State: ${gameSession.gameState}, Round: ${gameSession.currentRound || 0}, Players: ${gameSession.players ? Object.keys(gameSession.players).length : 0}`);
+    console.log(`${c.dim('[DBG]')} Checking active game session for room "${roomName}": ${isActive ? 'ACTIVE' : 'INACTIVE'}`);
+    console.log(`${c.dim('[DBG]')} Game session details - State: ${gameSession.gameState}, Round: ${gameSession.currentRound || 0}, Players: ${gameSession.players ? Object.keys(gameSession.players).length : 0}`);
     
     if (isActive) {
-        console.log(`🎮 Active game details - State: ${gameSession.gameState}, Round: ${gameSession.currentRound}, Players: ${gameSession.players ? Object.keys(gameSession.players).length : 0}`);
+        console.log(`${c.game('[GAME]')} Active game details - State: ${gameSession.gameState}, Round: ${gameSession.currentRound}, Players: ${gameSession.players ? Object.keys(gameSession.players).length : 0}`);
     }
     
     return isActive;
@@ -5424,13 +5444,13 @@ Player.hasActiveGameSession = function(roomName) {
 
 // Function to clean up a room when experiment ends
 Player.cleanupRoom = function(roomName) {
-    console.log(`🧹 Starting cleanup for room: ${roomName}`);
+    console.log(`${c.clean('[CLEAN]')} Starting cleanup for room: ${roomName}`);
     
     try {
         // Remove the game session for this room
         if (GameSessions[roomName]) {
             delete GameSessions[roomName];
-            console.log(`🧹 Cleaned up game session for room: ${roomName}`);
+            console.log(`${c.clean('[CLEAN]')} Cleaned up game session for room: ${roomName}`);
         }
         
         // Remove players from this room in the Player.list
@@ -5447,7 +5467,7 @@ Player.cleanupRoom = function(roomName) {
         });
         
         if (playersToRemove.length > 0) {
-            console.log(`🧹 Removed ${playersToRemove.length} players from room ${roomName}`);
+            console.log(`${c.clean('[CLEAN]')} Removed ${playersToRemove.length} players from room ${roomName}`);
         }
         
         // Remove the room from roomList (if accessible)
@@ -5455,7 +5475,7 @@ Player.cleanupRoom = function(roomName) {
             const roomIndex = roomList.findIndex(r => r.name === roomName);
             if (roomIndex !== -1) {
                 roomList.splice(roomIndex, 1);
-                console.log(`🧹 Removed room "${roomName}" from roomList`);
+                console.log(`${c.clean('[CLEAN]')} Removed room "${roomName}" from roomList`);
             }
         }
         
@@ -5488,14 +5508,14 @@ function startLightningTestRound(room, gameSession, io) {
         // Check if lightning test is complete
         if (gameSession.conditionsRoundIndex >= gameSession.conditionsSchedule.length) {
             // Lightning test completed - sync final player earnings
-            console.log(`⚡ Lightning test completed! All ${gameSession.lightningStats.totalRounds} rounds finished in ${room}`);
+            console.log(`${c.warn('[BOLT]')} Lightning test completed! All ${gameSession.lightningStats.totalRounds} rounds finished in ${room}`);
             
             // Sync final earnings from all AI players
             aiPlayers.forEach(aiPlayer => {
                 gameSession.lightningStats.playerWallets[aiPlayer.username] = aiPlayer.whiteTokens || 0;
                 gameSession.lightningStats.playerBlackTokens[aiPlayer.username] = aiPlayer.blackTokens || 0;
                 gameSession.lightningStats.playerEarnings[aiPlayer.username] = aiPlayer.totalEarnings || 0;
-                console.log(`💰 Final earnings for ${aiPlayer.username}: $${aiPlayer.totalEarnings?.toFixed(2) || '0.00'}`);
+                console.log(`${c.data('[TOKEN]')} Final earnings for ${aiPlayer.username}: $${aiPlayer.totalEarnings?.toFixed(2) || '0.00'}`);
             });
             
             const duration = Date.now() - gameSession.lightningStats.startTime;
@@ -5503,10 +5523,10 @@ function startLightningTestRound(room, gameSession, io) {
             
             // Generate CSV data for download
             const experimentScheduler = new ExperimentScheduler();
-            console.log(`📊 Lightning test dataLog contains ${gameSession.dataLog.length} entries`);
+            console.log(`${c.data('[DATA]')} Lightning test dataLog contains ${gameSession.dataLog.length} entries`);
             
             const csvData = experimentScheduler.exportExperimentResultsToCSV(gameSession.dataLog);
-            console.log(`📊 Generated CSV data length: ${csvData.length} characters`);
+            console.log(`${c.data('[DATA]')} Generated CSV data length: ${csvData.length} characters`);
             
             // Send completion with stats and CSV data
             const statsMessage = formatLightningTestStats(gameSession.lightningStats, durationSeconds);
@@ -5534,8 +5554,8 @@ function startLightningTestRound(room, gameSession, io) {
             return;
         }
         
-        console.log(`⚡ [Lightning Round ${gameSession.currentRound}] Using schedule at index ${gameSession.conditionsRoundIndex}`);
-        console.log(`⚡ Schedule: Player=${roundInfo.player}, Condition=${roundInfo.condition}, Incentive=${roundInfo.incentive}`);
+        console.log(`${c.warn('[BOLT]')} [Lightning Round ${gameSession.currentRound}] Using schedule at index ${gameSession.conditionsRoundIndex}`);
+        console.log(`${c.warn('[BOLT]')} Schedule: Player=${roundInfo.player}, Condition=${roundInfo.condition}, Incentive=${roundInfo.incentive}`);
         
         // Map scheduler player (A, B, C) to actual AI player (handle null for no-recipient rounds)
         let targetPlayer = null;
@@ -5632,7 +5652,7 @@ function formatLightningTestStats(stats, duration) {
     let message = `⚡ LIGHTNING TEST COMPLETED in ${duration}s\n\n`;
     
 
-    message += `� TOTAL EARNINGS:\n`;
+    message += `💰 TOTAL EARNINGS:\n`;
     // Show culturant statistics  
     const culturantPercentage = stats.totalRounds > 0 ? (stats.culturantCount / stats.totalRounds * 100).toFixed(1) : 0;
     message += `🤝 CULTURANTS: ${stats.culturantCount} out of ${stats.totalRounds} rounds (${culturantPercentage}%)\n\n`;
@@ -5714,7 +5734,7 @@ function startSpeedTestRound(room, gameSession, io) {
     try {
         const roundInfo = gameSession.conditionsSchedule[gameSession.currentRound - 1];
         if (!roundInfo) {
-            console.log(`⚡ Speed test completed! All 189 rounds finished in ${room}`);
+            console.log(`${c.warn('[BOLT]')} Speed test completed! All 189 rounds finished in ${room}`);
             
             // Send completion message
             io.to(room).emit('systemMessage', { 
@@ -5726,7 +5746,7 @@ function startSpeedTestRound(room, gameSession, io) {
             return;
         }
         
-        console.log(`⚡ Speed test round ${gameSession.currentRound}/189 in ${room}: ${roundInfo.condition}, ${roundInfo.incentive}, Player ${roundInfo.player}`);
+        console.log(`${c.warn('[BOLT]')} Speed test round ${gameSession.currentRound}/189 in ${room}: ${roundInfo.condition}, ${roundInfo.incentive}, Player ${roundInfo.player}`);
         
         // Map scheduler player to actual player name
         const playersInRoom = Object.values(Player.list).filter(p => p.room === room && !p.isAI);
@@ -5753,7 +5773,7 @@ function startSpeedTestRound(room, gameSession, io) {
             culturantsProduced: gameSession.culturantsProduced || 0
         };
         
-        console.log(`📡 Speed test condition update for round ${gameSession.currentRound}:`, conditionData);
+        console.log(`${c.net('[EMIT]')} Speed test condition update for round ${gameSession.currentRound}:`, conditionData);
         io.to(room).emit('conditionUpdate', conditionData);
         
         // Trigger AI decisions immediately with speed test timing
